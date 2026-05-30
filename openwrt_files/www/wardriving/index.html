@@ -295,7 +295,7 @@
                         browserGpsActive = false;
                         navigator.geolocation.clearWatch(watchId);
                     },
-                    { enableHighAccuracy: true, maximumAge: 1000 }
+                    { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
                 );
             } else {
                 if(watchId !== null) navigator.geolocation.clearWatch(watchId);

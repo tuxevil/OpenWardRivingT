@@ -43,3 +43,4 @@ Asegúrate de tener instalados los siguientes paquetes en tu OpenWrt:
 
 ## Gestión de Mapas Offline 🗺️
 En la pestaña "Ajustes" de la aplicación, puedes subir un archivo `.tar.gz` que contenga una carpeta `tiles/` generada con Mobile Atlas Creator. Esto te permitirá tener un mapa callejero local sin necesidad de gastar datos móviles mientras manejas.
+# OpenWardRivingT

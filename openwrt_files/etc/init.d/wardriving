@@ -1,0 +1,49 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+STOP=10
+
+start() {
+    logger -t "openwardrivingt" "Starting Wardriving Service"
+    
+    wifi down radio0
+    sleep 1
+    
+    iw phy phy0 interface add wlan0mon type monitor 2>/dev/null
+    ip link set wlan0mon up 2>/dev/null
+    
+    /usr/bin/wardriving_core.sh >/tmp/wardriving_status.log 2>&1 &
+    echo $! > /var/run/wardriving_core.pid
+    
+    # LED Parpadeo
+    if [ -d /sys/class/leds/green:wps ]; then
+        echo "timer" > /sys/class/leds/green:wps/trigger
+        echo 100 > /sys/class/leds/green:wps/delay_on
+        echo 100 > /sys/class/leds/green:wps/delay_off
+    fi
+}
+
+stop() {
+    logger -t "openwardrivingt" "Stopping Wardriving Service"
+    
+    if [ -f /var/run/wardriving_core.pid ]; then
+        kill -9 $(cat /var/run/wardriving_core.pid) 2>/dev/null
+        rm /var/run/wardriving_core.pid
+    fi
+    pkill -f wardriving_core.sh 2>/dev/null
+    
+    killall hcxdumptool 2>/dev/null
+    killall socat 2>/dev/null
+    sync
+    
+    ip link set wlan0mon down 2>/dev/null
+    iw dev wlan0mon del 2>/dev/null
+    
+    wifi up radio0
+    
+    # LED Off
+    if [ -d /sys/class/leds/green:wps ]; then
+        echo "none" > /sys/class/leds/green:wps/trigger
+        echo 0 > /sys/class/leds/green:wps/brightness
+    fi
+}

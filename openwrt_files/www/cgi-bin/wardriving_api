@@ -49,11 +49,20 @@ elif [ "$ACTION" = "gps_push" ]; then
     echo '{"status": "ok"}'
 
 elif [ "$ACTION" = "upload_tiles" ]; then
-    cat > /tmp/tiles_upload.b64
-    base64 -d /tmp/tiles_upload.b64 > /tmp/tiles.tar.gz
+    cat > /tmp/tiles.tar.gz
     mkdir -p /mnt/wardriving/tiles/
     tar -xzf /tmp/tiles.tar.gz -C /mnt/wardriving/tiles/ 2>/dev/null
-    rm -f /tmp/tiles_upload.b64 /tmp/tiles.tar.gz
+    
+    cd /mnt/wardriving/tiles/
+    if ! ls -1 | grep -q '^[0-9]\+$'; then
+        Z_PARENT=$(find . -mindepth 1 -maxdepth 2 -type d -name '[0-9]*' | head -n 1 | cut -d/ -f2)
+        if [ -n "$Z_PARENT" ] && [ -d "$Z_PARENT" ]; then
+            mv "$Z_PARENT"/* . 2>/dev/null
+            rm -rf "$Z_PARENT"
+        fi
+    fi
+    
+    rm -f /tmp/tiles.tar.gz
     echo '{"status": "ok"}'
 
 elif [ "$ACTION" = "map_data" ]; then

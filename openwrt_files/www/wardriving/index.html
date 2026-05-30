@@ -524,7 +524,7 @@
         }
         
         function uploadTiles() {
-            let fileInput = document.getElementById('tiles_file');
+            let fileInput = document.getElementById("tiles_file");
             if (!fileInput.files.length) return alert("Select a .tar.gz file first.");
             
             let file = fileInput.files[0];
@@ -532,28 +532,22 @@
                 if(!confirm("File is larger than 50MB. This might exhaust router RAM. Continue anyway?")) return;
             }
             
-            let reader = new FileReader();
-            let status = document.getElementById('upload_status');
-            status.innerText = "⏳ Reading file (1/2)...";
+            let status = document.getElementById("upload_status");
+            status.innerText = "⏳ Uploading and installing on router...";
             
-            reader.onload = function(e) {
-                let base64 = e.target.result.split(',')[1];
-                status.innerText = "⏳ Uploading and installing on router (2/2)...";
-                fetch('/cgi-bin/wardriving_api?action=upload_tiles', {
-                    method: 'POST',
-                    body: base64
-                }).then(r => r.json()).then(d => {
-                    if(d.status === 'ok') {
-                        status.innerText = "✅ Maps installed successfully!";
-                        setTimeout(() => map.invalidateSize(), 1000);
-                    } else {
-                        status.innerText = "❌ Error installing maps.";
-                    }
-                }).catch(err => {
-                    status.innerText = "❌ Connection error.";
-                });
-            };
-            reader.readAsDataURL(file);
+            fetch("/cgi-bin/wardriving_api?action=upload_tiles", {
+                method: "POST",
+                body: file
+            }).then(r => r.json()).then(d => {
+                if(d.status === "ok") {
+                    status.innerText = "✅ Maps installed successfully!";
+                    setTimeout(() => map.invalidateSize(), 1000);
+                } else {
+                    status.innerText = "❌ Error installing maps.";
+                }
+            }).catch(err => {
+                status.innerText = "❌ Connection error.";
+            });
         }
 
         setInterval(updateStatus, 3000);

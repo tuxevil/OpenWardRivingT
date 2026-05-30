@@ -158,6 +158,21 @@
     </div>
 
     <!-- SETTINGS VIEW -->
+    
+    <div id="view-filter" class="view">
+        <div class="panel">
+            <h2>🛡️ Excluded SSIDs</h2>
+            <p>These SSIDs have been captured and are hidden from the visual scanner.</p>
+            <div style="margin-bottom: 10px; display: flex; gap: 10px;">
+                <input type="text" id="newExclusion" placeholder="Manual SSID" style="flex:1; padding: 15px; border-radius: 8px; border: 1px solid #444; background: #222; color: #fff; font-size: 1.2em;">
+                <button class="btn" style="padding: 15px 30px; font-size: 1.2em;" onclick="addExclusion(document.getElementById('newExclusion').value)">Add</button>
+            </div>
+            <div id="exclusionsList" style="display: flex; flex-direction: column; gap: 10px; margin-top:25px;">
+                <!-- Items -->
+            </div>
+        </div>
+    </div>
+    
     <div id="view-settings" class="view">
         <div class="card">
             <h2>⚙️ Hardware & Maps</h2>
@@ -190,6 +205,7 @@
         <div class="nav-item" onclick="switchTab('captures')"><i>📁</i><span>Captures</span></div>
         <div class="nav-item" onclick="switchTab('console')"><i>🖥️</i><span>Console</span></div>
         <div class="nav-item" onclick="switchTab('settings')"><i>⚙️</i><span>Settings</span></div>
+        <div class="nav-item" onclick="switchTab('filter')"><i>🛡️</i><span>Filter</span></div>
     </div>
 
     <script>
@@ -247,6 +263,54 @@
 
         initAnalyzer();
         initMap();
+
+        
+        let excludedSSIDs = [];
+
+        function loadExclusions() {
+            fetch('/cgi-bin/wardriving_api?action=get_exclusions')
+            .then(r=>r.json())
+            .then(data => {
+                excludedSSIDs = data || [];
+                renderExclusions();
+            }).catch(console.error);
+        }
+        
+        function renderExclusions() {
+            const container = document.getElementById('exclusionsList');
+            if(!container) return;
+            container.innerHTML = '';
+            if (excludedSSIDs.length === 0) {
+                container.innerHTML = '<div style="color: #888; font-size: 1.2em;">No SSIDs excluded yet. Captures will automatically appear here.</div>';
+                return;
+            }
+            excludedSSIDs.forEach(ssid => {
+                const el = document.createElement('div');
+                el.style.cssText = 'display: flex; justify-content: space-between; align-items: center; background: #2a2a2a; padding: 15px; border-radius: 8px; border-left: 4px solid #888; font-size: 1.2em;';
+                el.innerHTML = `
+                    <span style="font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${ssid.replace(/</g, '&lt;')}</span>
+                    <button class="btn" style="border-color:#f33; color:#f33; padding: 10px 20px;" onclick="removeExclusion('${encodeURIComponent(ssid).replace(/'/g, "\'")}')">Remove</button>
+                `;
+                container.appendChild(el);
+            });
+        }
+        
+        function addExclusion(ssid) {
+            if(!ssid.trim()) return;
+            fetch(`/cgi-bin/wardriving_api?action=add_exclusion&ssid=${encodeURIComponent(ssid.trim())}`)
+            .then(() => {
+                document.getElementById('newExclusion').value = '';
+                loadExclusions();
+            });
+        }
+        
+        function removeExclusion(ssid) {
+            fetch(`/cgi-bin/wardriving_api?action=remove_exclusion&ssid=${ssid}`)
+            .then(() => loadExclusions());
+        }
+
+        loadExclusions();
+        setInterval(loadExclusions, 10000);
 
         function switchTab(tabId) {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));

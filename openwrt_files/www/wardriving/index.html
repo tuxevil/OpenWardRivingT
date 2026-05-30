@@ -202,7 +202,7 @@
         let wpsMarkers = {}; 
         let firstLoc = true;
         let watchId = null;
-        let browserGpsActive = false;
+        let browserGpsActive = false; localStorage.setItem('browserGpsActive', false);
         
         function initMap() {
             map = L.map('map', {zoomControl: false}).setView([0, 0], 2);
@@ -265,13 +265,13 @@
 
         /* ---------------- BROWSER GPS LOGIC ---------------- */
         function toggleBrowserGPS() {
-            browserGpsActive = document.getElementById('chk_browser_gps').checked;
+            browserGpsActive = document.getElementById('chk_browser_gps').checked; localStorage.setItem('browserGpsActive', browserGpsActive);
             
             if(browserGpsActive) {
                 if(!navigator.geolocation) {
                     alert("Geolocation is not supported by your browser.");
                     document.getElementById('chk_browser_gps').checked = false;
-                    browserGpsActive = false;
+                    browserGpsActive = false; localStorage.setItem('browserGpsActive', false);
                     return;
                 }
                 
@@ -292,7 +292,7 @@
                         alert("GPS Error: " + error.message + "\n\nDid you enable the chrome://flags setting?");
                         document.getElementById('chk_browser_gps').checked = false;
                         document.getElementById('st_gps').innerText = "ERROR";
-                        browserGpsActive = false;
+                        browserGpsActive = false; localStorage.setItem('browserGpsActive', false);
                         navigator.geolocation.clearWatch(watchId);
                     },
                     { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
@@ -553,7 +553,7 @@
         setInterval(updateMap, 4000); // Polling GPS
         updateStatus();
         loadFiles();
-        loadHW();
+        loadHW(); if(localStorage.getItem('browserGpsActive') === 'true') { document.getElementById('chk_browser_gps').checked = true; toggleBrowserGPS(); }
     </script>
 </body>
 </html>

@@ -17,11 +17,11 @@ if [ "$ACTION" = "status" ]; then
     IS_RUNNING=$(pgrep -f "wardriving_core.sh" >/dev/null && echo "true" || echo "false")
     FILES=$(ls -1 /mnt/wardriving/*.pcapng 2>/dev/null | wc -l)
     SPACE_FREE=$(df -h /mnt/wardriving | awk 'NR==2 {print $4}')
-    GPS_STAT=$(netstat -an | grep 2947 | grep ESTABLISHED >/dev/null && echo "CONECTADO" || echo "ESPERANDO")
+    GPS_STAT=$(netstat -an | grep 2947 | grep ESTABLISHED >/dev/null && echo "CONNECTED" || echo "WAITING")
     
     CLEAN_LOG=$(awk '/^[ \t]*[0-9]+ [0-9]{2}:[0-9]{2}:[0-9]{2}/ {chan=$1; time=$2; essid=$NF; if(length(essid)>2 && essid!~/:/ && essid !~ /^[0-9a-fA-F]{12}$/ && !seen[essid]++) print "[" time "] [CH " chan "] " essid}' /tmp/wardriving_status.log 2>/dev/null | tail -n 50)
     if [ -z "$CLEAN_LOG" ]; then
-        LAST_LOG="Esperando datos..."
+        LAST_LOG="Waiting for data or initializing monitor mode..."
     else
         LAST_LOG=$(echo "$CLEAN_LOG" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/$/\\n/g' | tr -d '\n')
     fi
@@ -47,7 +47,7 @@ elif [ "$ACTION" = "upload_tiles" ]; then
     mkdir -p /mnt/wardriving/tiles/
     tar -xzf /tmp/tiles.tar.gz -C /mnt/wardriving/tiles/ 2>/dev/null
     rm -f /tmp/tiles_upload.b64 /tmp/tiles.tar.gz
-    echo "{"status": "ok"}"
+    echo '{"status": "ok"}'
 
 elif [ "$ACTION" = "map_data" ]; then
     LATEST_NMEA=$(ls -1t /mnt/wardriving/*.nmea 2>/dev/null | head -n 1)
@@ -86,7 +86,7 @@ elif [ "$ACTION" = "list_files" ]; then
         if [ "$TOTAL_NETS" -gt 5 ]; then
             NETS="$NETS... (+$((TOTAL_NETS - 5)))"
         fi
-        [ -z "$NETS" ] && NETS="Sin redes / Vacío"
+        [ -z "$NETS" ] && NETS="No networks / Empty"
         
         [ $FIRST -eq 0 ] && echo ","
         echo "{\"name\": \"$NAME\", \"size\": \"$SIZE\", \"date\": \"$DATE\", \"nets\": \"$NETS\", \"total_nets\": $TOTAL_NETS}"

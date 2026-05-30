@@ -1,7 +1,7 @@
 #!/bin/sh
 # OpenWardRivingT Local Installer Script
 
-echo "[*] Instalando OpenWardRivingT..."
+echo "[*] Installing OpenWardRivingT..."
 
 # Copy files from repository to system
 cp -r openwrt_files/* /
@@ -15,13 +15,13 @@ rm -f /www/wardriving/captures
 ln -s /mnt/wardriving /www/wardriving/captures
 
 # Configure Hostname
-echo "[*] Configurando Hostname..."
+echo "[*] Configuring Hostname..."
 uci set system.@system[0].hostname='OpenWardRivingT'
 uci commit system
 
 # Configure 5GHz WiFi (Stealth / AP for UI)
 if uci get wireless.radio1 >/dev/null 2>&1; then
-    echo "[*] Configurando Radio de 5GHz para acceso al panel..."
+    echo "[*] Configuring 5GHz Radio for Control Panel access..."
     uci set wireless.default_radio1.ssid='owrt'
     uci set wireless.default_radio1.encryption='psk2'
     uci set wireless.default_radio1.key='wardriving'
@@ -35,6 +35,6 @@ fi
 wifi up radio1 2>/dev/null
 /etc/init.d/wardriving enable
 
-echo "[*] ¡Instalación Completa!"
-echo "[*] Conecta tu tablet/teléfono a la red 5GHz 'owrt' (pass: wardriving)"
-echo "[*] Ingresa a http://192.168.1.1/wardriving/index.html (o la IP de tu router)"
+echo "[*] Installation Complete!"
+echo "[*] Connect your tablet/phone to the 5GHz network 'owrt' (password: wardriving)"
+echo "[*] Go to http://192.168.1.1/wardriving/index.html (or your router's IP)"

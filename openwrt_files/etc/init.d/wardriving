@@ -15,7 +15,7 @@ start() {
     /usr/bin/wardriving_core.sh >/tmp/wardriving_status.log 2>&1 &
     echo $! > /var/run/wardriving_core.pid
     
-    # LED Parpadeo
+    # LED Blinking
     if [ -d /sys/class/leds/green:wps ]; then
         echo "timer" > /sys/class/leds/green:wps/trigger
         echo 100 > /sys/class/leds/green:wps/delay_on

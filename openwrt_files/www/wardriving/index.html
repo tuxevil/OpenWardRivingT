@@ -331,10 +331,10 @@
                 return checksum.toString(16).toUpperCase().padStart(2, '0');
             }
 
-            let gprmc = `GPRMC,${timeStr},A,${latStr},${speedKts},${heading},${dateStr},,,A`;
+            let gprmc = `GPRMC,${timeStr},A,${latStr},${lonStr},${speedKts},${heading},${dateStr},,,A`;
             gprmc = `$${gprmc}*${getChecksum(gprmc)}\r\n`;
 
-            let gpgga = `GPGGA,${timeStr},${latStr},1,08,1.0,${alt},M,0.0,M,,`;
+            let gpgga = `GPGGA,${timeStr},${latStr},${lonStr},1,08,1.0,${alt},M,0.0,M,,`;
             gpgga = `$${gpgga}*${getChecksum(gpgga)}\r\n`;
 
             return gprmc + gpgga;

@@ -385,6 +385,8 @@
                     }
                     
                     if(data.channels_data && Array.isArray(data.channels_data)) {
+                        // Filter Exclusions
+                        data.channels_data = data.channels_data.filter(item => !excludedSSIDs.includes(item.s));
                         let chData = {};
                         data.channels_data.forEach(item => {
                             if(item.c >= 1 && item.c <= 11) {

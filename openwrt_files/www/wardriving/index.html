@@ -280,6 +280,13 @@
                 watchId = navigator.geolocation.watchPosition(
                     position => {
                         document.getElementById('st_gps').innerText = "BROWSER (ACTIVE)";
+                        let lat = position.coords.latitude; 
+                        let lng = position.coords.longitude; 
+                        carMarker.setLatLng([lat, lng]); 
+                        if(firstLoc) { 
+                            map.setView([lat, lng], 16); 
+                            firstLoc = false; 
+                        }
                         if(isRunning) {
                             let nmea = generateNMEA(position);
                             fetch('/cgi-bin/wardriving_api?action=gps_push', {

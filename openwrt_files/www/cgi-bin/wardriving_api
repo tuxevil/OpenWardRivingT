@@ -59,10 +59,10 @@ elif [ "$ACTION" = "upload_tiles" ]; then
 elif [ "$ACTION" = "map_data" ]; then
     LATEST_NMEA=$(ls -1t /mnt/wardriving/*.nmea 2>/dev/null | head -n 1)
     if [ -f "$LATEST_NMEA" ]; then
-        NMEA_B64=$(base64 "$LATEST_NMEA" | tr -d '\n')
-        echo "{\"nmea_b64\": \"$NMEA_B64\"}"
+        BASENAME=$(basename "$LATEST_NMEA")
+        echo "{\"nmea_url\": \"/wardriving/captures/$BASENAME\"}"
     else
-        echo '{"nmea_b64": ""}'
+        echo '{"nmea_url": ""}'
     fi
 
 elif [ "$ACTION" = "start" ]; then

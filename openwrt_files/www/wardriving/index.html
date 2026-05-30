@@ -106,6 +106,20 @@
                         <div class="val" id="st_space">---</div>
                     </div>
                 </div>
+                
+                <!-- BROWSER GPS WIDGET -->
+                <div style="margin-top: 5px; background: rgba(255,255,0,0.1); border: 1px solid #aa0; padding: 15px; border-radius: 8px; text-align: left;">
+                    <label style="font-size:1.1em; color:#ff0; font-weight:bold; display:flex; align-items:center; gap:10px; cursor:pointer;">
+                        <input type="checkbox" id="chk_browser_gps" onchange="toggleBrowserGPS()" style="transform: scale(1.5);">
+                        Browser GPS Override
+                    </label>
+                    <p style="font-size:0.85em; color:#ccc; margin:10px 0 0 0;">
+                        To bypass HTTPS requirements, copy this link, paste it in a new tab, and add <code>http://192.168.1.1</code> to the list:
+                        <br><br>
+                        <code id="chrome_flag" style="color:#fff; background:#333; padding:5px; border-radius:3px; display:block; text-align:center; user-select:all;">chrome://flags/#unsafely-treat-insecure-origin-as-secure</code>
+                        <button onclick="navigator.clipboard.writeText(document.getElementById('chrome_flag').innerText); alert('Copied to clipboard!')" style="background:#444; color:#fff; border:1px solid #666; padding:5px; cursor:pointer; width:100%; margin-top:5px; border-radius:3px;">Copy Flag URL</button>
+                    </p>
+                </div>
             </div>
             
             <!-- Right Column (2/3) MAP -->
@@ -113,7 +127,7 @@
                 <div id="map"></div>
                 <!-- Layer button -->
                 <div style="position:absolute; bottom:10px; right:10px; z-index:1000; background:rgba(0,0,0,0.7); padding:5px; border-radius:5px;">
-                    <label style="font-size:0.8em; display:flex; align-items:center; gap:5px; color:#fff;">
+                    <label style="font-size:0.8em; display:flex; align-items:center; gap:5px; color:#fff; cursor:pointer;">
                         <input type="checkbox" id="chk_online_tiles" onchange="toggleTiles()"> Use Online Map
                     </label>
                 </div>
@@ -187,6 +201,8 @@
         let carMarker;
         let wpsMarkers = {}; 
         let firstLoc = true;
+        let watchId = null;
+        let browserGpsActive = false;
         
         function initMap() {
             map = L.map('map', {zoomControl: false}).setView([0, 0], 2);
@@ -247,6 +263,84 @@
             }
         }
 
+        /* ---------------- BROWSER GPS LOGIC ---------------- */
+        function toggleBrowserGPS() {
+            browserGpsActive = document.getElementById('chk_browser_gps').checked;
+            
+            if(browserGpsActive) {
+                if(!navigator.geolocation) {
+                    alert("Geolocation is not supported by your browser.");
+                    document.getElementById('chk_browser_gps').checked = false;
+                    browserGpsActive = false;
+                    return;
+                }
+                
+                document.getElementById('st_gps').innerText = "BROWSER (Acquiring...)";
+                
+                watchId = navigator.geolocation.watchPosition(
+                    position => {
+                        document.getElementById('st_gps').innerText = "BROWSER (ACTIVE)";
+                        if(isRunning) {
+                            let nmea = generateNMEA(position);
+                            fetch('/cgi-bin/wardriving_api?action=gps_push', {
+                                method: 'POST',
+                                body: nmea
+                            });
+                        }
+                    },
+                    error => {
+                        alert("GPS Error: " + error.message + "\n\nDid you enable the chrome://flags setting?");
+                        document.getElementById('chk_browser_gps').checked = false;
+                        document.getElementById('st_gps').innerText = "ERROR";
+                        browserGpsActive = false;
+                        navigator.geolocation.clearWatch(watchId);
+                    },
+                    { enableHighAccuracy: true, maximumAge: 1000 }
+                );
+            } else {
+                if(watchId !== null) navigator.geolocation.clearWatch(watchId);
+                document.getElementById('st_gps').innerText = "WAITING";
+            }
+        }
+
+        function generateNMEA(position) {
+            const coords = position.coords;
+            const d = new Date(position.timestamp);
+
+            const pad = (n, w=2) => n.toString().padStart(w, '0');
+            const timeStr = `${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}.00`;
+            const dateStr = `${pad(d.getUTCDate())}${pad(d.getUTCMonth()+1)}${pad(d.getUTCFullYear()%100)}`;
+
+            function formatCoord(dec, isLat) {
+                const dir = dec >= 0 ? (isLat ? 'N' : 'E') : (isLat ? 'S' : 'W');
+                const absDec = Math.abs(dec);
+                const deg = Math.floor(absDec);
+                const min = ((absDec - deg) * 60).toFixed(5);
+                return `${pad(deg, isLat ? 2 : 3)}${pad(min, 8)},${dir}`;
+            }
+
+            const latStr = formatCoord(coords.latitude, true);
+            const lonStr = formatCoord(coords.longitude, false);
+            const speedKts = ((coords.speed || 0) * 1.94384).toFixed(1);
+            const heading = (coords.heading || 0).toFixed(1);
+            const alt = (coords.altitude || 0).toFixed(1);
+
+            function getChecksum(str) {
+                let checksum = 0;
+                for(let i=0; i<str.length; i++) checksum ^= str.charCodeAt(i);
+                return checksum.toString(16).toUpperCase().padStart(2, '0');
+            }
+
+            let gprmc = `GPRMC,${timeStr},A,${latStr},${speedKts},${heading},${dateStr},,,A`;
+            gprmc = `$${gprmc}*${getChecksum(gprmc)}\r\n`;
+
+            let gpgga = `GPGGA,${timeStr},${latStr},1,08,1.0,${alt},M,0.0,M,,`;
+            gpgga = `$${gpgga}*${getChecksum(gpgga)}\r\n`;
+
+            return gprmc + gpgga;
+        }
+        /* --------------------------------------------------- */
+
         function updateStatus() {
             fetch('/cgi-bin/wardriving_api?action=status')
                 .then(r => r.json())
@@ -268,7 +362,11 @@
                     }
                     
                     document.getElementById('st_space').innerText = data.space_free || "-";
-                    document.getElementById('st_gps').innerText = data.gps_status || "-";
+                    
+                    if(!browserGpsActive) {
+                        document.getElementById('st_gps').innerText = data.gps_status || "-";
+                    }
+                    
                     document.getElementById('st_files').innerText = data.files || "0";
                     
                     if(data.logs) {

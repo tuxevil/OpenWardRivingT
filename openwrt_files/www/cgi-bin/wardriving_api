@@ -41,6 +41,13 @@ if [ "$ACTION" = "status" ]; then
 }
 JSON
 
+elif [ "$ACTION" = "gps_push" ]; then
+    NMEA_DATA=$(cat)
+    if [ -n "$NMEA_DATA" ]; then
+        echo "$NMEA_DATA" | socat - TCP4:127.0.0.1:2947 2>/dev/null
+    fi
+    echo '{"status": "ok"}'
+
 elif [ "$ACTION" = "upload_tiles" ]; then
     cat > /tmp/tiles_upload.b64
     base64 -d /tmp/tiles_upload.b64 > /tmp/tiles.tar.gz

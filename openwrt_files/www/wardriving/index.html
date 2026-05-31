@@ -773,8 +773,6 @@
             }).catch(e=>{});
         }
         setInterval(fetchScores, 5000);
-        setInterval(fetchPwnagotchi, 10000);
-        fetchPwnagotchi();
         
         // ===== PET/MASCOT MOOD ENGINE =====
         // Inspired by pwnagotchi automata.py and voice.py
@@ -900,6 +898,8 @@
                 petPwnagotchiDetected = false;
             });
         };
+        setInterval(fetchPwnagotchi, 10000);
+        fetchPwnagotchi();
         
         // Mood evaluation: runs after status update pulls new metrics
         function evaluateMoodFromDOM() {

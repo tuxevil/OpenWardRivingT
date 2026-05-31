@@ -19,6 +19,17 @@ It features a spectacular **Tablet-Optimized Web Dashboard** meant to be used fr
 3. **Car Power Supply**: A 12V to 5V/12V step-down converter depending on your router's needs.
 4. **GPS-Enabled Device (Optional but recommended)**: A smartphone, tablet, or Android head unit with GPS capabilities to provide location data to the dashboard.
 
+## ✅ Tested Hardware
+
+| Device | Chipset | Radios | OpenWrt Version | Status |
+|--------|---------|--------|-----------------|--------|
+| Netgear WNDR3700v2 | AR7161 + AR9220/AR9223 | 2.4 + 5 GHz | 23.05 | ✅ Full support |
+| GL.iNet GL-A1300 | IPQ4018 | 2.4 + 5 GHz | 24.10 | ✅ Full support |
+| TP-Link Archer C7 v2 | QCA9558 + QCA9880 | 2.4 + 5 GHz | 23.05 | ✅ Monitor mode OK |
+| Generic x86_64 | Any compatible | Any | 24.10 | ✅ USB GPS required |
+
+> **Chipset note**: Atheros AR9xxx and Qualcomm IPQ40xx chipsets have best monitor mode + packet injection support. MediaTek MT76xx works but may require additional kmod packages. Broadcom is NOT supported.
+
 ## 📦 Software Dependencies
 The automated installer will automatically detect your package manager (`apk` for OpenWrt 24.x+ or `opkg` for older versions) and install the required tools:
 - `hcxdumptool` (v6.3+) & `hcxtools` (for capturing and parsing)
@@ -54,3 +65,20 @@ In the "Settings" tab of the web application, you can upload a `.tar.gz` file co
 - This software actively transmits deauthentication and probe frames, which can briefly disrupt connectivity on targeted wireless networks.
 - You must **only** operate this tool against networks you own, or networks where you have explicit, documented consent from the owner to conduct penetration testing.
 - The creators and contributors of this repository are not responsible for any misuse, illegal activity, or damage caused by this software. It is your sole responsibility to ensure you comply with all local, state, and federal laws regarding wireless communications and data interception before using this suite.
+
+## 🤝 Contributing
+
+1. File issues using `bd` (beads) — see [AGENTS.md](AGENTS.md)
+2. Follow shell conventions in [CLAUDE.md](CLAUDE.md): BusyBox ash compatibility, no bashisms, `mktemp` for atomic writes
+3. Test CGI endpoints with: `QUERY_STRING='action=status&token=YOUR_TOKEN' sh /www/cgi-bin/wardriving_api`
+4. Pull requests welcome against `main` branch
+
+## 📄 License
+
+OpenWardRivingT is licensed under the **GNU General Public License v3.0** (GPL-3.0).
+
+See [LICENSE](LICENSE) for the full text.
+
+---
+
+*Built for the road. Drive safe. Hack responsibly.*

@@ -169,6 +169,12 @@
                         <div style="color:#666; text-align:center; padding:10px;">Waiting for targets...</div>
                     </div>
                 </div>
+                <div class="card" style="padding:10px; margin:0; border-color:#ff00ff; flex-shrink:0;">
+                    <h3 style="margin-top:0; font-size:1em; color:#f0f; border-bottom:1px dashed #f0f; padding-bottom:5px;">🐾 Pwnagotchi Bridge</h3>
+                    <div id="pwnagotchi_status" style="font-size:0.85em; color:#aaa; text-align:left;">
+                        <div style="color:#666; padding:5px;">No pwnagotchi detected</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -761,6 +767,32 @@
         }
         setInterval(fetchScores, 5000);
 
+        function fetchPwnagotchi() {
+            fetch('/cgi-bin/wardriving_api?action=pwnagotchi_status')
+            .then(r => r.json())
+            .then(data => {
+                let container = document.getElementById('pwnagotchi_status');
+                if (!data || !data.uptime) {
+                    container.innerHTML = '<div style="color:#666; padding:5px;">No pwnagotchi detected</div>';
+                    return;
+                }
+                let uptime = data.uptime ? Math.floor(data.uptime / 60) + 'm' : '?';
+                let pwnd = data.pwnd_last || 0;
+                let handshakes = data.handshakes || 0;
+                let mode = data.mode || 'AUTO';
+                container.innerHTML = `
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:5px;">
+                        <div style="color:#f0f;">Uptime: <b>${uptime}</b></div>
+                        <div style="color:#0ff;">Mode: <b>${mode}</b></div>
+                        <div style="color:#0f0;">Handshakes: <b>${handshakes}</b></div>
+                        <div style="color:#ff0;">Last Pwn: <b>${pwnd}s ago</b></div>
+                    </div>`;
+            }).catch(() => {
+                document.getElementById('pwnagotchi_status').innerHTML = '<div style="color:#666; padding:5px;">No pwnagotchi detected</div>';
+            });
+        }
+        setInterval(fetchPwnagotchi, 10000);
+        fetchPwnagotchi();
         
         function loadHistory() {
             fetch('/cgi-bin/wardriving_api?action=history')

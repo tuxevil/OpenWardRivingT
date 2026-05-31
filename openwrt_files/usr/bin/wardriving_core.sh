@@ -19,10 +19,20 @@ blink_led() {
 }
 
 while true; do
+
     if ! mount | grep -q "/mnt/wardriving"; then
         echo "ERROR: USB NOT DETECTED"
         exit 1
     fi
+    
+    USB_PCT=$(df /mnt/wardriving | awk 'NR==2 {print $5}' | tr -d '%')
+    if [ "$USB_PCT" -ge 95 ]; then
+        echo "ERROR: USB CAPACITY CRITICAL ($USB_PCT%). STOPPING CAPTURE." >> /tmp/wardriving_status.log
+        blink_led
+        sleep 5
+        continue
+    fi
+
 
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
     FILENAME="/mnt/wardriving/wardriving_${TIMESTAMP}.pcapng"
@@ -31,11 +41,49 @@ while true; do
     TMP_ESSID="/tmp/essid_${TIMESTAMP}.txt"
     
     echo "[*] Starting session: $FILENAME"
-    hcxdumptool -i wlan0mon -w "$FILENAME" --nmea_dev=/tmp/vGPS --nmea_pcapng --nmea_out="$NMEAFILE" -F -t 3 --tot=5
+        OPTS=""
+    if [ -f /etc/wardriving_mode.txt ]; then
+        MODE=$(cat /etc/wardriving_mode.txt)
+        if [ "$MODE" = "passive" ]; then
+            OPTS="--silent"
+            echo "[*] MODE: PASSIVE (Silent Site Survey)"
+        elif [ "$MODE" = "smart" ]; then
+            if [ -s /etc/wardriving_targets.txt ]; then
+                # format targets for hcxdumptool: 112233
+                cat /etc/wardriving_targets.txt | sed 's/://g' > /tmp/smart_targets.txt
+                OPTS="--filterlist_ap=/tmp/smart_targets.txt --filtermode=2"
+                echo "[*] MODE: SMART TARGETING (Attacking only targeted OUIs)"
+            else
+                echo "[*] MODE: SMART TARGETING (No targets defined, defaulting to PASSIVE)"
+                OPTS="--silent"
+            fi
+        fi
+    fi
+
+    hcxdumptool -i wlan0mon -w "$FILENAME" --nmea_dev=/tmp/vGPS --nmea_pcapng --nmea_out="$NMEAFILE" -F -t 3 --tot=5 $OPTS
     
     if [ -f "$FILENAME" ]; then
         echo "[*] Converting $FILENAME to $HC2200FILE"
-        hcxpcapngtool -o "$HC2200FILE" -E "$TMP_ESSID" "$FILENAME" > /dev/null 2>&1
+        hcxpcapngtool -o "$HC2200FILE" -E "$TMP_ESSID" --csv="/tmp/csv_${TIMESTAMP}.txt" "$FILENAME" > /dev/null 2>&1
+        
+        # SQLite Integration
+        if command -v sqlite3 >/dev/null 2>&1 && [ -s "/tmp/csv_${TIMESTAMP}.txt" ]; then
+            sqlite3 /mnt/wardriving/wardriving.db "CREATE TABLE IF NOT EXISTS networks (mac TEXT PRIMARY KEY, ssid TEXT, enc TEXT, channel INTEGER, lat REAL, lon REAL, first_seen DATETIME, last_seen DATETIME, rssi INTEGER);"
+            sqlite3 /mnt/wardriving/wardriving.db "PRAGMA journal_mode=WAL; CREATE INDEX IF NOT EXISTS idx_last_seen ON networks(last_seen);" > /dev/null 2>&1
+            
+            awk -F'\t' '{
+                mac=$2; ssid=$3; enc=$4; chan=$8; rssi=$9; gpsd=$11
+                gsub(/\047/, "\047\047", ssid)
+                lat="NULL"; lon="NULL"
+                split(gpsd, g, " ")
+                if(g[1] != "") lat=g[1]; if(g[2] != "") lon=g[2]
+                printf "INSERT INTO networks (mac, ssid, enc, channel, lat, lon, first_seen, last_seen, rssi) VALUES (\047%s\047, \047%s\047, \047%s\047, %d, %s, %s, \047%s\047, \047%s\047, %d) ON CONFLICT(mac) DO UPDATE SET last_seen=\047%s\047, rssi=EXCLUDED.rssi;\n", mac, ssid, enc, chan, lat, lon, $1, $1, rssi, $1
+            }' "/tmp/csv_${TIMESTAMP}.txt" > "/tmp/sql_${TIMESTAMP}.sql"
+            
+            sqlite3 /mnt/wardriving/wardriving.db < "/tmp/sql_${TIMESTAMP}.sql"
+            rm -f "/tmp/csv_${TIMESTAMP}.txt" "/tmp/sql_${TIMESTAMP}.sql"
+        fi
+
         
         # Si la conversión generó un hash
         if [ -s "$HC2200FILE" ]; then
@@ -55,8 +103,10 @@ while true; do
             rm -f "$TMP_ESSID"
         fi
         
-        # Eliminar el archivo pcapng bruto para ahorrar almacenamiento (~90%)
-        rm -f "$FILENAME"
+        # Retencion configurable del pcapng
+        if [ ! -f /etc/wardriving_keep_pcap.txt ]; then
+            rm -f "$FILENAME"
+        fi
     fi
 
     # Evitar que el log en RAM crezca infinitamente

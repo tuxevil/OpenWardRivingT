@@ -2,7 +2,7 @@
 
 **OpenWardRivingT** is an automated, headless **active** wardriving suite built specifically for **OpenWrt** hardware (highly optimized for Atheros chipsets like Netgear WNDR3700, GL-A1300, etc.). It is designed to operate autonomously in your vehicle, actively targeting networks to capture PMKID and EAPOL handshakes while tracking network locations via GPS.
 
-It features a spectacular **Tablet-Optimized Web Dashboard** (The "Batcave") meant to be used from your car's Android head unit or tablet. It includes real-time statistics, an offline map radar, a live spectrum analyzer, and a built-in capture manager.
+It features a spectacular **Tablet-Optimized Web Dashboard** meant to be used from your car's Android head unit or tablet. It includes real-time statistics, an offline map radar, a live spectrum analyzer, and a built-in capture manager.
 
 ## ✨ Key Features
 - **100% Headless & Autonomous**: Start capturing by simply pressing a physical button (WPS/WiFi) on your router.

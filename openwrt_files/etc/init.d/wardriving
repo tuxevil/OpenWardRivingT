@@ -12,6 +12,12 @@ start() {
     iw phy phy0 interface add wlan0mon type monitor 2>/dev/null
     ip link set wlan0mon up 2>/dev/null
     
+    # SQLite Rotation / Vacuum
+    if [ -f /mnt/wardriving/wardriving.db ]; then
+        # Limit DB size by deleting networks older than 90 days if file is too big
+        sqlite3 /mnt/wardriving/wardriving.db "DELETE FROM networks WHERE last_seen < datetime('now', '-90 days'); VACUUM;" 2>/dev/null
+    fi
+    
     /usr/bin/wardriving_core.sh >/tmp/wardriving_status.log 2>&1 &
     echo $! > /var/run/wardriving_core.pid
     
@@ -28,14 +34,18 @@ stop() {
     logger -t "openwardrivingt" "Stopping Wardriving Service"
     
     if [ -f /var/run/wardriving_core.pid ]; then
-        kill -9 $(cat /var/run/wardriving_core.pid) 2>/dev/null
+        kill -15 $(cat /var/run/wardriving_core.pid) 2>/dev/null
         rm /var/run/wardriving_core.pid
     fi
-    kill $(pgrep -f wardriving_core.sh) 2>/dev/null
-    kill -9 $(pgrep -f wardriving_core.sh) 2>/dev/null
+    kill -15 $(pgrep -f wardriving_core.sh) 2>/dev/null
     
-    killall hcxdumptool 2>/dev/null
-    killall socat 2>/dev/null
+    killall -15 hcxdumptool 2>/dev/null
+    killall -15 socat 2>/dev/null
+    sleep 3
+    
+    kill -9 $(pgrep -f wardriving_core.sh) 2>/dev/null
+    killall -9 hcxdumptool 2>/dev/null
+    killall -9 socat 2>/dev/null
     sync
     
     ip link set wlan0mon down 2>/dev/null

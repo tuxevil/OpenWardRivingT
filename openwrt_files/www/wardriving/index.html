@@ -7,10 +7,19 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <title>OpenWardRivingT</title>
+    <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="leaflet.css" />
     <script src="leaflet.js"></script>
+    <script src="leaflet-heat.js"></script>
     <style>
         :root { --main-color: #00ff00; --bg: #0d0d0d; --panel: #1a1a1a; --text-light: #fff; --btn-active: #333; }
+        body.night-mode { --main-color: #ff0000; --panel: #110000; }
+        body.night-mode .status-badge.running { background: rgba(255, 0, 0, 0.2); color: #f00; border-color: #f00; animation: pulseRed 2s infinite; }
+        body.night-mode h1 { border-color: #f00; }
+        body.night-mode .nav-bar { border-color: #f00; }
+        body.night-mode .nav-item.active { border-color: #f00; color: #f00; }
+        body.night-mode .metric-box { border-color: #300; }
+        @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(255,0,0,0.4); } 70% { box-shadow: 0 0 0 15px rgba(255,0,0,0); } 100% { box-shadow: 0 0 0 0 rgba(255,0,0,0); } }
         body { background: var(--bg); color: var(--main-color); font-family: "Courier New", Courier, monospace; margin: 0; padding: 0; padding-bottom: 80px; text-align: center; overflow-x: hidden; }
         
         h1 { background: #000; padding: 15px 0; margin: 0; letter-spacing: 2px; border-bottom: 2px solid var(--main-color); position: sticky; top: 0; z-index: 100; font-size: 1.5em; }
@@ -98,23 +107,33 @@
             <div class="dash-left">
                 <div id="status_indicator" class="status-badge stopped">🔴 STOPPED</div>
                 <button id="btn_toggle" class="btn huge" onclick="toggleWardriving()">▶ START</button>
-                <div class="metrics-grid" style="grid-template-columns: 1fr;">
+                <div class="metrics-grid">
                     <!-- GPS Widget also acts as Browser Override -->
                     <div class="metric-box" style="cursor: pointer;" onclick="document.getElementById('chk_browser_gps').click()">
                         <label style="display:flex; justify-content:space-between; align-items:center;">
-                            GPS / OVERRIDE
-                            <input type="checkbox" id="chk_browser_gps" onchange="toggleBrowserGPS()" onclick="event.stopPropagation()" style="transform: scale(1.2);">
+                            GPS
+                            <input type="checkbox" id="chk_browser_gps" onchange="toggleBrowserGPS()" onclick="event.stopPropagation()" style="transform: scale(1.2);" title="Browser Override">
                         </label>
                         <div class="val" id="st_gps" style="color:#0ff;">---</div>
+                        <div class="val" id="st_gps_stats" style="font-size:0.8em; margin-top:5px; color:#ffff00;">---</div>
                         <div class="val" id="st_latlon" style="font-size:0.8em; margin-top:5px; color:#fff;">---</div>
+                    </div>
+                    <div class="metric-box">
+                        <label>Speed</label>
+                        <div class="val" id="st_speed" style="color:#0f0;">0 km/h</div>
+                    </div>
+                    <div class="metric-box">
+                        <label>Deauths</label>
+                        <div class="val" id="st_deauths" style="color:#f33;">0</div>
                     </div>
                     <div class="metric-box">
                         <label>Total Handshakes</label>
                         <div class="val" id="st_handshakes">0</div>
                     </div>
                     <div class="metric-box">
-                        <label>USB</label>
-                        <div class="val" id="st_space" style="font-size:1.1em;">---</div>
+                        <label>USB / Health</label>
+                        <div class="val" id="st_space" style="font-size:1.1em; color:#0ff;">---</div>
+                        <div class="val" id="st_health" style="font-size:0.8em; margin-top:5px; color:#aaa;">CPU: -- | RAM: --</div>
                     </div>
                 </div>
                 <!-- Hidden instructions for HTTPS bypass, kept for reference if needed -->
@@ -128,17 +147,27 @@
                 <div id="map"></div>
                 <!-- Layer button -->
                 <div style="position:absolute; bottom:10px; right:10px; z-index:1000; background:rgba(0,0,0,0.7); padding:5px; border-radius:5px;">
-                    <label style="font-size:0.8em; display:flex; align-items:center; gap:5px; color:#fff; cursor:pointer;">
+                    <label style="font-size:0.8em; display:flex; align-items:center; gap:5px; color:#fff; cursor:pointer; margin-bottom:5px;">
                         <input type="checkbox" id="chk_online_tiles" onchange="toggleTiles()"> Use Online Map
                     </label>
+                    <label style="font-size:0.8em; display:flex; align-items:center; gap:5px; color:#ff00ff; cursor:pointer; font-weight:bold;">
+                        <input type="checkbox" id="chk_heatmap" onchange="toggleHeatmap()"> 🔥 WiFi Heatmap
+                    </label>
+                    <button class="btn small" onclick="startReplay()" style="padding:5px; font-size:0.8em; margin-top:5px; width:100%; border-color:#0f0; color:#0f0;">▶ Replay Route</button>
                 </div>
             </div>
 
-            <!-- Right Column (1/4) Analyzer -->
-            <div class="dash-right">
-                <div class="card" style="padding:15px; height: 100%; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0;">
+            <!-- Right Column (1/4) Analyzer & Scoring -->
+            <div class="dash-right" style="display:flex; flex-direction:column; gap:10px;">
+                <div class="card" style="padding:10px; flex:1; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0;">
                     <h3 style="margin-top:0; font-size:1em; color:#aaa; border-bottom:1px dashed var(--main-color); padding-bottom:5px;">Live 2.4GHz Spectrum</h3>
                     <div class="analyzer-container" id="analyzer_channels" style="flex:1;"></div>
+                </div>
+                <div class="card" style="padding:10px; flex:1; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0; border-color:#0ff;">
+                    <h3 style="margin-top:0; font-size:1em; color:#0ff; border-bottom:1px dashed #0ff; padding-bottom:5px;">🏆 Top Scored Targets</h3>
+                    <div id="scored_targets" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:5px; padding-top:5px; text-align:left; font-size:0.85em;">
+                        <div style="color:#666; text-align:center; padding:10px;">Waiting for targets...</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -148,9 +177,22 @@
     <div id="view-captures" class="view">
         <div class="card">
             <h2>📦 Capture Manager</h2>
+            <div style="background: rgba(0,255,0,0.1); border: 1px dashed #0f0; padding: 10px; border-radius: 8px; margin: 15px 0;">
+                <p style="margin-top:0; font-size:0.9em; color:#0f0;"><strong>Overlay de Redes Crackeadas:</strong> Sube tu `hashcat.potfile` aquí para pintar de verde en el radar las contraseñas recuperadas.</p>
+                <input type="file" id="potfile_input" style="background:#000; color:#fff; border:1px solid #0f0; border-radius: 8px; padding:10px; width:100%; box-sizing:border-box; margin-bottom:10px;">
+                <button class="btn small" onclick="uploadPotfile()" style="width:100%; border-color:#0f0; color:#0f0; padding: 10px;">�� Upload Potfile</button>
+                <div id="potfile_status" style="margin-top:10px; color:#0f0; text-align:center;"></div>
+            </div>
+            <label style="display:flex; justify-content:space-between; align-items:center; margin: 15px 0; padding:10px; background:#000; border-radius:8px; border:1px solid #333; max-width:400px;">
+                <span style="font-size:1.1em; font-weight:bold; color:#0ff;">Keep RAW .pcapng files</span>
+                <input type="checkbox" id="chk_keep_pcap" onchange="togglePcap()" style="transform: scale(1.5);">
+            </label>
             <div style="display:flex; gap:10px; margin-bottom: 20px; flex-wrap:wrap;">
                 <button class="btn small" onclick="loadFiles()">🔄 Refresh</button>
-                <button class="btn small download" onclick="window.open('/cgi-bin/wardriving_api?action=download_all', '_blank')">📥 Download All (.tar.gz)</button>
+                <button class="btn small download" onclick="window.open('/cgi-bin/wardriving_api?action=download_all', '_blank')">📥 Archive (.tar.gz)</button>
+                <button class="btn small download" style="background:#0055ff; border-color:#0088ff;" onclick="window.open('/cgi-bin/wardriving_api?action=export_gpx', '_blank')">🗺️ GPX</button>
+                <button class="btn small download" style="background:#aa00ff; border-color:#dd00ff;" onclick="window.open('/cgi-bin/wardriving_api?action=export_kml', '_blank')">🌍 KML</button>
+                <button class="btn small download" style="background:#ff3300; border-color:#ff0000;" onclick="window.open('/cgi-bin/wardriving_api?action=export_hashcat', '_blank')">🔥 Hashcat Toolkit</button>
             </div>
             <div id="file_list" class="file-list"><div style="text-align:center; padding: 20px;">Loading...</div></div>
         </div>
@@ -164,21 +206,50 @@
     <!-- SETTINGS VIEW -->
     
     <div id="view-filter" class="view">
-        <div class="panel">
-            <h2>🛡️ Excluded SSIDs</h2>
-            <p>These SSIDs have been captured and are hidden from the visual scanner.</p>
-            <div style="margin-bottom: 10px; display: flex; gap: 10px;">
-                <input type="text" id="newExclusion" placeholder="Manual SSID" style="flex:1; padding: 15px; border-radius: 8px; border: 1px solid #444; background: #222; color: #fff; font-size: 1.2em;">
-                <button class="btn small" style="margin: 0;" onclick="addExclusion(document.getElementById('newExclusion').value)">Add</button>
+        <div style="height: calc(100vh - 175px); box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden;">
+        <div class="settings-grid" style="flex: 1; align-items: stretch; height: 100%;">
+            <div class="card" style="margin-bottom:0; display:flex; flex-direction:column; overflow:hidden;">
+                <h2>🛡️ Excluded SSIDs</h2>
+                <p style="font-size:0.9em; color:#aaa; margin-top:0;">Hidden from the visual scanner.</p>
+                <div style="margin-bottom: 10px; display: flex; gap: 10px; margin-top:15px;">
+                    <input type="text" id="newExclusion" placeholder="Manual SSID" style="flex:1; padding: 15px; border-radius: 8px; border: 1px solid #444; background: #000; color: #fff; font-size: 1em;">
+                    <button class="btn small" style="margin: 0;" onclick="addExclusion(document.getElementById('newExclusion').value)">+ Add</button>
+                </div>
+                <div id="exclusionsList" style="display: flex; flex-direction: column; gap: 10px; margin-top:15px; flex:1; overflow-y:auto;">
+                    <!-- Items -->
+                </div>
             </div>
-            <div id="exclusionsList" style="display: flex; flex-direction: column; gap: 10px; margin-top:25px;">
-                <!-- Items -->
+            <div class="card" style="margin-bottom:0; box-shadow: 0 0 10px rgba(255,0,68,0.1); border-color:#ff0044; display:flex; flex-direction:column; overflow:hidden;">
+                <h2 style="color:#ff0044; border-color:#ff0044;">🎯 Target Alerts</h2>
+                <p style="font-size:0.9em; color:#aaa; margin-top:0;">Alarms when a MAC/OUI is seen.</p>
+                <div style="display:flex; gap:10px; margin-bottom:15px; margin-top:15px;">
+                    <input type="text" id="newTarget" placeholder="e.g. 00:11:22" style="flex:1; background:#000; color:#ff0044; border:1px solid #ff0044; border-radius: 8px; padding: 15px; font-family:monospace; text-transform:uppercase;">
+                    <button class="btn small" onclick="addTarget()" style="border-color:#ff0044; color:#ff0044;">+ Add</button>
+                </div>
+                <div id="targetsList" style="text-align:left; flex:1; overflow-y:auto;"></div>
             </div>
+        </div>
         </div>
     </div>
     
     <div id="view-settings" class="view">
         <div class="settings-grid">
+
+            <div class="card" style="margin-bottom:0;">
+                <h2 style="border-color:#ff00ff; display:flex; align-items:center;">🌙 Night Mode</h2>
+                <label style="display:flex; justify-content:space-between; align-items:center; margin: 15px 0; padding:10px; background:#000; border-radius:8px; border:1px solid #333;">
+                    <span style="font-size:1.1em; font-weight:bold; color:#f00;">Enable Night Drive</span>
+                    <input type="checkbox" id="chk_night" onchange="toggleNightMode()" style="transform: scale(1.5);">
+                </label>
+                <h2 style="border-color:#ff00ff; display:flex; align-items:center;">🔊 Audio Alerts</h2>
+                <p style="font-size:0.9em; color:#aaa; margin-top:0;">Enable text-to-speech for new captures.</p>
+                <label style="display:flex; justify-content:space-between; align-items:center; margin: 15px 0; padding:10px; background:#000; border-radius:8px; border:1px solid #333;">
+                    <span style="font-size:1.1em; font-weight:bold; color:#ff00ff;">Enable TTS</span>
+                    <input type="checkbox" id="chk_audio" onchange="toggleAudio()" style="transform: scale(1.5);">
+                </label>
+                <button class="btn small" onclick="testAudio()" style="width:100%; border-color:#ff00ff; color:#ff00ff; padding: 10px; font-size:1.1em;">🔊 Test Speech</button>
+            </div>
+
             <div class="card" style="margin-bottom:0;">
                 <h2>⚙️ Hardware Config</h2>
                 <p style="font-size:0.9em; color:#aaa; margin-top:0;">Configure LEDs and physical buttons.</p>
@@ -191,21 +262,65 @@
                     <option value="wps">WPS Button</option>
                     <option value="wifi">WiFi / RFKill Button</option>
                 </select>
+                <label style="display:block; margin: 15px 0 5px 0; color:#aaa; font-weight:bold;">Operation Mode:</label>
+                <select id="sel_mode">
+                    <option value="active">Active (Full Injection / Capture)</option>
+                    <option value="passive">Passive (Silent Site Survey)</option>
+                    <option value="smart">Smart (Inject ONLY to Targeted Alerts)</option>
+                </select>
                 
                 <button class="btn small" onclick="saveHW()" style="width:100%; padding: 15px; font-size:1.1em; margin-top: 20px;">💾 Save Hardware</button>
             </div>
             
+
             <div class="card" style="margin-bottom:0;">
-                <h2 style="border-color:#00ffff; display:flex; align-items:center;">🗺️ Offline Maps</h2>
-                <p style="font-size:0.9em; color:#aaa; margin-top:0;">Create a <b>.tar.gz</b> containing your tiles (<code>Z/X/Y.png</code>).</p>
+                <h2 style="border-color:#ffff00; display:flex; align-items:center;">📡 WiGLE.net Integration</h2>
+                <p style="font-size:0.9em; color:#aaa; margin-top:0;">Upload your captures directly to WiGLE.</p>
+                <label style="display:block; margin: 10px 0 5px 0; color:#aaa; font-weight:bold;">Encoded API Token:</label>
+                <input type="password" id="wigle_token" placeholder="Paste Base64 API Token..." style="width:100%; box-sizing:border-box; padding:10px; background:#000; color:#ffff00; border:1px solid #ffff00; border-radius:8px;">
+                
+                <button class="btn small" onclick="saveWigle()" style="width:100%; border-color:#ffff00; color:#ffff00; padding: 10px; font-size:1.1em; margin-top: 15px;">💾 Save Token</button>
+                <button class="btn small" onclick="uploadWigle()" style="width:100%; border-color:#fff; color:#000; background:#ffff00; padding: 10px; font-size:1.1em; margin-top: 15px;">📤 Upload DB to WiGLE</button>
+                <div id="wigle_status" style="margin-top:15px; color:#ffff00; font-weight:bold; text-align:center;"></div>
+            </div>
+
+<div class="card" style="margin-bottom:0; display:flex; flex-direction:column; overflow:hidden;">
+<h2 style="border-color:#00ffff; display:flex; align-items:center;">🗺️ Map Management</h2>
+                <p style="font-size:0.9em; color:#aaa; margin-top:0;">Download tiles directly from the router.</p>
                 
                 <div style="background: rgba(0,255,255,0.1); border: 1px dashed #00ffff; padding: 10px; border-radius: 8px; margin: 15px 0;">
-                    <span style="color:#00ffff; font-size:0.85em;">Recommended for files &lt; 20MB. For massive maps, plug your USB into a PC and copy to <code>/mnt/wardriving/tiles/</code></span>
+                    <span style="color:#00ffff; font-size:0.85em;">Move the map on the Dashboard to the desired city, then return here to download.</span>
                 </div>
                 
-                <input type="file" id="tiles_file" accept=".tar.gz,.gz,.tar" style="background:#000; color:#fff; border:1px solid #00ffff; border-radius: 8px; padding:15px 10px; width:100%; box-sizing:border-box; margin-bottom:15px; cursor:pointer;">
-                <button class="btn small" onclick="uploadTiles()" style="width:100%; border-color:#00ffff; color:#00ffff; padding: 15px; font-size:1.1em;">📤 Upload & Install Tiles</button>
-                <div id="upload_status" style="margin-top:15px; color:#00ffff; font-weight:bold; text-align:center;"></div>
+                <div style="display:flex; gap:10px; margin-bottom:15px;">
+                    <input type="number" id="dl_zoom_min" placeholder="Min Z (10)" value="12" style="flex:1; background:#000; color:#00ffff; border:1px solid #00ffff; border-radius:8px; padding:10px; text-align:center;">
+                    <input type="number" id="dl_zoom_max" placeholder="Max Z (16)" value="16" style="flex:1; background:#000; color:#00ffff; border:1px solid #00ffff; border-radius:8px; padding:10px; text-align:center;">
+                </div>
+                <button class="btn small" onclick="downloadBBox()" style="width:100%; border-color:#00ffff; color:#00ffff; padding: 15px; font-size:1.1em;">⬇️ Download Current Viewport</button>
+                <div id="bbox_status" style="margin-top:15px; color:#00ffff; font-weight:bold; text-align:center;"></div>
+                
+                <hr style="border-color:#333; margin: 15px 0;">
+                <p style="font-size:0.8em; color:#aaa; margin-top:0;">Or upload a .tar.gz from PC:</p>
+                <input type="file" id="tiles_file" accept=".tar.gz,.gz,.tar" style="background:#000; color:#fff; border:1px solid #333; border-radius: 8px; padding:10px; width:100%; box-sizing:border-box; margin-bottom:10px; cursor:pointer;">
+                <button class="btn small" onclick="uploadTiles()" style="width:100%; border-color:#333; color:#aaa; padding: 10px;">📤 Install Tiles from file</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- HISTORY VIEW -->
+    <div id="view-history" class="view">
+        <div class="card" style="display:flex; flex-direction:column; height:calc(100vh - 150px); overflow:hidden;">
+            <h2>📊 Lifetime Statistics</h2>
+            <div class="metrics-grid" id="history_metrics" style="margin-bottom:20px;">
+                <div class="metric-box"><label>Total Networks</label><div class="val" id="st_hist_total">0</div></div>
+                <div class="metric-box"><label>WPA3 / SAE</label><div class="val" id="st_hist_wpa3">0</div></div>
+                <div class="metric-box"><label>Handshakes</label><div class="val" id="st_hist_hs">0</div></div>
+                <div class="metric-box"><label>Days Active</label><div class="val" id="st_hist_days">0</div></div>
+            </div>
+            <h3 style="color:#aaa; border-bottom:1px solid #333; padding-bottom:10px;">Recent Sessions (Last 7 Days)</h3>
+            <div id="history_list" style="flex:1; overflow-y:auto; text-align:left; font-size:0.9em; display:flex; flex-direction:column; gap:10px;">
+                <div style="text-align:center; color:#666; padding:20px;">Loading historical data...</div>
             </div>
         </div>
     </div>
@@ -217,10 +332,29 @@
         <div class="nav-item" onclick="switchTab('console')"><i>🖥️</i><span>Console</span></div>
         <div class="nav-item" onclick="switchTab('settings')"><i>⚙️</i><span>Settings</span></div>
         <div class="nav-item" onclick="switchTab('filter')"><i>🛡️</i><span>Filter</span></div>
-    </div>
+        <div class="nav-item" onclick="switchTab('history'); loadHistory();"><i>📊</i><span>Stats</span></div>
+
+            </div>
 
     <script>
+        
+        
+        function toggleNightMode() {
+            let night = document.getElementById('chk_night').checked;
+            localStorage.setItem('nightMode', night);
+            if(night) document.body.classList.add('night-mode');
+            else document.body.classList.remove('night-mode');
+        }
+        if(localStorage.getItem('nightMode') === 'true') {
+            document.body.classList.add('night-mode');
+            window.addEventListener('DOMContentLoaded', () => document.getElementById('chk_night').checked = true);
+        }
+
         let isRunning = false;
+        let lastGpsFixTime = Date.now();
+        let audioEnabled = localStorage.getItem('audioEnabled') === 'true';
+        let lastHandshakeCount = -1;
+
         
         let map;
         let onlineLayer;
@@ -256,6 +390,64 @@
             carMarker.bindPopup("<b>Current Location</b>");
         }
 
+        
+        let heatLayer = null;
+        
+        let replayTimer = null;
+        function startReplay() {
+            if(replayTimer) { clearInterval(replayTimer); replayTimer=null; return; }
+            if(!onlineLayer && !offlineLayer) return alert("Enable a map layer first!");
+            
+            fetch('/cgi-bin/wardriving_api?action=map_data')
+            .then(r=>r.json())
+            .then(data => {
+                if(!data.nmea_b64) return;
+                let lines = atob(data.nmea_b64).split('\n');
+                let coords = [];
+                lines.forEach(l => {
+                    if(l.match(/^\$[A-Z]{2}RMC/)) {
+                        let p = l.split(',');
+                        if(p[2] === 'A') {
+                            let rlat = parseFloat(p[3]); let rlng = parseFloat(p[5]);
+                            let lat = Math.floor(rlat/100) + ((rlat/100) % 1)*100/60; if(p[4]==='S') lat = -lat;
+                            let lng = Math.floor(rlng/100) + ((rlng/100) % 1)*100/60; if(p[6]==='W') lng = -lng;
+                            coords.push([lat, lng]);
+                        }
+                    }
+                });
+                
+                if(coords.length === 0) return alert("No GPS data found for replay.");
+                
+                // Clear map logic here if needed
+                let idx = 0;
+                replayTimer = setInterval(() => {
+                    if(idx >= coords.length) { clearInterval(replayTimer); replayTimer=null; return; }
+                    let c = coords[idx];
+                    map.setView(c, 16);
+                    if(carMarker) { carMarker.setLatLng(c); }
+                    else {
+                        let icon = L.divIcon({className: 'car-icon', html: '🚘', iconSize: [30,30]});
+                        carMarker = L.marker(c, {icon: icon}).addTo(map);
+                    }
+                    idx++;
+                }, 500); // Replay speed
+            });
+        }
+
+        function toggleHeatmap() {
+            if(document.getElementById('chk_heatmap').checked) {
+                fetch('/cgi-bin/wardriving_api?action=heatmap_data')
+                .then(r=>r.json())
+                .then(data => {
+                    if(data.length > 0) {
+                        heatLayer = L.heatLayer(data, {radius: 25, blur: 15, maxZoom: 17}).addTo(map);
+                    }
+                });
+            } else {
+                if(heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+            }
+        }
+
         function toggleTiles() {
             let online = document.getElementById('chk_online_tiles').checked;
             localStorage.setItem('useOnlineMaps', online);
@@ -268,10 +460,11 @@
             }
         }
 
+        const CHANNELS = [1,2,3,4,5,6,7,8,9,10,11, 36,40,44,48, 149,153,157,161,165];
         function initAnalyzer() {
-            let container = document.getElementById('analyzer_channels');
+            let container = document.getElementById('analyzer_channels'); document.getElementById('analyzer_channels').previousElementSibling.innerText = 'Live 2.4/5GHz Spectrum';
             let html = '';
-            for(let i=1; i<=11; i++) {
+            CHANNELS.forEach(i => {
                 html += `
                 <div class="tree-channel">
                     <div class="tree-header" onclick="toggleTree(${i})">
@@ -280,7 +473,7 @@
                     </div>
                     <div class="tree-content" id="ch_ssids_${i}"></div>
                 </div>`;
-            }
+            });
             container.innerHTML = html;
         }
 
@@ -294,6 +487,63 @@
 
         
         let excludedSSIDs = [];
+
+        
+        let targetMacs = [];
+        let alertedTargets = [];
+        
+        function loadTargets() {
+            fetch('/cgi-bin/wardriving_api?action=get_targets')
+            .then(r=>r.json())
+            .then(data => {
+                targetMacs = data || [];
+                renderTargets();
+            }).catch(e=>{});
+        }
+        function renderTargets() {
+            const container = document.getElementById('targetsList');
+            if(!container) return;
+            container.innerHTML = '';
+            targetMacs.forEach(mac => {
+                let d = document.createElement('div');
+                d.style.cssText = "display:flex; justify-content:space-between; background:rgba(255,0,68,0.1); padding:10px; border:1px solid #ff0044; margin-bottom:5px; border-radius:5px; align-items:center;";
+                d.innerHTML = `<span style="font-family:monospace; color:#ff0044; font-weight:bold;">${mac}</span>
+                               <button class="btn small" style="padding:5px 10px; border-color:#ff0044; color:#ff0044;" onclick="removeTarget('${mac}')">X</button>`;
+                container.appendChild(d);
+            });
+        }
+        function addTarget() {
+            let m = document.getElementById('newTarget').value.trim().toUpperCase();
+            if(!m) return;
+            fetch(`/cgi-bin/wardriving_api?action=add_target&mac=${encodeURIComponent(m)}`)
+            .then(() => { document.getElementById('newTarget').value = ''; loadTargets(); });
+        }
+        function removeTarget(m) {
+            fetch(`/cgi-bin/wardriving_api?action=remove_target&mac=${encodeURIComponent(m)}`)
+            .then(() => loadTargets());
+        }
+        function checkTargets() {
+            if(!isRunning || targetMacs.length === 0) return;
+            fetch('/cgi-bin/wardriving_api?action=check_targets')
+            .then(r=>r.json())
+            .then(data => {
+                if(data && data.length > 0) {
+                    data.forEach(net => {
+                        if(!alertedTargets.includes(net.mac)) {
+                            alertedTargets.push(net.mac);
+                            if(audioEnabled && 'speechSynthesis' in window) {
+                                window.speechSynthesis.speak(new SpeechSynthesisUtterance("Target detected! " + net.ssid));
+                            }
+                            let al = document.createElement('div');
+                            al.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#ff0044; color:#fff; padding:20px; border-radius:10px; font-weight:bold; z-index:9999; box-shadow:0 0 20px #ff0044;";
+                            al.innerHTML = `🚨 TARGET FOUND: ${net.mac} (${net.ssid})`;
+                            document.body.appendChild(al);
+                            setTimeout(() => al.remove(), 10000);
+                        }
+                    });
+                }
+            });
+        }
 
         function loadExclusions() {
             fetch('/cgi-bin/wardriving_api?action=get_exclusions')
@@ -339,6 +589,145 @@
 
         loadExclusions();
         setInterval(loadExclusions, 10000);
+
+        loadTargets();
+        setInterval(checkTargets, 10000);
+
+
+        
+        
+        function saveWigle() {
+            let token = document.getElementById('wigle_token').value;
+            localStorage.setItem('wigleToken', token);
+            document.getElementById('wigle_status').innerText = "Token Saved Locally!";
+            setTimeout(() => document.getElementById('wigle_status').innerText = "", 3000);
+        }
+        
+        function uploadWigle() {
+            let token = localStorage.getItem('wigleToken');
+            if(!token) return alert("Please save your WiGLE token first!");
+            
+            document.getElementById('wigle_status').innerText = "Uploading... please wait";
+            fetch('/cgi-bin/wardriving_api?action=wigle_upload&token=' + encodeURIComponent(token))
+            .then(r=>r.json())
+            .then(data => {
+                if(data.success) {
+                    document.getElementById('wigle_status').innerText = "Upload Complete!";
+                } else {
+                    document.getElementById('wigle_status').innerText = "Error: " + (data.error || "Unknown");
+                }
+            }).catch(e => { document.getElementById('wigle_status').innerText = "Network Error!"; });
+        }
+
+        function toggleAudio() {
+            audioEnabled = document.getElementById('chk_audio').checked;
+            localStorage.setItem('audioEnabled', audioEnabled);
+            if(audioEnabled) requestNotificationPermission();
+        }
+        
+        function requestNotificationPermission() {
+            if ("Notification" in window && Notification.permission !== "granted") {
+                Notification.requestPermission();
+            }
+        }
+        function sendNotification(title, body) {
+            if ("Notification" in window && Notification.permission === "granted") {
+                new Notification(title, { body: body, icon: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48dGV4dCB5PSI4MCIgZm9udC1zaXplPSI4MCI+8J+ahjwvdGV4dD48L3N2Zz4=" });
+            }
+        }
+        
+        function testAudio() {
+            if('speechSynthesis' in window) {
+                let msg = new SpeechSynthesisUtterance("Audio enabled.");
+                window.speechSynthesis.speak(msg);
+                            sendNotification("New Capture", "Captured " + diff + " new handshake" + (diff > 1 ? "s" : ""));
+            } else {
+                alert("TTS not supported in this browser.");
+            }
+        }
+
+        
+
+        let OUI_DB = {};
+        fetch('/wardriving/oui.json').then(r=>r.json()).then(data => { OUI_DB = data; }).catch(e => console.error("Error loading OUI DB", e));
+        
+        function getOUI(mac) {
+            if(!mac || !OUI_DB) return null;
+            let prefix = mac.replace(/:/g, '').substring(0, 6).toUpperCase();
+            return OUI_DB[prefix] || null;
+        }
+
+        function fetchScores() {
+
+            if(!isRunning) return;
+            fetch('/cgi-bin/wardriving_api?action=scored_networks')
+            .then(r=>r.json())
+            .then(data => {
+                let container = document.getElementById('scored_targets');
+                if(!data || data.length === 0) return;
+                
+                let html = "";
+                data.forEach(net => {
+                    let score = 100 + parseInt(net.rssi || -100);
+                    if(net.enc && net.enc.includes('WEP')) score += 50;
+                    if(net.enc && net.enc.includes('OPEN')) score += 30;
+                    if(net.enc && net.enc.includes('SAE')) tags.push('<span style="color:#ff0044; font-weight:bold;">[🛡️ WPA3]</span>');
+                    if(net.has_hs) score += 100; // Big bonus for captured handshake
+                    
+                    let tags = [];
+                    let s = (net.ssid || "").toUpperCase();
+                    if(s.includes('GUEST') || s.includes('INVITADOS')) tags.push('<span style="color:#ffcc00;">[🏨 Guest]</span>');
+                    if(s.includes('CAM') || s.includes('CCTV') || s.includes('IPC')) tags.push('<span style="color:#ff3333;">[📹 Camera]</span>');
+                    if(s.includes('CORP') || s.includes('ADMIN') || s.includes('IT-')) tags.push('<span style="color:#3399ff;">[🏢 Corp]</span>');
+                    if(s.includes('WISP') || s.includes('FIBRA') || s.includes('TELMEX') || s.includes('CLARO')) tags.push('<span style="color:#00ffff;">[🌐 ISP]</span>');
+                    
+                    let vendor = getOUI(net.mac);
+                    if(vendor) tags.push(`<span style="color:#ff00ff;">[🏭 ${vendor}]</span>`);
+                    if(net.has_hs) tags.push('<span style="color:#0f0;">[🔑 PMKID]</span>');
+                    
+                    let color = score > 100 ? "#0f0" : (score > 60 ? "#ffcc00" : "#fff");
+                    
+                    html += `<div style="background:#111; border:1px solid #333; padding:5px; border-radius:5px;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
+                            <span style="font-weight:bold; color:${color};">${net.ssid}</span>
+                            <span style="color:#0ff; font-weight:bold;">${score} pts</span>
+                        </div>
+                        <div style="color:#aaa; display:flex; justify-content:space-between;">
+                            <span>${net.enc || 'UNK'}</span>
+                            <span>RSSI: ${net.rssi}</span>
+                        </div>
+                        ${tags.length > 0 ? `<div style="margin-top:3px; font-size:0.9em;">${tags.join(' ')}</div>` : ''}
+                    </div>`;
+                });
+                container.innerHTML = html;
+            }).catch(e=>{});
+        }
+        setInterval(fetchScores, 5000);
+
+        
+        function loadHistory() {
+            fetch('/cgi-bin/wardriving_api?action=history')
+            .then(r=>r.json()).then(data => {
+                document.getElementById('st_hist_total').innerText = data.total;
+                document.getElementById('st_hist_wpa3').innerText = data.wpa3;
+                document.getElementById('st_hist_hs').innerText = data.hs;
+                document.getElementById('st_hist_days').innerText = data.days;
+                
+                let html = "";
+                data.sessions.forEach(s => {
+                    html += `<div style="background:#111; padding:10px; border-radius:5px; border:1px solid #333; display:flex; justify-content:space-between;">
+                        <div>
+                            <div style="font-weight:bold; color:#0ff;">📅 ${s.date}</div>
+                            <div style="color:#aaa;">Networks Discovered: <span style="color:#fff;">${s.count}</span></div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="color:#ffcc00; font-weight:bold;">⚡ ${s.hs_count} PMKIDs</div>
+                        </div>
+                    </div>`;
+                });
+                document.getElementById('history_list').innerHTML = html || "<div style='color:#666; text-align:center;'>No data available</div>";
+            });
+        }
 
         function switchTab(tabId) {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -462,13 +851,50 @@
                         badge.innerText = "🔴 STOPPED";
                     }
                     
+                    
                     document.getElementById('st_space').innerText = (data.space_used || "-") + " / " + (data.space_free || "-");
+                    document.getElementById('st_health').innerText = `CPU: ${data.cpu || '-'} | RAM: ${data.ram || '-'}% | USB: ${data.usb_pct || '-'}%`;
+                    if(data.usb_pct && parseInt(data.usb_pct) > 95) {
+                        document.getElementById('st_space').innerHTML = `<span style="color:#f00; animation:pulseGreen 1s infinite;">🚨 USB FULL!</span>`;
+                    }
+
                     
                     if(!browserGpsActive) {
                         document.getElementById('st_gps').innerText = data.gps_status || "-";
+                        let satCount = data.sats || "0";
+                        let speedKnots = parseFloat(data.speed || 0);
+                        let speedKmh = Math.round(speedKnots * 1.852);
+                        document.getElementById('st_speed').innerText = speedKmh + " km/h";
+                        if(data.gps_status === "WAITING") {
+                            document.getElementById('st_gps_stats').innerText = "WAITING FOR NMEA...";
+                        } else if(data.fix == "0") {
+                            let lostSecs = Math.floor((Date.now() - lastGpsFixTime) / 1000);
+                            let timeStr = lostSecs > 60 ? Math.floor(lostSecs/60) + "m " + (lostSecs%60) + "s" : lostSecs + "s";
+                            document.getElementById('st_gps_stats').innerHTML = `<span style="color:#ff0044; font-weight:bold;">🚨 LOST ${timeStr} AGO</span>`;
+                        } else {
+                            lastGpsFixTime = Date.now();
+                            let fixStr = data.fix == "1" ? "✅ 2D/3D" : "✅ DGPS";
+                            document.getElementById('st_gps_stats').innerText = fixStr + " | Sats: " + satCount;
+                        }
+                    } else {
+                        document.getElementById('st_gps_stats').innerText = "Using Browser API";
                     }
                     
-                    document.getElementById('st_handshakes').innerText = data.handshakes || "0";
+                    
+                    let currentHandshakes = parseInt(data.handshakes || 0);
+                    document.getElementById('st_handshakes').innerText = currentHandshakes;
+                    document.getElementById('st_deauths').innerText = data.deauths || '0';
+                    
+                    if (lastHandshakeCount !== -1 && currentHandshakes > lastHandshakeCount) {
+                        let diff = currentHandshakes - lastHandshakeCount;
+                        if(audioEnabled && 'speechSynthesis' in window) {
+                            let msg = new SpeechSynthesisUtterance("Captured " + diff + " new handshake" + (diff > 1 ? "s" : ""));
+                            window.speechSynthesis.speak(msg);
+                            sendNotification("New Capture", "Captured " + diff + " new handshake" + (diff > 1 ? "s" : ""));
+                        }
+                    }
+                    lastHandshakeCount = currentHandshakes;
+
                     
                     if(data.logs) {
                         let logBox = document.getElementById('log_box');
@@ -483,12 +909,12 @@
                         data.channels_data = data.channels_data.filter(item => !excludedSSIDs.includes(item.s));
                         let chData = {};
                         data.channels_data.forEach(item => {
-                            if(item.c >= 1 && item.c <= 11) {
+                            if(CHANNELS.includes(parseInt(item.c))) {
                                 if(!chData[item.c]) chData[item.c] = [];
                                 chData[item.c].push(item.s);
                             }
                         });
-                        for(let i=1; i<=11; i++) {
+                        CHANNELS.forEach(i => {
                             let ssidsDiv = document.getElementById('ch_ssids_' + i);
                             let countSpan = document.getElementById('ch_count_' + i);
                             let blocks = '';
@@ -510,7 +936,7 @@
                             }
                             if(countSpan) countSpan.innerText = count;
                             if(ssidsDiv) ssidsDiv.innerHTML = blocks;
-                        }
+                        });
                     }
                 });
         }
@@ -526,7 +952,7 @@
                     let curLat = null, curLng = null;
                     
                     lines.forEach(l => {
-                        if(l.startsWith('$GPRMC')) {
+                        if(l.match(/^\$[A-Z]{2}RMC/)) {
                             let p = l.split(',');
                             if(p[2] === 'A') {
                                 let rlat = parseFloat(p[3]);
@@ -627,11 +1053,79 @@
         function saveHW() {
             let led = document.getElementById('sel_led').value;
             let btn = document.getElementById('sel_btn').value;
-            fetch('/cgi-bin/wardriving_api?action=set_hw&led=' + encodeURIComponent(led) + '&btn=' + btn)
+            let mode = document.getElementById('sel_mode').value;
+            fetch('/cgi-bin/wardriving_api?action=set_hw&led=' + encodeURIComponent(led) + '&btn=' + btn + '&mode=' + mode)
                 .then(r => r.json())
                 .then(d => { if(d.status === 'saved') alert('Hardware config saved successfully!'); });
         }
         
+        
+        let dlTimer = null;
+        
+        let crackedMarkers = [];
+        function uploadPotfile() {
+            let file = document.getElementById('potfile_input').files[0];
+            if(!file) return alert('Select a hashcat.potfile first');
+            
+            document.getElementById('potfile_status').innerText = "Uploading...";
+            fetch('/cgi-bin/wardriving_api?action=upload_potfile', { method: 'POST', body: file })
+            .then(() => {
+                document.getElementById('potfile_status').innerText = "✅ Uploaded! Reloading map pins...";
+                loadCrackedNetworks();
+            });
+        }
+        
+        function loadCrackedNetworks() {
+            if(!map) return;
+            fetch('/cgi-bin/wardriving_api?action=cracked_networks')
+            .then(r=>r.json()).then(data => {
+                crackedMarkers.forEach(m => map.removeLayer(m));
+                crackedMarkers = [];
+                if(data && data.length > 0) {
+                    let crackedIcon = L.divIcon({className: 'cracked-icon', html: '🔓', iconSize: [20,20]});
+                    data.forEach(net => {
+                        let m = L.marker([net.lat, net.lon], {icon: crackedIcon}).addTo(map)
+                            .bindPopup("<b style='color:#0f0;'>🔓 CRACKED!</b><br>" + net.ssid);
+                        crackedMarkers.push(m);
+                    });
+                }
+            });
+        }
+
+        function downloadBBox() {
+            if(!map) return alert("Map not initialized. Visit Dashboard first.");
+            let bounds = map.getBounds();
+            let zMin = document.getElementById('dl_zoom_min').value || 12;
+            let zMax = document.getElementById('dl_zoom_max').value || 16;
+            
+            let n = bounds.getNorth(); let s = bounds.getSouth();
+            let e = bounds.getEast(); let w = bounds.getWest();
+            
+            document.getElementById('bbox_status').innerText = "Starting Download Job in background...";
+            fetch(`/cgi-bin/wardriving_api?action=download_bbox&n=${n}&s=${s}&e=${e}&w=${w}&z1=${zMin}&z2=${zMax}`)
+            .then(r=>r.json()).then(d => {
+                if(d.status === "started") {
+                    document.getElementById('bbox_status').innerText = "Downloading tiles... (Please wait)";
+                    if(dlTimer) clearInterval(dlTimer);
+                    dlTimer = setInterval(() => {
+                        fetch('/cgi-bin/wardriving_api?action=download_status')
+                        .then(rr=>rr.json()).then(dd => {
+                            if(dd.status === "DONE") {
+                                document.getElementById('bbox_status').innerText = "✅ Download Complete! You can switch to Offline Map now.";
+                                clearInterval(dlTimer);
+                            }
+                        });
+                    }, 3000);
+                }
+            }).catch(e => { document.getElementById('bbox_status').innerText = "Error starting job"; });
+        }
+
+        
+        function togglePcap() {
+            let keep = document.getElementById('chk_keep_pcap').checked;
+            fetch('/cgi-bin/wardriving_api?action=set_pcap_retention&keep=' + keep);
+        }
+
         function uploadTiles() {
             let fileInput = document.getElementById("tiles_file");
             if (!fileInput.files.length) return alert("Select a .tar.gz file first.");
@@ -663,7 +1157,13 @@
         setInterval(updateMap, 4000); // Polling GPS
         updateStatus();
         loadFiles();
+        
         loadHW(); if(localStorage.getItem('browserGpsActive') === 'true') { document.getElementById('chk_browser_gps').checked = true; toggleBrowserGPS(); }
+        if(audioEnabled) { document.getElementById('chk_audio').checked = true; }
+
+        if(localStorage.getItem('wigleToken')) { document.getElementById('wigle_token').value = localStorage.getItem('wigleToken'); }
+
+
     </script>
 </body>
 </html>

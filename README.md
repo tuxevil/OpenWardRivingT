@@ -6,8 +6,8 @@ It features a spectacular **Tablet-Optimized Web Dashboard** (The "Batcave") mea
 
 ## ✨ Key Features
 - **100% Headless & Autonomous**: Start capturing by simply pressing a physical button (WPS/WiFi) on your router.
-- **Vehicular Dashboard**: A beautiful Single Page Application (SPA) designed with huge icons and high contrast for drivers.
-- **Live Spectrum Analyzer**: Visualize 2.4GHz channel congestion in real-time as you drive.
+- **Responsive Vehicular Dashboard**: A beautiful 4-column Single Page Application (SPA) designed with huge icons and high contrast. Automatically adapts to ultra-wide car radios (1280x720) down to mobile screens.
+- **Live Spectrum Analyzer**: Visualize 2.4GHz channel congestion with an interactive, scrollable tree-view (accordion) showing live channel network counts and detailed captured SSIDs in real-time.
 - **Offline/Online Maps**: See your route and pinpoint geolocated routers using Leaflet.js. Upload your own tile maps directly from the UI for 100% offline usage.
 - **Visual Hardware Feedback**: Bind your router's LEDs to visually blink when actively sniffing handshakes.
 - **Native GPS Integration**: Geotag your captures seamlessly! You can feed GPS data using a dedicated NMEA forwarder app, OR simply use the built-in **Browser GPS Override** toggle right in the dashboard (using HTML5 Geolocation) without needing any third-party apps.

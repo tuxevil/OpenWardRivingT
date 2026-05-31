@@ -20,11 +20,11 @@ It features a spectacular **Tablet-Optimized Web Dashboard** (The "Batcave") mea
 4. **GPS-Enabled Device (Optional but recommended)**: A smartphone, tablet, or Android head unit with GPS capabilities to provide location data to the dashboard.
 
 ## 📦 Software Dependencies
-Ensure the following packages are installed on your OpenWrt router:
-- `hcxdumptool` (v6.3+)
-- `hcxtools` (includes `hcxpcapngtool`)
-- `socat`
-- `uhttpd` (standard OpenWrt web server)
+The automated installer will automatically detect your package manager (`apk` for OpenWrt 24.x+ or `opkg` for older versions) and install the required tools:
+- `hcxdumptool` (v6.3+) & `hcxtools` (for capturing and parsing)
+- `socat` (for NMEA GPS tunneling)
+- `block-mount`, `e2fsprogs`, and `kmod-usb-storage` (for USB ext4 auto-mounting)
+- `uhttpd` (built-in OpenWrt web server)
 
 ## 🚀 Easy Installation
 1. SSH into your OpenWrt router.

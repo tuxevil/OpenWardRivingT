@@ -3,11 +3,19 @@
 
 echo "[*] Installing OpenWardRivingT..."
 
-echo "[*] Updating package lists..."
-opkg update
-
 echo "[*] Installing required dependencies..."
-opkg install hcxdumptool hcxtools socat block-mount kmod-fs-ext4 kmod-usb-storage e2fsprogs
+if command -v apk >/dev/null 2>&1; then
+    echo "[*] Detected 'apk' package manager (OpenWrt 24.x+)"
+    apk update
+    apk add hcxdumptool hcxtools socat block-mount kmod-fs-ext4 kmod-usb-storage e2fsprogs
+elif command -v opkg >/dev/null 2>&1; then
+    echo "[*] Detected 'opkg' package manager (OpenWrt 23.x or older)"
+    opkg update
+    opkg install hcxdumptool hcxtools socat block-mount kmod-fs-ext4 kmod-usb-storage e2fsprogs
+else
+    echo "[-] ERROR: Neither apk nor opkg package manager found!"
+    exit 1
+fi
 
 echo "[*] Configuring USB Auto-Mount (fstab)..."
 /etc/init.d/fstab enable

@@ -374,6 +374,7 @@
                         document.getElementById('st_gps').innerText = "BROWSER (ACTIVE)";
                         let lat = position.coords.latitude; 
                         let lng = position.coords.longitude; 
+                        window.carLat = lat; window.carLng = lng; 
                         document.getElementById('st_latlon').innerText = lat.toFixed(5) + ", " + lng.toFixed(5);
                         carMarker.setLatLng([lat, lng]); 
                         if(firstLoc) { 
@@ -496,6 +497,15 @@
                                 count = chData[i].length;
                                 chData[i].forEach(ssid => {
                                     blocks += `<div class="tree-ssid" title="${ssid}">${ssid}</div>`;
+                                    
+                                    if (window.carLat !== undefined && window.carLng !== undefined) {
+                                        if (!window.discoveredMarkers) window.discoveredMarkers = {};
+                                        if (!window.discoveredMarkers[ssid]) {
+                                            window.discoveredMarkers[ssid] = L.circleMarker([window.carLat, window.carLng], {
+                                                radius: 4, fillColor: "#0000ff", color: "#000", weight: 1, opacity: 1, fillOpacity: 0.5
+                                            }).addTo(map).bindPopup("<b>Discovered:</b><br>" + ssid);
+                                        }
+                                    }
                                 });
                             }
                             if(countSpan) countSpan.innerText = count;
@@ -525,7 +535,7 @@
                                 if(p[4]==='S') lat = -lat;
                                 let lng = Math.floor(rlng/100) + ((rlng/100) % 1)*100/60;
                                 if(p[6]==='W') lng = -lng;
-                                curLat = lat; curLng = lng;
+                                curLat = lat; curLng = lng; window.carLat = lat; window.carLng = lng;
                                 document.getElementById('st_latlon').innerText = lat.toFixed(5) + ", " + lng.toFixed(5);
                             }
                         }
@@ -542,7 +552,7 @@
                             if(!wpsMarkers[mac] && !isNaN(lat) && !isNaN(lng)) {
                                 wpsMarkers[mac] = L.circleMarker([lat, lng], {
                                     radius: 5, fillColor: "#00ff00", color: "#00aa00", weight: 1, opacity: 1, fillOpacity: 0.7
-                                }).addTo(map).bindPopup("AP: " + mac);
+                                }).addTo(map).bindPopup("<b>Handshake Captured:</b><br>MAC: " + mac);
                             }
                         }
                     });

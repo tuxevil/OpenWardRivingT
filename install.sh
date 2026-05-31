@@ -7,11 +7,11 @@ echo "[*] Installing required dependencies..."
 if command -v apk >/dev/null 2>&1; then
     echo "[*] Detected 'apk' package manager (OpenWrt 24.x+)"
     apk update
-    apk add hcxdumptool hcxtools socat block-mount kmod-fs-ext4 kmod-usb-storage e2fsprogs rsync openssh-client
+    apk add sqlite3-cli hcxdumptool hcxtools socat block-mount kmod-fs-ext4 kmod-usb-storage e2fsprogs rsync openssh-client
 elif command -v opkg >/dev/null 2>&1; then
     echo "[*] Detected 'opkg' package manager (OpenWrt 23.x or older)"
     opkg update
-    opkg install hcxdumptool hcxtools socat block-mount kmod-fs-ext4 kmod-usb-storage e2fsprogs rsync openssh-client
+    opkg install sqlite3-cli hcxdumptool hcxtools socat block-mount kmod-fs-ext4 kmod-usb-storage e2fsprogs rsync openssh-client
 else
     echo "[-] ERROR: Neither apk nor opkg package manager found!"
     exit 1
@@ -52,15 +52,21 @@ uci commit system
 # Configure 5GHz WiFi (Stealth / AP for UI)
 if uci get wireless.radio1 >/dev/null 2>&1; then
     echo "[*] Configuring 5GHz Radio for Control Panel access..."
-    uci set wireless.default_radio1.ssid='owrt'
+    WIFI_PASS=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 12)
+    [ -z "$WIFI_PASS" ] && WIFI_PASS="wardriving" # fallback
+    
+    uci set wireless.default_radio1.ssid='OpenWardRivingT'
     uci set wireless.default_radio1.encryption='psk2'
-    uci set wireless.default_radio1.key='wardriving'
+    uci set wireless.default_radio1.key="$WIFI_PASS"
     uci set wireless.default_radio1.disabled='0'
     uci set wireless.radio1.disabled='0'
     uci commit wireless
+    echo "[!] IMPORTANT: The new WiFi Password for 'OpenWardRivingT' is: $WIFI_PASS"
+    echo "$WIFI_PASS" > /root/wardriving_wifi_pass.txt
 fi
 
 # Configurar cron para sincronizacion oportunista
+sed -i '/wardriving_sync.sh/d' /etc/crontabs/root 2>/dev/null
 echo "*/5 * * * * /usr/bin/wardriving_sync.sh" >> /etc/crontabs/root
 /etc/init.d/cron enable
 
@@ -70,5 +76,5 @@ wifi up radio1 2>/dev/null
 /etc/init.d/wardriving enable
 
 echo "[*] Installation Complete!"
-echo "[*] Connect your tablet/phone to the 5GHz network 'owrt' (password: wardriving)"
+echo "[*] Connect your tablet/phone to the 5GHz network (Check /root/wardriving_wifi_pass.txt for password)"
 echo "[*] Go to http://192.168.1.1/wardriving/index.html (or your router's IP)"

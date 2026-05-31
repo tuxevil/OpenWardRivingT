@@ -21,19 +21,52 @@ echo "[*] Configuring USB Auto-Mount (fstab)..."
 /etc/init.d/fstab enable
 mkdir -p /mnt/wardriving
 
-# Configure fstab to mount the first USB drive (usually /dev/sda1) to /mnt/wardriving
+# Auto-detect first USB block device
+USB_DEV=""
+for dev in $(block info 2>/dev/null | grep -o '/dev/sd[a-z][0-9]*' | sort -u); do
+    if [ -b "$dev" ]; then
+        USB_DEV="$dev"
+        break
+    fi
+done
+
+# Fallback to /dev/sda1 if detection fails (most common)
+[ -z "$USB_DEV" ] && USB_DEV="/dev/sda1"
+echo "[*] Using USB device: $USB_DEV"
+
+# Configure fstab to mount the USB drive to /mnt/wardriving
 uci -q delete fstab.wardriving
 uci set fstab.wardriving='mount'
 uci set fstab.wardriving.target='/mnt/wardriving'
-uci set fstab.wardriving.device='/dev/sda1'
+uci set fstab.wardriving.device="$USB_DEV"
 uci set fstab.wardriving.fstype='ext4'
 uci set fstab.wardriving.options='rw,async'
 uci set fstab.wardriving.enabled='1'
 uci set fstab.wardriving.enabled_fsck='1'
 uci commit fstab
 
-echo "[*] Copying files from repository to system..."
-cp -r openwrt_files/* /
+echo "[*] Backing up existing files and deploying..."
+BACKUP_DIR="/root/openwardrivingt_backup_$(date +%Y%m%d_%H%M%S)"
+mkdir -p "$BACKUP_DIR"
+
+# Backup and deploy: copy per-directory with safety checks
+for dir in usr www etc; do
+    if [ -d "openwrt_files/$dir" ]; then
+        find "openwrt_files/$dir" -type f 2>/dev/null | while read -r src; do
+            dst="/${src#openwrt_files/}"
+            # Backup existing file if present
+            [ -f "$dst" ] && cp -f "$dst" "$BACKUP_DIR/" 2>/dev/null
+            # Create parent dirs and copy
+            mkdir -p "$(dirname "$dst")"
+            cp -f "$src" "$dst"
+        done
+    fi
+done
+# Also copy any root-level files from openwrt_files (if present in future)
+find openwrt_files -maxdepth 1 -type f 2>/dev/null | while read -r src; do
+    dst="/${src#openwrt_files/}"
+    [ -f "$src" ] && cp -f "$src" "$dst"
+done
 chmod +x /usr/bin/wardriving_core.sh
 chmod +x /usr/bin/wardriving_sync.sh
 chmod +x /etc/init.d/wardriving

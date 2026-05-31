@@ -1,5 +1,14 @@
 #!/bin/sh
 
+# ===== SIGNAL TRAP FOR CLEAN SHUTDOWN =====
+cleanup() {
+    echo "[!] Caught signal - cleaning up..."
+    kill -15 $(jobs -p) 2>/dev/null
+    rm -f /var/run/wardriving_core.pid
+    exit 0
+}
+trap cleanup SIGTERM SIGINT SIGHUP
+
 # Start virtual GPS server if it doesn't exist
 killall socat 2>/dev/null
 socat pty,link=/tmp/vGPS,raw,echo=0 tcp-listen:2947,reuseaddr,fork &
@@ -90,7 +99,7 @@ while true; do
             blink_led
             # Fusionar hashes para sincronización
             cat "$HC2200FILE" >> /mnt/wardriving/master.hc2200
-            awk '!a[$0]++' /mnt/wardriving/master.hc2200 > /tmp/tmp.hc2200 && mv /tmp/tmp.hc2200 /mnt/wardriving/master.hc2200
+            sort -u /mnt/wardriving/master.hc2200 -o /mnt/wardriving/master.hc2200
         fi
         
         # Limpiar el hc2200 individual (si estaba vacio se borra, si tenia hashes ya estan en el master)
@@ -109,8 +118,11 @@ while true; do
         fi
     fi
 
-    # Evitar que el log en RAM crezca infinitamente
-    tail -n 2000 /tmp/wardriving_status.log > /tmp/wardriving_status.tmp 2>/dev/null && mv /tmp/wardriving_status.tmp /tmp/wardriving_status.log
+    # Truncate log only when it grows excessively (avoid unnecessary I/O)
+    LOG_SIZE=$(wc -l < /tmp/wardriving_status.log 2>/dev/null || echo 0)
+    if [ "$LOG_SIZE" -gt 3000 ]; then
+        tail -n 2000 /tmp/wardriving_status.log > /tmp/wardriving_status.tmp 2>/dev/null && mv /tmp/wardriving_status.tmp /tmp/wardriving_status.log
+    fi
 
     sync
     sleep 2

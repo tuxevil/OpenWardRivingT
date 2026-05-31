@@ -30,7 +30,8 @@ stop() {
         kill -9 $(cat /var/run/wardriving_core.pid) 2>/dev/null
         rm /var/run/wardriving_core.pid
     fi
-    pkill -f wardriving_core.sh 2>/dev/null
+    kill $(pgrep -f wardriving_core.sh) 2>/dev/null
+    kill -9 $(pgrep -f wardriving_core.sh) 2>/dev/null
     
     killall hcxdumptool 2>/dev/null
     killall socat 2>/dev/null

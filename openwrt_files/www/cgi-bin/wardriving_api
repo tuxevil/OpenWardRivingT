@@ -15,6 +15,38 @@ case "$ACTION" in
         ;;
 esac
 
+# ===== SHARED NMEA PARSER =====
+# Usage: parse_nmea_rmc "$GPRMC_LINE"
+# Outputs: lat lon speed_kmh date time
+parse_nmea_rmc() {
+    echo "$1" | awk -F',' '
+    $1 ~ /^\$[A-Z]{2}RMC/ && $3 == "A" {
+        # Parse lat: DDMM.MMMM
+        lat_raw = $4; lat_dir = $5
+        lat_deg = substr(lat_raw, 1, 2)
+        lat_min = substr(lat_raw, 3)
+        lat = lat_deg + (lat_min / 60)
+        if (lat_dir == "S") lat = -lat
+        
+        # Parse lon: DDDMM.MMMM
+        lon_raw = $6; lon_dir = $7
+        lon_deg = substr(lon_raw, 1, 3)
+        lon_min = substr(lon_raw, 4)
+        lon = lon_deg + (lon_min / 60)
+        if (lon_dir == "W") lon = -lon
+        
+        speed_kts = $8 + 0
+        speed_kmh = speed_kts * 1.852
+        
+        date_raw = $10
+        time_raw = $2
+        
+        printf "%.6f %.6f %.1f %s %s", lat, lon, speed_kmh, date_raw, time_raw
+    }'
+}
+
+# ===== END PARSER =====
+
 if [ "$ACTION" = "download_all" ]; then
     echo "Content-Type: application/gzip"
     echo "Content-Disposition: attachment; filename=\"openwardrivingt_captures_$(date +%Y%m%d_%H%M).tar.gz\""
@@ -34,16 +66,16 @@ if [ "$ACTION" = "export_gpx" ]; then
         print "<gpx version=\"1.0\">"
         print "  <trk><name>OpenWardRivingT Route</name><trkseg>"
     }
+    # NMEA RMC parser — same formula as parse_nmea_rmc()
     /^\$[A-Z]{2}RMC/ {
-        split($0, a, ",")
-        if(a[3] == "A") {
-            lat_deg = substr(a[4], 1, 2); lat_min = substr(a[4], 3); lat = lat_deg + (lat_min / 60)
-            if(a[5] == "S") lat = -lat
-            lon_deg = substr(a[6], 1, 3); lon_min = substr(a[6], 4); lon = lon_deg + (lon_min / 60)
-            if(a[7] == "W") lon = -lon
-            t = a[2]; d = a[10]
-            time_str = "20" substr(d,5,2) "-" substr(d,3,2) "-" substr(d,1,2) "T" substr(t,1,2) ":" substr(t,3,2) ":" substr(t,5,2) "Z"
-            printf "    <trkpt lat=\"%.6f\" lon=\"%.6f\">\n      <time>%s</time>\n    </trkpt>\n", lat, lon, time_str
+        if($3 == "A") {
+            lat_dec = substr($4,1,2) + (substr($4,3) / 60)
+            if($5 == "S") lat_dec = -lat_dec
+            lon_dec = substr($6,1,3) + (substr($6,4) / 60)
+            if($7 == "W") lon_dec = -lon_dec
+            t_raw = $2; d_raw = $10
+            ts = "20" substr(d_raw,5,2) "-" substr(d_raw,3,2) "-" substr(d_raw,1,2) "T" substr(t_raw,1,2) ":" substr(t_raw,3,2) ":" substr(t_raw,5,2) "Z"
+            printf "    <trkpt lat=\"%.6f\" lon=\"%.6f\">\n      <time>%s</time>\n    </trkpt>\n", lat_dec, lon_dec, ts
         }
     }
     END {
@@ -65,14 +97,14 @@ if [ "$ACTION" = "export_kml" ]; then
         print "    <Placemark><name>Route</name><LineString>"
         print "      <tessellate>1</tessellate><coordinates>"
     }
+    # NMEA RMC parser — same formula as parse_nmea_rmc()
     /^\$[A-Z]{2}RMC/ {
-        split($0, a, ",")
-        if(a[3] == "A") {
-            lat_deg = substr(a[4], 1, 2); lat_min = substr(a[4], 3); lat = lat_deg + (lat_min / 60)
-            if(a[5] == "S") lat = -lat
-            lon_deg = substr(a[6], 1, 3); lon_min = substr(a[6], 4); lon = lon_deg + (lon_min / 60)
-            if(a[7] == "W") lon = -lon
-            printf "        %.6f,%.6f,0\n", lon, lat
+        if($3 == "A") {
+            lat_dec = substr($4,1,2) + (substr($4,3) / 60)
+            if($5 == "S") lat_dec = -lat_dec
+            lon_dec = substr($6,1,3) + (substr($6,4) / 60)
+            if($7 == "W") lon_dec = -lon_dec
+            printf "        %.6f,%.6f,0\n", lon_dec, lat_dec
         }
     }
     END {

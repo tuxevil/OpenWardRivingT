@@ -7,11 +7,11 @@ echo "[*] Installing required dependencies..."
 if command -v apk >/dev/null 2>&1; then
     echo "[*] Detected 'apk' package manager (OpenWrt 24.x+)"
     apk update
-    apk add hcxdumptool hcxtools socat block-mount kmod-fs-ext4 kmod-usb-storage e2fsprogs
+    apk add hcxdumptool hcxtools socat block-mount kmod-fs-ext4 kmod-usb-storage e2fsprogs rsync openssh-client
 elif command -v opkg >/dev/null 2>&1; then
     echo "[*] Detected 'opkg' package manager (OpenWrt 23.x or older)"
     opkg update
-    opkg install hcxdumptool hcxtools socat block-mount kmod-fs-ext4 kmod-usb-storage e2fsprogs
+    opkg install hcxdumptool hcxtools socat block-mount kmod-fs-ext4 kmod-usb-storage e2fsprogs rsync openssh-client
 else
     echo "[-] ERROR: Neither apk nor opkg package manager found!"
     exit 1
@@ -35,6 +35,7 @@ uci commit fstab
 echo "[*] Copying files from repository to system..."
 cp -r openwrt_files/* /
 chmod +x /usr/bin/wardriving_core.sh
+chmod +x /usr/bin/wardriving_sync.sh
 chmod +x /etc/init.d/wardriving
 chmod +x /www/cgi-bin/wardriving_api
 
@@ -58,6 +59,10 @@ if uci get wireless.radio1 >/dev/null 2>&1; then
     uci set wireless.radio1.disabled='0'
     uci commit wireless
 fi
+
+# Configurar cron para sincronizacion oportunista
+echo "*/5 * * * * /usr/bin/wardriving_sync.sh" >> /etc/crontabs/root
+/etc/init.d/cron enable
 
 # Reload services
 /etc/init.d/system reload

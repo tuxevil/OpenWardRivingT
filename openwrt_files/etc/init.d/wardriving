@@ -16,10 +16,11 @@ start() {
     echo $! > /var/run/wardriving_core.pid
     
     # LED Blinking
-    if [ -d /sys/class/leds/green:wps ]; then
-        echo "timer" > /sys/class/leds/green:wps/trigger
-        echo 100 > /sys/class/leds/green:wps/delay_on
-        echo 100 > /sys/class/leds/green:wps/delay_off
+    WPS_LED=$(ls /sys/class/leds/ | grep -i wps | head -n 1)
+    if [ -n "$WPS_LED" ] && [ -d "/sys/class/leds/$WPS_LED" ]; then
+        echo "timer" > /sys/class/leds/$WPS_LED/trigger
+        echo 100 > /sys/class/leds/$WPS_LED/delay_on
+        echo 100 > /sys/class/leds/$WPS_LED/delay_off
     fi
 }
 
@@ -43,8 +44,9 @@ stop() {
     wifi up radio0
     
     # LED Off
-    if [ -d /sys/class/leds/green:wps ]; then
-        echo "none" > /sys/class/leds/green:wps/trigger
-        echo 0 > /sys/class/leds/green:wps/brightness
+    WPS_LED=$(ls /sys/class/leds/ | grep -i wps | head -n 1)
+    if [ -n "$WPS_LED" ] && [ -d "/sys/class/leds/$WPS_LED" ]; then
+        echo "none" > /sys/class/leds/$WPS_LED/trigger
+        echo 0 > /sys/class/leds/$WPS_LED/brightness
     fi
 }

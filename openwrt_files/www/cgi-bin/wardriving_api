@@ -15,25 +15,27 @@ echo ""
 
 if [ "$ACTION" = "status" ]; then
     IS_RUNNING=$(pgrep -f "wardriving_core.sh" >/dev/null && echo "true" || echo "false")
-    FILES=$(ls -1 /mnt/wardriving/*.pcapng 2>/dev/null | wc -l)
+    HANDSHAKES=$(wc -l < /mnt/wardriving/master.hc2200 2>/dev/null || echo 0)
+    SPACE_USED=$(df -h /mnt/wardriving | awk 'NR==2 {print $3}')
     SPACE_FREE=$(df -h /mnt/wardriving | awk 'NR==2 {print $4}')
     GPS_STAT=$(netstat -an | grep 2947 | grep ESTABLISHED >/dev/null && echo "CONNECTED" || echo "WAITING")
     
-    CLEAN_LOG=$(awk '/^[ \t]*[0-9]+ [0-9]{2}:[0-9]{2}:[0-9]{2}/ {chan=$1; time=$2; essid=$NF; if(length(essid)>2 && essid!~/:/ && essid !~ /^[0-9a-fA-F]{12}$/ && !seen[essid]++) print "[" time "] [CH " chan "] " essid}' /tmp/wardriving_status.log 2>/dev/null | tail -n 50)
+    CLEAN_LOG=$(tail -n 1000 /tmp/wardriving_status.log 2>/dev/null | awk '/^[ \t]*[0-9]+ [0-9]{2}:[0-9]{2}:[0-9]{2}/ {chan=$1; time=$2; essid=$NF; if(length(essid)>2 && essid!~/:/ && essid !~ /^[0-9a-fA-F]{12}$/ && !seen[essid]++) print "[" time "] [CH " chan "] " essid}' | tail -n 50)
     if [ -z "$CLEAN_LOG" ]; then
         LAST_LOG="Waiting for data or initializing monitor mode..."
     else
         LAST_LOG=$(echo "$CLEAN_LOG" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/$/\\n/g' | tr -d '\n')
     fi
     
-    CHANNELS_JSON=$(awk '/^[ \t]*[0-9]+ [0-9]{2}:[0-9]{2}:[0-9]{2}/ {chan=$1; essid=$NF; if(length(essid)>2 && essid!~/:/ && essid !~ /^[0-9a-fA-F]{12}$/) print chan, essid}' /tmp/wardriving_status.log 2>/dev/null | sort -u | awk 'BEGIN{print "["} {if (NR>1) print ","; printf "{\"c\":%s, \"s\":\"%s\"}", $1, $2} END{print "]"}' | tr -d '\n')
+    CHANNELS_JSON=$(tail -n 1000 /tmp/wardriving_status.log 2>/dev/null | awk '/^[ \t]*[0-9]+ [0-9]{2}:[0-9]{2}:[0-9]{2}/ {chan=$1; essid=$NF; if(length(essid)>2 && essid!~/:/ && essid !~ /^[0-9a-fA-F]{12}$/) print chan, essid}' | sort -u | awk 'BEGIN{print "["} {if (NR>1) print ","; printf "{\"c\":%s, \"s\":\"%s\"}", $1, $2} END{print "]"}' | tr -d '\n')
     [ -z "$CHANNELS_JSON" ] && CHANNELS_JSON="[]"
     if [ "$CHANNELS_JSON" = "[]]" ]; then CHANNELS_JSON="[]"; fi
     
     cat << JSON
 {
     "running": $IS_RUNNING,
-    "files": "$FILES",
+    "handshakes": "$HANDSHAKES",
+    "space_used": "$SPACE_USED",
     "space_free": "$SPACE_FREE",
     "gps_status": "$GPS_STAT",
     "logs": "$LAST_LOG",
@@ -82,8 +84,35 @@ elif [ "$ACTION" = "stop" ]; then
     echo '{"status": "stopped"}'
 
 elif [ "$ACTION" = "list_files" ]; then
-    awk 'BEGIN {print "["} {if (NR>1) print ","; gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); printf "\"%s\"", $0} END {print "\n]"}' /etc/wardriving_excluded.txt
+    echo "["
+    FIRST=1
     
+    if [ -f /mnt/wardriving/master.hc2200 ]; then
+        NAME="master.hc2200"
+        SIZE=$(du -h "/mnt/wardriving/master.hc2200" | awk '{print $1}')
+        DATE=$(date -r "/mnt/wardriving/master.hc2200" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "Unknown")
+        TOTAL_NETS=$(wc -l < /mnt/wardriving/master_essid.txt 2>/dev/null || echo 0)
+        NETS=$(head -n 5 /mnt/wardriving/master_essid.txt 2>/dev/null | tr '\n' ',' | sed 's/,$//' | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
+        if [ "$TOTAL_NETS" -gt 5 ]; then NETS="$NETS... (+$(($TOTAL_NETS - 5)))"; fi
+        [ -z "$NETS" ] && NETS="No networks / Empty"
+        echo "{\"name\": \"$NAME\", \"size\": \"$SIZE\", \"date\": \"$DATE\", \"nets\": \"$NETS\", \"total_nets\": $TOTAL_NETS}"
+        FIRST=0
+    fi
+
+    for f in $(ls -1r /mnt/wardriving/*.pcapng 2>/dev/null); do
+        NAME=$(basename "$f")
+        SIZE=$(du -h "$f" | awk '{print $1}')
+        DATE=$(date -r "$f" "+%Y-%m-%d %H:%M:%S")
+        TXT="${f%.pcapng}.txt"
+        TOTAL_NETS=$(wc -l < "$TXT" 2>/dev/null || echo 0)
+        NETS=$(head -n 5 "$TXT" 2>/dev/null | tr '\n' ',' | sed 's/,$//' | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
+        if [ "$TOTAL_NETS" -gt 5 ]; then NETS="$NETS... (+$(($TOTAL_NETS - 5)))"; fi
+        [ -z "$NETS" ] && NETS="No networks / Empty"
+        [ $FIRST -eq 0 ] && echo ","
+        echo "{\"name\": \"$NAME\", \"size\": \"$SIZE\", \"date\": \"$DATE\", \"nets\": \"$NETS\", \"total_nets\": $TOTAL_NETS}"
+        FIRST=0
+    done
+    echo "]"
 elif [ "$ACTION" = "delete_file" ]; then
     FILE=$(echo "$QUERY_STRING" | grep -o "file=[^&]*" | cut -d= -f2)
     if [ -n "$FILE" ]; then

@@ -1168,7 +1168,7 @@
                             curLat = rmc.lat; curLng = rmc.lon;
                             window.carLat = rmc.lat; window.carLng = rmc.lon;
                             document.getElementById('st_latlon').innerText = rmc.lat.toFixed(5) + ", " + rmc.lon.toFixed(5);
-                            continue;
+                            return;
                         }
                         let wpl = parseNMEAWPL(l);
                         if (wpl) {

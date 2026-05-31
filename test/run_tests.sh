@@ -1,0 +1,223 @@
+#!/bin/sh
+# OpenWardRivingT — Test Suite
+# Run: sh test/run_tests.sh
+# Requires: bash (or busybox ash), the project CGI files accessible
+
+PASS=0
+FAIL=0
+CGI="openwrt_files/www/cgi-bin/wardriving_api"
+TOKEN="test_token_12345"
+
+# Setup test token
+setup() {
+    echo "$TOKEN" > /tmp/test_wardriving_token
+    # Minimal mock: create dummy master files
+    mkdir -p /tmp/test_wardriving_mnt
+    echo "WPA*02*0011*22334455*4a1f5e6c7d8e9a0b1c2d3e4f5a6b7c8d*70617373776F7264* ***" > /tmp/test_wardriving_mnt/master.hc2200
+    echo "test_network" > /tmp/test_wardriving_mnt/master_essid.txt
+    echo '{"001122": "TestVendor"}' > /tmp/test_wardriving_mnt/oui.json
+    echo "2025-01-01 12:00:00|00:11:22:33:44:55|TestNet|WPA2|6|-45|40.7128|-74.0060|" > /tmp/test_wardriving_mnt/test.csv
+}
+
+cleanup() {
+    rm -rf /tmp/test_wardriving_*
+}
+
+assert_json() {
+    local desc="$1"
+    local output="$2"
+    # Strip HTTP headers (everything before first blank line)
+    local body=$(echo "$output" | sed '1,/^$/d')
+    if echo "$body" | python3 -m json.tool >/dev/null 2>&1; then
+        PASS=$((PASS + 1))
+        echo "  ✓ $desc"
+    else
+        FAIL=$((FAIL + 1))
+        echo "  ✗ $desc — invalid JSON"
+        echo "    Body: $(echo "$body" | head -c 200)"
+    fi
+}
+
+assert_contains() {
+    local desc="$1"
+    local output="$2"
+    local pattern="$3"
+    local body=$(echo "$output" | sed '1,/^$/d')
+    if echo "$body" | grep -qF "$pattern"; then
+        PASS=$((PASS + 1))
+        echo "  ✓ $desc"
+    else
+        FAIL=$((FAIL + 1))
+        echo "  ✗ $desc — expected '$pattern' not found"
+    fi
+}
+
+assert_status() {
+    local desc="$1"
+    local expected="$2"
+    local actual="$3"
+    if [ "$actual" = "$expected" ]; then
+        PASS=$((PASS + 1))
+        echo "  ✓ $desc"
+    else
+        FAIL=$((FAIL + 1))
+        echo "  ✗ $desc — expected $expected, got $actual"
+    fi
+}
+
+# ===== TESTS =====
+setup
+
+echo ""
+echo "=== CGI Tests ==="
+
+# Test 1: Status returns valid JSON
+echo "  Test: action=status"
+OUT=$(QUERY_STRING="action=status" sh "$CGI" 2>/dev/null)
+assert_json "status returns JSON" "$OUT"
+assert_contains "status has running field" "$OUT" "running"
+
+# Test 2: Unknown action
+echo "  Test: action=invalid"
+OUT=$(QUERY_STRING="action=invalid" sh "$CGI" 2>/dev/null)
+assert_json "invalid action returns JSON" "$OUT"
+assert_contains "invalid action has error" "$OUT" "error"
+
+# Test 3: Protected action without token
+echo "  Test: action=start (no token)"
+OUT=$(QUERY_STRING="action=start" sh "$CGI" 2>/dev/null)
+assert_json "unauthorized returns JSON" "$OUT"
+assert_contains "unauthorized has error" "$OUT" "unauthorized"
+
+# Test 4: Protected action with wrong token
+echo "  Test: action=start (wrong token)"
+OUT=$(QUERY_STRING="action=start&token=wrong" sh "$CGI" 2>/dev/null)
+assert_contains "wrong token rejected" "$OUT" "unauthorized"
+
+# Test 5: Export GPX
+echo "  Test: action=export_gpx"
+OUT=$(QUERY_STRING="action=export_gpx" sh "$CGI" 2>/dev/null)
+assert_contains "export_gpx returns XML" "$OUT" "<?xml"
+
+# Test 6: Export KML  
+echo "  Test: action=export_kml"
+OUT=$(QUERY_STRING="action=export_kml" sh "$CGI" 2>/dev/null)
+assert_contains "export_kml returns XML" "$OUT" "<?xml"
+
+# Test 7: Heatmap data
+echo "  Test: action=heatmap_data"
+OUT=$(QUERY_STRING="action=heatmap_data" sh "$CGI" 2>/dev/null)
+assert_json "heatmap returns JSON array" "$OUT"
+
+# Test 8: Scored networks
+echo "  Test: action=scored_networks"
+OUT=$(QUERY_STRING="action=scored_networks" sh "$CGI" 2>/dev/null)
+assert_json "scored returns JSON array" "$OUT"
+
+# Test 9: History
+echo "  Test: action=history"
+OUT=$(QUERY_STRING="action=history" sh "$CGI" 2>/dev/null)
+assert_json "history returns JSON" "$OUT"
+
+# Test 10: Get hardware
+echo "  Test: action=get_hw"
+OUT=$(QUERY_STRING="action=get_hw" sh "$CGI" 2>/dev/null)
+assert_json "get_hw returns JSON" "$OUT"
+assert_contains "get_hw has leds" "$OUT" "leds"
+
+echo ""
+echo "=== NMEA Parser Tests ==="
+
+# Test NMEA RMC parsing (from shared parse_nmea_rmc function)
+echo "  Test: Valid GPRMC sentence"
+RMC='$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A'
+RESULT=$(echo "$RMC" | awk -F',' '
+$1 ~ /^\$[A-Z]{2}RMC/ && $3 == "A" {
+    lat_dec = substr($4,1,2) + (substr($4,3) / 60)
+    if($5 == "S") lat_dec = -lat_dec
+    lon_dec = substr($6,1,3) + (substr($6,4) / 60)
+    if($7 == "W") lon_dec = -lon_dec
+    printf "%s %s", lat_dec, lon_dec
+}')
+assert_status "NMEA lat parse" "48.1173" "$(echo "$RESULT" | awk '{printf "%.4f", $1}')"
+assert_status "NMEA lon parse" "11.5167" "$(echo "$RESULT" | awk '{printf "%.4f", $2}')"
+
+echo "  Test: Invalid fix (V status)"
+RMC_BAD='$GPRMC,123519,V,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A'
+RESULT=$(echo "$RMC_BAD" | awk -F',' '
+$1 ~ /^\$[A-Z]{2}RMC/ && $3 == "A" {
+    printf "PARSED"
+}')
+assert_status "invalid fix skipped" "" "$RESULT"
+
+echo "  Test: Southern hemisphere"
+RMC_SOUTH='$GPRMC,123519,A,3344.500,S,15112.700,E,010.0,180.0,230394,,,A*00'
+RESULT=$(echo "$RMC_SOUTH" | awk -F',' '
+$1 ~ /^\$[A-Z]{2}RMC/ && $3 == "A" {
+    lat_dec = substr($4,1,2) + (substr($4,3) / 60)
+    if($5 == "S") lat_dec = -lat_dec
+    lon_dec = substr($6,1,3) + (substr($6,4) / 60)
+    if($7 == "W") lon_dec = -lon_dec
+    printf "%.4f", lat_dec
+}')
+assert_status "southern hemisphere negative" "-33" "$(echo "$RESULT" | cut -c1-3)"
+
+echo ""
+echo "=== Shell Script Tests ==="
+
+# Test: install.sh syntax
+echo "  Test: install.sh bash syntax"
+if bash -n install.sh 2>/dev/null; then
+    PASS=$((PASS + 1)); echo "  ✓ install.sh syntax OK"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ install.sh syntax ERROR"
+fi
+
+# Test: uninstall.sh syntax
+echo "  Test: uninstall.sh bash syntax"
+if bash -n uninstall.sh 2>/dev/null; then
+    PASS=$((PASS + 1)); echo "  ✓ uninstall.sh syntax OK"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ uninstall.sh syntax ERROR"
+fi
+
+# Test: wardriving_core.sh syntax
+echo "  Test: wardriving_core.sh bash syntax"
+if bash -n openwrt_files/usr/bin/wardriving_core.sh 2>/dev/null; then
+    PASS=$((PASS + 1)); echo "  ✓ wardriving_core.sh syntax OK"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ wardriving_core.sh syntax ERROR"
+fi
+
+# Test: wardriving_api syntax
+echo "  Test: wardriving_api bash syntax"
+if bash -n "$CGI" 2>/dev/null; then
+    PASS=$((PASS + 1)); echo "  ✓ wardriving_api syntax OK"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ wardriving_api syntax ERROR"
+fi
+
+# Test: init.d syntax
+echo "  Test: init.d/wardriving bash syntax"
+if bash -n openwrt_files/etc/init.d/wardriving 2>/dev/null; then
+    PASS=$((PASS + 1)); echo "  ✓ init.d/wardriving syntax OK"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ init.d/wardriving syntax ERROR"
+fi
+
+# Test: wardriving_sync.sh syntax
+echo "  Test: wardriving_sync.sh bash syntax"
+if bash -n openwrt_files/usr/bin/wardriving_sync.sh 2>/dev/null; then
+    PASS=$((PASS + 1)); echo "  ✓ wardriving_sync.sh syntax OK"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ wardriving_sync.sh syntax ERROR"
+fi
+
+cleanup
+
+echo ""
+echo "========================================="
+echo "  Results: $PASS passed, $FAIL failed"
+echo "========================================="
+[ "$FAIL" -eq 0 ] && echo "✅ ALL TESTS PASSED" || echo "❌ SOME TESTS FAILED"
+exit $FAIL

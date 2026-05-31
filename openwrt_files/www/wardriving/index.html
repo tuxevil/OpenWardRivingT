@@ -426,6 +426,34 @@
         
         let heatLayer = null;
         
+        // ===== SHARED NMEA PARSER =====
+        // Same formula as parse_nmea_rmc() in wardriving_api CGI
+        function parseNMEARMC(line) {
+            if (!line || !line.match(/^\$[A-Z]{2}RMC/)) return null;
+            let p = line.split(',');
+            if (p[2] !== 'A') return null;
+            let latRaw = parseFloat(p[3]);
+            let lat = Math.floor(latRaw/100) + ((latRaw/100) % 1) * 100 / 60;
+            if (p[4] === 'S') lat = -lat;
+            let lonRaw = parseFloat(p[5]);
+            let lon = Math.floor(lonRaw/100) + ((lonRaw/100) % 1) * 100 / 60;
+            if (p[6] === 'W') lon = -lon;
+            let speedKts = parseFloat(p[7]) || 0;
+            return { lat, lon, speedKmh: speedKts * 1.852, time: p[1] };
+        }
+        function parseNMEAWPL(line) {
+            if (!line || !line.startsWith('$GPWPL')) return null;
+            let p = line.split(',');
+            let latRaw = parseFloat(p[1]);
+            let lat = Math.floor(latRaw/100) + ((latRaw/100) % 1) * 100 / 60;
+            if (p[2] === 'S') lat = -lat;
+            let lonRaw = parseFloat(p[3]);
+            let lon = Math.floor(lonRaw/100) + ((lonRaw/100) % 1) * 100 / 60;
+            if (p[4] === 'W') lon = -lon;
+            let mac = (p[5] || '').split('*')[0];
+            return { lat, lon, mac };
+        }
+
         let replayTimer = null;
         function startReplay() {
             if(replayTimer) { clearInterval(replayTimer); replayTimer=null; return; }
@@ -438,15 +466,8 @@
                 let lines = atob(data.nmea_b64).split('\n');
                 let coords = [];
                 lines.forEach(l => {
-                    if(l.match(/^\$[A-Z]{2}RMC/)) {
-                        let p = l.split(',');
-                        if(p[2] === 'A') {
-                            let rlat = parseFloat(p[3]); let rlng = parseFloat(p[5]);
-                            let lat = Math.floor(rlat/100) + ((rlat/100) % 1)*100/60; if(p[4]==='S') lat = -lat;
-                            let lng = Math.floor(rlng/100) + ((rlng/100) % 1)*100/60; if(p[6]==='W') lng = -lng;
-                            coords.push([lat, lng]);
-                        }
-                    }
+                    let rmc = parseNMEARMC(l);
+                    if (rmc) coords.push([rmc.lat, rmc.lon]);
                 });
                 
                 if(coords.length === 0) return alert("No GPS data found for replay.");
@@ -988,33 +1009,19 @@
                     let curLat = null, curLng = null;
                     
                     lines.forEach(l => {
-                        if(l.match(/^\$[A-Z]{2}RMC/)) {
-                            let p = l.split(',');
-                            if(p[2] === 'A') {
-                                let rlat = parseFloat(p[3]);
-                                let rlng = parseFloat(p[5]);
-                                let lat = Math.floor(rlat/100) + ((rlat/100) % 1)*100/60;
-                                if(p[4]==='S') lat = -lat;
-                                let lng = Math.floor(rlng/100) + ((rlng/100) % 1)*100/60;
-                                if(p[6]==='W') lng = -lng;
-                                curLat = lat; curLng = lng; window.carLat = lat; window.carLng = lng;
-                                document.getElementById('st_latlon').innerText = lat.toFixed(5) + ", " + lng.toFixed(5);
-                            }
+                        let rmc = parseNMEARMC(l);
+                        if (rmc) {
+                            curLat = rmc.lat; curLng = rmc.lon;
+                            window.carLat = rmc.lat; window.carLng = rmc.lon;
+                            document.getElementById('st_latlon').innerText = rmc.lat.toFixed(5) + ", " + rmc.lon.toFixed(5);
+                            continue;
                         }
-                        if(l.startsWith('$GPWPL')) {
-                            let p = l.split(',');
-                            let rlat = parseFloat(p[1]);
-                            let rlng = parseFloat(p[3]);
-                            let lat = Math.floor(rlat/100) + ((rlat/100) % 1)*100/60;
-                            if(p[2]==='S') lat = -lat;
-                            let lng = Math.floor(rlng/100) + ((rlng/100) % 1)*100/60;
-                            if(p[4]==='W') lng = -lng;
-                            
-                            let mac = p[5].split('*')[0];
-                            if(!wpsMarkers[mac] && !isNaN(lat) && !isNaN(lng)) {
-                                wpsMarkers[mac] = L.circleMarker([lat, lng], {
+                        let wpl = parseNMEAWPL(l);
+                        if (wpl) {
+                            if (!wpsMarkers[wpl.mac] && !isNaN(wpl.lat) && !isNaN(wpl.lon)) {
+                                wpsMarkers[wpl.mac] = L.circleMarker([wpl.lat, wpl.lon], {
                                     radius: 5, fillColor: "#00ff00", color: "#00aa00", weight: 1, opacity: 1, fillOpacity: 0.7
-                                }).addTo(map).bindPopup("<b>Handshake Captured:</b><br>MAC: " + mac);
+                                }).addTo(map).bindPopup("<b>Handshake Captured:</b><br>MAC: " + wpl.mac);
                             }
                         }
                     });

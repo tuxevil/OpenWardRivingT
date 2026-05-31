@@ -105,6 +105,13 @@
         <div class="dash-layout">
             <!-- Left Column (1/4) -->
             <div class="dash-left">
+                <!-- MASCOT PET PANEL -->
+                <div id="pet_panel" class="card" style="padding:10px; display:flex; flex-direction:column; align-items:center; border-color:#ff00ff; margin-bottom:10px;">
+                    <div id="pet_face" style="font-size:2.5em; font-weight:bold; color:#f0f; line-height:1.2; text-align:center; min-height:50px;">(◕‿‿◕)</div>
+                    <div id="pet_name" style="font-size:0.8em; color:#f0f; font-weight:bold; margin-top:2px;">Wardriv3r</div>
+                    <div id="pet_quote" style="font-size:0.7em; color:#aaa; text-align:center; margin-top:5px; font-style:italic; max-width:200px;">ZzzzZZzzzzZzzz</div>
+                    <div id="pet_bridge" style="font-size:0.65em; color:#0ff; text-align:center; margin-top:3px; display:none;">🐾 Pwnagotchi linked</div>
+                </div>
                 <div id="status_indicator" class="status-badge stopped">🔴 STOPPED</div>
                 <button id="btn_toggle" class="btn huge" onclick="toggleWardriving()">▶ START</button>
                 <div class="metrics-grid">
@@ -766,16 +773,116 @@
             }).catch(e=>{});
         }
         setInterval(fetchScores, 5000);
-
-        function fetchPwnagotchi() {
+        setInterval(fetchPwnagotchi, 10000);
+        fetchPwnagotchi();
+        
+        // ===== PET/MASCOT MOOD ENGINE =====
+        // Inspired by pwnagotchi automata.py and voice.py
+        const PET_FACES = {
+            sleep:   ['(⇀‿‿↼)', '(≖‿‿≖)', '(－_－) zZZ'],
+            awake:   ['(◕‿‿◕)', '(◉‿‿◉)', '(⊙‿‿⊙)'],
+            bored:   ['(-__-)', '(—__—)', '(￣ω￣)'],
+            happy:   ['(•‿‿•)', '(^‿‿^)', '(◕‿◕)'],
+            excited: ['(ᵔ◡◡ᵔ)', '(✜‿‿✜)', '(★‿★)'],
+            intense: ['(°▃▃°)', '(°ロ°)', '(⚆ᗝ⚆)'],
+            sad:     ['(╥﹏╥)', '(ಥ﹏ಥ)', '(｡•́︿•̀｡)'],
+            grateful:['(♥‿‿♥)', '(♡‿‿♡)', '(♥ω♥)'],
+            cool:    ['(⌐■_■)', '(단__단)', '(▀̿Ĺ̯▀̿ ̿)'],
+            lonely:  ['(ب__ب)', '(︶︹︺)', '(๑•́ ₃ •̀๑)']
+        };
+        
+        const PET_QUOTES = {
+            sleep:   ['ZzzzZZzzzzZzzz', 'Dreaming of packets...', 'Recharging...'],
+            awake:   ['Ready to hunt!', 'New day, new pwns!', 'Sniff. Deauth. Repeat.'],
+            bored:   ['I\'m bored ...', 'Let\'s go for a drive!', 'Any Wi-Fi around?'],
+            happy:   ['This is the best day!', 'All your packets are belong to us', 'I pwn therefore I am'],
+            excited: ['So many networks!!!', 'I\'m living the life!', 'Hack the Planet!'],
+            intense: ['Deauthing everything!', 'No more mister Wi-Fi!', 'Pretty fly 4 a Wi-Fi!'],
+            sad:     ['Shitty day :/', 'USB is crying ...', 'Need more space!'],
+            grateful:['Good friends are a blessing!', 'Synced and happy!', 'Home sweet home!'],
+            cool:    ['I\'ll be back.', 'Hasta la vista, Wi-Fi', 'May the Wi-Fi be with you'],
+            lonely:  ['Nobody wants to play ...', 'Where\'s everybody?!', 'I feel so alone ...']
+        };
+        
+        let petMood = 'sleep';
+        let petLastMoodChange = Date.now();
+        let petHandshakeBurst = 0;
+        let petLastHandshakes = 0;
+        let petPwnagotchiDetected = false;
+        
+        function updatePet() {
+            let face = document.getElementById('pet_face');
+            let quote = document.getElementById('pet_quote');
+            let bridge = document.getElementById('pet_bridge');
+            if (!face || !quote) return;
+            
+            // Pick random face and quote for current mood
+            let faces = PET_FACES[petMood] || PET_FACES.sleep;
+            let quotes = PET_QUOTES[petMood] || PET_QUOTES.sleep;
+            face.innerText = faces[Math.floor(Math.random() * faces.length)];
+            quote.innerText = quotes[Math.floor(Math.random() * quotes.length)];
+            
+            // Show bridge indicator if pwnagotchi is connected
+            if (bridge) {
+                bridge.style.display = petPwnagotchiDetected ? 'block' : 'none';
+                if (petPwnagotchiDetected) bridge.innerText = '🐾 Pwnagotchi linked';
+            }
+        }
+        
+        function setPetMood(mood) {
+            if (mood !== petMood) {
+                petMood = mood;
+                petLastMoodChange = Date.now();
+                updatePet();
+            }
+        }
+        
+        function evaluateMood(handshakes, deauths, isRunning, usbPct, gpsFix) {
+            if (!isRunning) { setPetMood('sleep'); return; }
+            if (parseInt(usbPct) >= 95) { setPetMood('sad'); return; }
+            if (gpsFix === '0' || gpsFix === 0) { setPetMood('lonely'); return; }
+            
+            let now = Date.now();
+            let activeSecs = (now - petLastMoodChange) / 1000;
+            
+            // Check handshake burst
+            if (handshakes > petLastHandshakes) {
+                petHandshakeBurst += (handshakes - petLastHandshakes);
+                petLastHandshakes = handshakes;
+            }
+            
+            if (petHandshakeBurst >= 5 && deauths > 0) {
+                setPetMood('excited');
+            } else if (petHandshakeBurst >= 3) {
+                setPetMood('happy');
+            } else if (deauths > 2) {
+                setPetMood('intense');
+            } else if (handshakes > 0 && activeSecs > 60) {
+                setPetMood('awake');
+            } else if (activeSecs > 300 && handshakes === 0) {
+                setPetMood('bored');
+            } else if (handshakes > 0) {
+                setPetMood('cool');
+            }
+            
+            // Decay burst counter slowly
+            if (activeSecs > 30 && petHandshakeBurst > 0) {
+                petHandshakeBurst = Math.max(0, petHandshakeBurst - 1);
+            }
+        }
+        
+        // Extend fetchPwnagotchi to detect pwnagotchi and update pet
+        fetchPwnagotchi = function() {
             fetch('/cgi-bin/wardriving_api?action=pwnagotchi_status')
             .then(r => r.json())
             .then(data => {
                 let container = document.getElementById('pwnagotchi_status');
                 if (!data || !data.uptime) {
                     container.innerHTML = '<div style="color:#666; padding:5px;">No pwnagotchi detected</div>';
+                    petPwnagotchiDetected = false;
                     return;
                 }
+                petPwnagotchiDetected = true;
                 let uptime = data.uptime ? Math.floor(data.uptime / 60) + 'm' : '?';
                 let pwnd = data.pwnd_last || 0;
                 let handshakes = data.handshakes || 0;
@@ -784,15 +891,30 @@
                     <div style="display:grid; grid-template-columns:1fr 1fr; gap:5px;">
                         <div style="color:#f0f;">Uptime: <b>${uptime}</b></div>
                         <div style="color:#0ff;">Mode: <b>${mode}</b></div>
-                        <div style="color:#0f0;">Handshakes: <b>${handshakes}</b></div>
-                        <div style="color:#ff0;">Last Pwn: <b>${pwnd}s ago</b></div>
+                        <div style="color:#0f0;">Hands: <b>${handshakes}</b></div>
+                        <div style="color:#ff0;">Pwns: <b>${data.pwnd_tot || 0}</b></div>
                     </div>`;
+                updatePet();
             }).catch(() => {
                 document.getElementById('pwnagotchi_status').innerHTML = '<div style="color:#666; padding:5px;">No pwnagotchi detected</div>';
+                petPwnagotchiDetected = false;
             });
+        };
+        
+        // Mood evaluation: runs after status update pulls new metrics
+        function evaluateMoodFromDOM() {
+            let hs = parseInt(document.getElementById('st_handshakes').innerText) || 0;
+            let deauths = parseInt(document.getElementById('st_deauths').innerText) || 0;
+            let badge = document.getElementById('status_indicator');
+            let running = badge ? badge.classList.contains('running') : false;
+            evaluateMood(hs, deauths, running, 0, 1);
         }
-        setInterval(fetchPwnagotchi, 10000);
-        fetchPwnagotchi();
+        setInterval(evaluateMoodFromDOM, 5000);
+        
+        // Initial pet render
+        updatePet();
+        // Refresh pet face every 15 seconds for variety
+        setInterval(updatePet, 15000);
         
         function loadHistory() {
             fetch('/cgi-bin/wardriving_api?action=history')

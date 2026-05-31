@@ -241,6 +241,10 @@
                     <span style="font-size:1.1em; font-weight:bold; color:#f00;">Enable Night Drive</span>
                     <input type="checkbox" id="chk_night" onchange="toggleNightMode()" style="transform: scale(1.5);">
                 </label>
+                <label style="display:flex; justify-content:space-between; align-items:center; margin: 15px 0; padding:10px; background:#000; border-radius:8px; border:1px solid #333;">
+                    <span style="font-size:1.1em; font-weight:bold; color:#00ffff;">High Accuracy GPS</span>
+                    <input type="checkbox" id="chk_high_gps" onchange="toggleHighAccuracyGPS()" style="transform: scale(1.5);">
+                </label>
                 <h2 style="border-color:#ff00ff; display:flex; align-items:center;">🔊 Audio Alerts</h2>
                 <p style="font-size:0.9em; color:#aaa; margin-top:0;">Enable text-to-speech for new captures.</p>
                 <label style="display:flex; justify-content:space-between; align-items:center; margin: 15px 0; padding:10px; background:#000; border-radius:8px; border:1px solid #333;">
@@ -365,6 +369,19 @@
             document.body.classList.add('night-mode');
             window.addEventListener('DOMContentLoaded', () => document.getElementById('chk_night').checked = true);
         }
+
+        function toggleHighAccuracyGPS() {
+            let enabled = document.getElementById('chk_high_gps').checked;
+            window.GPS_HIGH_ACCURACY = enabled;
+            localStorage.setItem('gpsHighAccuracy', enabled);
+        }
+        window.GPS_HIGH_ACCURACY = localStorage.getItem('gpsHighAccuracy') === 'true';
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.GPS_HIGH_ACCURACY) {
+                let chk = document.getElementById('chk_high_gps');
+                if (chk) chk.checked = true;
+            }
+        });
 
         let isRunning = false;
         let lastGpsFixTime = Date.now();
@@ -804,7 +821,7 @@
                         browserGpsActive = false; localStorage.setItem('browserGpsActive', false);
                         navigator.geolocation.clearWatch(watchId);
                     },
-                    { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
+                    { enableHighAccuracy: window.GPS_HIGH_ACCURACY || false, maximumAge: 1000, timeout: 10000 }
                 );
             } else {
                 if(watchId !== null) navigator.geolocation.clearWatch(watchId);

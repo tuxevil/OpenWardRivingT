@@ -303,6 +303,7 @@
                 <p style="font-size:0.8em; color:#aaa; margin-top:0;">Or upload a .tar.gz from PC:</p>
                 <input type="file" id="tiles_file" accept=".tar.gz,.gz,.tar" style="background:#000; color:#fff; border:1px solid #333; border-radius: 8px; padding:10px; width:100%; box-sizing:border-box; margin-bottom:10px; cursor:pointer;">
                 <button class="btn small" onclick="uploadTiles()" style="width:100%; border-color:#333; color:#aaa; padding: 10px;">📤 Install Tiles from file</button>
+                <div id="upload_status" style="margin-top:15px; color:#aaa; font-weight:bold; text-align:center;"></div>
             </div>
         </div>
     </div>
@@ -327,12 +328,12 @@
 
     <!-- NAVIGATION BAR -->
     <div class="nav-bar">
-        <div class="nav-item active" onclick="switchTab('dashboard')"><i>🚗</i><span>Dashboard</span></div>
-        <div class="nav-item" onclick="switchTab('captures')"><i>📁</i><span>Captures</span></div>
-        <div class="nav-item" onclick="switchTab('console')"><i>🖥️</i><span>Console</span></div>
-        <div class="nav-item" onclick="switchTab('settings')"><i>⚙️</i><span>Settings</span></div>
-        <div class="nav-item" onclick="switchTab('filter')"><i>🛡️</i><span>Filter</span></div>
-        <div class="nav-item" onclick="switchTab('history'); loadHistory();"><i>📊</i><span>Stats</span></div>
+        <div class="nav-item active" onclick="switchTab('dashboard', this)"><i>🚗</i><span>Dashboard</span></div>
+        <div class="nav-item" onclick="switchTab('captures', this)"><i>📁</i><span>Captures</span></div>
+        <div class="nav-item" onclick="switchTab('console', this)"><i>🖥️</i><span>Console</span></div>
+        <div class="nav-item" onclick="switchTab('settings', this)"><i>⚙️</i><span>Settings</span></div>
+        <div class="nav-item" onclick="switchTab('filter', this)"><i>🛡️</i><span>Filter</span></div>
+        <div class="nav-item" onclick="switchTab('history', this); loadHistory();"><i>📊</i><span>Stats</span></div>
 
             </div>
 
@@ -598,17 +599,20 @@
         
         function saveWigle() {
             let token = document.getElementById('wigle_token').value;
-            localStorage.setItem('wigleToken', token);
-            document.getElementById('wigle_status').innerText = "Token Saved Locally!";
-            setTimeout(() => document.getElementById('wigle_status').innerText = "", 3000);
+            if(!token) return;
+            fetch('/cgi-bin/wardriving_api?action=save_wigle_token', { method: 'POST', body: token })
+            .then(r => r.json())
+            .then(d => {
+                if(d.status === 'ok') {
+                    document.getElementById('wigle_status').innerText = "Token Saved Securely!";
+                    setTimeout(() => document.getElementById('wigle_status').innerText = "", 3000);
+                }
+            });
         }
         
         function uploadWigle() {
-            let token = localStorage.getItem('wigleToken');
-            if(!token) return alert("Please save your WiGLE token first!");
-            
             document.getElementById('wigle_status').innerText = "Uploading... please wait";
-            fetch('/cgi-bin/wardriving_api?action=wigle_upload&token=' + encodeURIComponent(token))
+            fetch('/cgi-bin/wardriving_api?action=wigle_upload')
             .then(r=>r.json())
             .then(data => {
                 if(data.success) {
@@ -638,9 +642,9 @@
         
         function testAudio() {
             if('speechSynthesis' in window) {
-                let msg = new SpeechSynthesisUtterance("Audio enabled.");
+                let msg = new SpeechSynthesisUtterance("OpenWardRivingT audio system active.");
                 window.speechSynthesis.speak(msg);
-                            sendNotification("New Capture", "Captured " + diff + " new handshake" + (diff > 1 ? "s" : ""));
+                sendNotification("OpenWardRivingT", "Audio alerts enabled");
             } else {
                 alert("TTS not supported in this browser.");
             }
@@ -729,11 +733,11 @@
             });
         }
 
-        function switchTab(tabId) {
+        function switchTab(tabId, el) {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(v => v.classList.remove('active'));
             document.getElementById('view-' + tabId).classList.add('active');
-            event.currentTarget.classList.add('active');
+            if (el) el.classList.add('active');
             
             if(tabId === 'console') {
                 let logBox = document.getElementById('log_box');
@@ -1160,8 +1164,6 @@
         
         loadHW(); if(localStorage.getItem('browserGpsActive') === 'true') { document.getElementById('chk_browser_gps').checked = true; toggleBrowserGPS(); }
         if(audioEnabled) { document.getElementById('chk_audio').checked = true; }
-
-        if(localStorage.getItem('wigleToken')) { document.getElementById('wigle_token').value = localStorage.getItem('wigleToken'); }
 
 
     </script>

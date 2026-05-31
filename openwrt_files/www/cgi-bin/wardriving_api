@@ -181,24 +181,38 @@ elif [ "$ACTION" = "upload_tiles" ]; then
     echo '{"status": "ok"}'
 
 
+elif [ "$ACTION" = "save_wigle_token" ]; then
+    if [ "$REQUEST_METHOD" = "POST" ]; then
+        cat > /etc/wardriving_wigle_token
+        chmod 600 /etc/wardriving_wigle_token
+        echo '{"status": "ok"}'
+    else
+        echo '{"error": "POST required"}'
+    fi
+
 elif [ "$ACTION" = "wigle_upload" ]; then
-    TOKEN=$(echo "$QUERY_STRING" | awk -F'token=' '{print $2}' | cut -d'&' -f1 | sed 's/%3D/=/g' | sed 's/%3d/=/g')
+    if [ ! -f "/etc/wardriving_wigle_token" ]; then
+        echo '{"success": false, "error": "No WiGLE token configured. Save your API token first."}'
+        exit 0
+    fi
     if [ ! -f "/mnt/wardriving/wardriving.db" ]; then
         echo '{"success": false, "error": "No database found"}'
         exit 0
     fi
+    TOKEN=$(cat /etc/wardriving_wigle_token)
     
     echo "WigleWifi-1.4,appRelease=1.0,model=OpenWardRivingT,release=1.0,device=OpenWrt,display=OpenWrt,board=OpenWrt,brand=OpenWrt" > /tmp/wigle.csv
     echo "MAC,SSID,AuthMode,FirstSeen,Channel,RSSI,CurrentLatitude,CurrentLongitude,AltitudeMeters,AccuracyMeters,Type" >> /tmp/wigle.csv
     sqlite3 -separator ',' /mnt/wardriving/wardriving.db "SELECT mac, ssid, enc, first_seen, channel, rssi, lat, lon, 0, 10, 'WIFI' FROM networks WHERE lat IS NOT NULL AND lat != 'NULL';" >> /tmp/wigle.csv
     
-    RES=$(curl -s -X POST "https://api.wigle.net/api/v2/network/upload" -H "Authorization: Basic $TOKEN" -H "Accept: application/json" -F "file=@/tmp/wigle.csv")
+    RES=$(curl -s -m 30 -X POST "https://api.wigle.net/api/v2/network/upload" -H "Authorization: Basic $TOKEN" -H "Accept: application/json" -F "file=@/tmp/wigle.csv")
     rm -f /tmp/wigle.csv
     
     if echo "$RES" | grep -q '"success":true'; then
         echo '{"success": true}'
     else
-        echo "{\"success\": false, \"error\": \"WiGLE rejected: $RES\"}"
+        ERR=$(echo "$RES" | tr -d '\n' | sed 's/"/\\"/g')
+        echo "{\"success\": false, \"error\": \"WiGLE rejected: $ERR\"}"
     fi
     exit 0
 
@@ -245,8 +259,9 @@ elif [ "$ACTION" = "download_bbox" ]; then
     ZMIN=$(echo "$QUERY_STRING" | grep -o "z1=[^&]*" | cut -d= -f2 | tr -cd '0-9')
     ZMAX=$(echo "$QUERY_STRING" | grep -o "z2=[^&]*" | cut -d= -f2 | tr -cd '0-9')
     
-    # We will just write a wrapper script to background the download so it doesnt block uhttpd
-    cat << 'SCRIPTEOF' > /tmp/download_tiles.sh
+    # Write a wrapper script with unique PID to avoid race conditions
+    DL_SCRIPT="/tmp/download_tiles_$$.sh"
+    cat << 'SCRIPTEOF' > "$DL_SCRIPT"
 #!/bin/sh
 N="$1"; S="$2"; E="$3"; W="$4"; ZMIN="$5"; ZMAX="$6"
 # Basic tile calculation function
@@ -270,7 +285,7 @@ for z in $(seq $ZMIN $ZMAX); do
         for y in $(seq $Y_MIN $Y_MAX); do
             FILE="/mnt/wardriving/tiles/$z/$x/$y.png"
             if [ ! -f "$FILE" ]; then
-                wget -q -O "$FILE" "https://tile.openstreetmap.org/$z/$x/$y.png"
+                wget -q -T 10 -O "$FILE" "https://tile.openstreetmap.org/$z/$x/$y.png" || rm -f "$FILE"
                 sleep 0.2
             fi
         done
@@ -278,9 +293,11 @@ for z in $(seq $ZMIN $ZMAX); do
 done
 echo "DONE" > /tmp/dl_status.txt
 SCRIPTEOF
-    chmod +x /tmp/download_tiles.sh
+    chmod +x "$DL_SCRIPT"
     echo "RUNNING" > /tmp/dl_status.txt
-    /tmp/download_tiles.sh "$N" "$S" "$E" "$W" "$ZMIN" "$ZMAX" >/tmp/dl_log.txt 2>&1 &
+    "$DL_SCRIPT" "$N" "$S" "$E" "$W" "$ZMIN" "$ZMAX" >/tmp/dl_log_$$.txt 2>&1 &
+    # Self-cleanup after execution
+    ( wait; rm -f "$DL_SCRIPT" ) &
     
     echo '{"status": "started"}'
 
@@ -325,11 +342,26 @@ elif [ "$ACTION" = "list_files" ]; then
 elif [ "$ACTION" = "delete_file" ]; then
     FILE=$(echo "$QUERY_STRING" | grep -o "file=[^&]*" | cut -d= -f2)
     if [ -n "$FILE" ]; then
-        FILE=$(echo "$FILE" | sed -e "s/[^a-zA-Z0-9._-]//g")
-        rm -f "/mnt/wardriving/$FILE"
-        rm -f "/mnt/wardriving/${FILE%.pcapng}.txt"
-        rm -f "/mnt/wardriving/${FILE%.pcapng}.nmea"
-        echo '{"status": "deleted"}'
+        # Sanitize: keep only alphanumeric, dot, underscore, dash. Reject if contains /
+        SAFE=$(echo "$FILE" | sed -e 's/[^a-zA-Z0-9._-]//g')
+        if [ "$SAFE" != "$FILE" ] || echo "$FILE" | grep -q '/'; then
+            echo '{"status": "error", "reason": "invalid filename"}'
+            exit 0
+        fi
+        BASENAME=$(basename "$SAFE")
+        # Safety: only allow deletion within /mnt/wardriving
+        TARGET="/mnt/wardriving/$BASENAME"
+        case "$(readlink -f "$TARGET" 2>/dev/null || realpath "$TARGET" 2>/dev/null || echo "$TARGET")" in
+            /mnt/wardriving/*)
+                rm -f "$TARGET"
+                rm -f "/mnt/wardriving/${BASENAME%.pcapng}.txt"
+                rm -f "/mnt/wardriving/${BASENAME%.pcapng}.nmea"
+                echo '{"status": "deleted"}'
+                ;;
+            *)
+                echo '{"status": "error", "reason": "path traversal blocked"}'
+                ;;
+        esac
     else
         echo '{"status": "error"}'
     fi
@@ -359,8 +391,15 @@ elif [ "$ACTION" = "set_hw" ]; then
     BTN=$(echo "$QUERY_STRING" | grep -o "btn=[^&]*" | cut -d= -f2)
     MODE=$(echo "$QUERY_STRING" | grep -o "mode=[^&]*" | cut -d= -f2)
     echo "$MODE" > /etc/wardriving_mode.txt
-    sed -i "s|/sys/class/leds/[^/]*/|/sys/class/leds/$LED/|g" /etc/init.d/wardriving
-    cat << 'EOF_RESTORE' > /etc/rc.button/wps
+    
+    # Atomic sed: write to temp, then mv
+    TMP_INIT=$(mktemp /tmp/wardriving_init_XXXXXX)
+    sed "s|/sys/class/leds/[^/]*/|/sys/class/leds/$LED/|g" /etc/init.d/wardriving > "$TMP_INIT" && mv "$TMP_INIT" /etc/init.d/wardriving
+    rm -f "$TMP_INIT"
+    
+    # Always restore defaults first (atomic via temp + mv)
+    TMP_WPS=$(mktemp /tmp/wardriving_wps_XXXXXX)
+    cat << 'EOF_RESTORE' > "$TMP_WPS"
 #!/bin/sh
 [ "$ACTION" = "pressed" ] && exit 5
 for script in /etc/rc.wps/*; do
@@ -368,8 +407,11 @@ for script in /etc/rc.wps/*; do
 	"$script" && break
 done
 EOF_RESTORE
+    mv "$TMP_WPS" /etc/rc.button/wps
+    rm -f "$TMP_WPS"
 
-    cat << 'EOF_RESTORE' > /etc/rc.button/rfkill
+    TMP_RFKILL=$(mktemp /tmp/wardriving_rfkill_XXXXXX)
+    cat << 'EOF_RESTORE' > "$TMP_RFKILL"
 #!/bin/sh
 [ "${ACTION}" = "released" -o -n "${TYPE}" ] || exit 0
 . /lib/functions.sh
@@ -388,9 +430,12 @@ config_foreach wifi_rfkill_set wifi-device
 uci commit wireless; wifi up
 return 0
 EOF_RESTORE
+    mv "$TMP_RFKILL" /etc/rc.button/rfkill
+    rm -f "$TMP_RFKILL"
     
     if [ "$BTN" = "wps" ]; then
-        cat << 'EOF2' > /etc/rc.button/wps
+        TMP_BTN=$(mktemp /tmp/wardriving_btn_XXXXXX)
+        cat << 'EOF2' > "$TMP_BTN"
 #!/bin/sh
 [ "${ACTION}" = "released" ] || exit 0
 if pgrep -f "wardriving_core.sh" >/dev/null; then
@@ -399,9 +444,12 @@ else
     /etc/init.d/wardriving start
 fi
 EOF2
-        chmod +x /etc/rc.button/wps
+        chmod +x "$TMP_BTN"
+        mv "$TMP_BTN" /etc/rc.button/wps
+        rm -f "$TMP_BTN"
     elif [ "$BTN" = "wifi" ]; then
-        cat << 'EOF2' > /etc/rc.button/rfkill
+        TMP_BTN=$(mktemp /tmp/wardriving_btn_XXXXXX)
+        cat << 'EOF2' > "$TMP_BTN"
 #!/bin/sh
 [ "${ACTION}" = "released" ] || exit 0
 if pgrep -f "wardriving_core.sh" >/dev/null; then
@@ -410,14 +458,18 @@ else
     /etc/init.d/wardriving start
 fi
 EOF2
-        chmod +x /etc/rc.button/rfkill
+        chmod +x "$TMP_BTN"
+        mv "$TMP_BTN" /etc/rc.button/rfkill
+        rm -f "$TMP_BTN"
     fi
     echo '{"status": "saved"}'
 
 
 elif [ "$ACTION" = "scored_networks" ]; then
     if [ -f /mnt/wardriving/wardriving.db ]; then
-        sqlite3 -separator '|' /mnt/wardriving/wardriving.db "SELECT mac, ssid, enc, rssi FROM networks WHERE last_seen >= datetime('now', '-5 minutes') ORDER BY rssi DESC LIMIT 30;" 2>/dev/null | awk -F'|' '
+        # Pre-compute handshake MACs to avoid system() calls in awk loop
+        HS_MACS=$(grep -oP '\*\K[0-9a-fA-F]{12}' /mnt/wardriving/master.hc2200 2>/dev/null | tr '[:upper:]' '[:lower:]' | sort -u | paste -sd '|' -)
+        sqlite3 -separator '|' /mnt/wardriving/wardriving.db "SELECT mac, ssid, enc, rssi FROM networks WHERE last_seen >= datetime('now', '-5 minutes') ORDER BY rssi DESC LIMIT 30;" 2>/dev/null | awk -F'|' -v hs_macs="$HS_MACS" '
         BEGIN { printf "[" }
         {
             mac=$1; ssid=$2; enc=$3; rssi=$4;
@@ -434,9 +486,7 @@ elif [ "$ACTION" = "scored_networks" ]; then
             mac_hex = tolower(mac); gsub(/:/, "", mac_hex);
             
             has_hs = "false"
-            if (system("grep -q \"\\*" mac_hex "\\*\" /mnt/wardriving/master.hc2200 2>/dev/null") == 0) {
-                has_hs = "true"
-            }
+            if (hs_macs ~ mac_hex) has_hs = "true"
             
             if(NR>1) printf ",";
             printf "{\"mac\":\"%s\",\"ssid\":\"%s\",\"enc\":\"%s\",\"rssi\":%s,\"has_hs\":%s}", mac, ssid, enc, rssi, has_hs

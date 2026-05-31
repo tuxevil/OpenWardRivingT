@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "OpenWardRivingT",
+  "project_id": "66622048-13b7-4f13-8b57-501c0902111c"
+}

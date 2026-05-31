@@ -165,7 +165,7 @@
             <p>These SSIDs have been captured and are hidden from the visual scanner.</p>
             <div style="margin-bottom: 10px; display: flex; gap: 10px;">
                 <input type="text" id="newExclusion" placeholder="Manual SSID" style="flex:1; padding: 15px; border-radius: 8px; border: 1px solid #444; background: #222; color: #fff; font-size: 1.2em;">
-                <button class="btn" style="padding: 15px 30px; font-size: 1.2em;" onclick="addExclusion(document.getElementById('newExclusion').value)">Add</button>
+                <button class="btn small" style="margin: 0;" onclick="addExclusion(document.getElementById('newExclusion').value)">Add</button>
             </div>
             <div id="exclusionsList" style="display: flex; flex-direction: column; gap: 10px; margin-top:25px;">
                 <!-- Items -->
@@ -288,8 +288,8 @@
                 const el = document.createElement('div');
                 el.style.cssText = 'display: flex; justify-content: space-between; align-items: center; background: #2a2a2a; padding: 15px; border-radius: 8px; border-left: 4px solid #888; font-size: 1.2em;';
                 el.innerHTML = `
-                    <span style="font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${ssid.replace(/</g, '&lt;')}</span>
-                    <button class="btn" style="border-color:#f33; color:#f33; padding: 10px 20px;" onclick="removeExclusion('${encodeURIComponent(ssid).replace(/'/g, "\'")}')">Remove</button>
+                    <span style="flex: 1; font-weight: bold; overflow: hidden; padding-right: 10px; text-overflow: ellipsis; white-space: nowrap;">${ssid.replace(/</g, '&lt;')}</span>
+                    <button class="btn small" style="border-color:#f33; color:#f33; margin: 0; min-width: 90px;" onclick="removeExclusion('${encodeURIComponent(ssid).replace(/'/g, "\'")}')">Remove</button>
                 `;
                 container.appendChild(el);
             });

@@ -45,6 +45,12 @@ uci set fstab.wardriving.enabled='1'
 uci set fstab.wardriving.enabled_fsck='1'
 uci commit fstab
 
+# Generate API auth token for dashboard security
+echo "[*] Generating API token..."
+API_TOKEN=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32)
+echo "$API_TOKEN" > /etc/wardriving_api_token
+chmod 600 /etc/wardriving_api_token
+
 echo "[*] Backing up existing files and deploying..."
 BACKUP_DIR="/root/openwardrivingt_backup_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$BACKUP_DIR"
@@ -71,6 +77,11 @@ chmod +x /usr/bin/wardriving_core.sh
 chmod +x /usr/bin/wardriving_sync.sh
 chmod +x /etc/init.d/wardriving
 chmod +x /www/cgi-bin/wardriving_api
+
+# Inject API token into dashboard (for authenticated API calls)
+if [ -f /www/wardriving/index.html ] && [ -n "$API_TOKEN" ]; then
+    sed -i "s|// API_TOKEN_PLACEHOLDER|window.API_TOKEN = '$API_TOKEN';|" /www/wardriving/index.html
+fi
 
 # Ensure symlink for capture files
 mkdir -p /mnt/wardriving

@@ -1,5 +1,19 @@
 #!/bin/sh
+# ===== TOKEN EXTRACTION & AUTH CHECK =====
 ACTION=$(echo "$QUERY_STRING" | grep -o "action=[^&]*" | cut -d= -f2)
+TOKEN=$(echo "$QUERY_STRING" | grep -o "token=[^&]*" | cut -d= -f2)
+
+# Actions that mutate state or expose sensitive data
+case "$ACTION" in
+    start|stop|delete_file|set_hw|set_pcap_retention|save_wigle_token|wigle_upload|upload_tiles|upload_potfile|add_target|remove_target|add_exclusion|remove_exclusion|download_all|download_bbox)
+        if [ ! -f /etc/wardriving_api_token ] || [ "$TOKEN" != "$(cat /etc/wardriving_api_token)" ]; then
+            echo "Content-Type: application/json"
+            echo ""
+            echo '{"error": "unauthorized", "reason": "valid token required for this action"}'
+            exit 1
+        fi
+        ;;
+esac
 
 if [ "$ACTION" = "download_all" ]; then
     echo "Content-Type: application/gzip"

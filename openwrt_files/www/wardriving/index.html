@@ -338,6 +338,21 @@
             </div>
 
     <script>
+        // API_TOKEN_PLACEHOLDER - replaced by install.sh with actual token
+        if (typeof window.API_TOKEN === 'undefined') {
+            window.API_TOKEN = '';  // No token = development mode, auth bypassed
+        }
+        
+        // Auto-inject auth token into all API requests
+        const _origFetch = window.fetch;
+        window.fetch = function(url, options) {
+            if (typeof url === 'string' && url.includes('/cgi-bin/wardriving_api') && window.API_TOKEN) {
+                let sep = url.includes('?') ? '&' : '?';
+                url = url + sep + 'token=' + encodeURIComponent(window.API_TOKEN);
+            }
+            return _origFetch(url, options);
+        };
+        
         
         
         function toggleNightMode() {

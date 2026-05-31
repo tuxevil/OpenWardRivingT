@@ -80,7 +80,7 @@ chmod +x /www/cgi-bin/wardriving_api
 
 # Inject API token into dashboard (for authenticated API calls)
 if [ -f /www/wardriving/index.html ] && [ -n "$API_TOKEN" ]; then
-    sed -i "s|// API_TOKEN_PLACEHOLDER|window.API_TOKEN = '$API_TOKEN';|" /www/wardriving/index.html
+    sed -i "s|^\([[:space:]]*\)// API_TOKEN_PLACEHOLDER[[:space:]]*$|\1window.API_TOKEN = '$API_TOKEN';|" /www/wardriving/index.html
 fi
 
 # Ensure symlink for capture files

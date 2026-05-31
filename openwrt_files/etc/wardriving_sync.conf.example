@@ -1,0 +1,13 @@
+# OpenWardRivingT Sync Configuration
+# Copy this file to /etc/wardriving_sync.conf and fill in your values
+
+# Your home/lab WiFi SSID (optional, for reference)
+KNOWN_SSID="MyHomeWiFi"
+
+# SSH server to sync captures to
+SERVER_USER="root"
+SERVER_IP="192.168.1.100"
+SERVER_PORT="22"
+
+# Destination directory on the server
+SERVER_DEST="/opt/wardriving_sync/"

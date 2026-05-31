@@ -27,6 +27,7 @@ blink_led() {
     fi
 }
 
+USB_FULL_COUNT=0
 while true; do
 
     if ! mount | grep -q "/mnt/wardriving"; then
@@ -36,11 +37,22 @@ while true; do
     
     USB_PCT=$(df /mnt/wardriving | awk 'NR==2 {print $5}' | tr -d '%')
     if [ "$USB_PCT" -ge 95 ]; then
-        echo "ERROR: USB CAPACITY CRITICAL ($USB_PCT%). STOPPING CAPTURE." >> /tmp/wardriving_status.log
+        USB_FULL_COUNT=$((USB_FULL_COUNT + 1))
+        echo "ERROR: USB CAPACITY CRITICAL ($USB_PCT%). Count: $USB_FULL_COUNT" >> /tmp/wardriving_status.log
         blink_led
-        sleep 5
+        # Auto-stop after ~5 minutes of persistent fullness (30 cycles * 10s avg)
+        if [ "$USB_FULL_COUNT" -gt 30 ]; then
+            echo "FATAL: USB full for too long. Stopping wardriving." >> /tmp/wardriving_status.log
+            /etc/init.d/wardriving stop 2>/dev/null
+            exit 1
+        fi
+        # Exponential backoff: 5s, 10s, 20s, 40s... capped at 300s
+        BACKOFF=$(( 5 * (1 << (USB_FULL_COUNT < 6 ? USB_FULL_COUNT : 6)) ))
+        [ "$BACKOFF" -gt 300 ] && BACKOFF=300
+        sleep "$BACKOFF"
         continue
     fi
+    USB_FULL_COUNT=0  # Reset counter when USB has space again
 
 
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)

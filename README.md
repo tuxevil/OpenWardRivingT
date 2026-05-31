@@ -10,14 +10,14 @@ It features a spectacular **Tablet-Optimized Web Dashboard** (The "Batcave") mea
 - **Live Spectrum Analyzer**: Visualize 2.4GHz channel congestion in real-time as you drive.
 - **Offline/Online Maps**: See your route and pinpoint geolocated routers using Leaflet.js. Upload your own tile maps directly from the UI for 100% offline usage.
 - **Visual Hardware Feedback**: Bind your router's LEDs to visually blink when actively sniffing handshakes.
-- **Native GPS Integration**: Seamlessly injects NMEA data from your Android device directly into standard `.pcapng` files and draws your path.
+- **Native GPS Integration**: Geotag your captures seamlessly! You can feed GPS data using a dedicated NMEA forwarder app, OR simply use the built-in **Browser GPS Override** toggle right in the dashboard (using HTML5 Geolocation) without needing any third-party apps.
 
 ## 🛠️ Hardware Requirements
 1. **OpenWrt Router**: Preferably with dual radios (2.4GHz dedicated to monitor mode/injection, and 5GHz to host the stealth control panel).
 2. **USB Flash Drive (MANDATORY)**: Formatted in `ext4` to store captures and offline map tiles. Must be mounted at `/mnt/wardriving/`.
    > **⚠️ Safety Mechanism**: The core script will refuse to start capturing if a USB drive is not detected. This is a deliberate safety measure to prevent permanent NAND wear (flash memory degradation) caused by continuous pcapng writes, and to protect the router from a system collapse due to reaching 100% internal storage capacity.
 3. **Car Power Supply**: A 12V to 5V/12V step-down converter depending on your router's needs.
-4. **Android Device (Optional but recommended)**: To share GPS NMEA data via TCP port 2947.
+4. **GPS-Enabled Device (Optional but recommended)**: A smartphone, tablet, or Android head unit with GPS capabilities to provide location data to the dashboard.
 
 ## 📦 Software Dependencies
 Ensure the following packages are installed on your OpenWrt router:
@@ -38,7 +38,7 @@ Ensure the following packages are installed on your OpenWrt router:
 
 ## 🚙 Basic Usage
 1. Power up the router in your vehicle with the USB drive attached.
-2. Open your NMEA GPS forwarder app on your Android tablet, pointing to the router's IP on port 2947.
+2. **(GPS Setup)**: Either toggle the **Browser GPS Override** on the dashboard to use your device's native browser location, OR use a background NMEA forwarder app pointing to port 2947.
 3. Connect your tablet to the 5GHz WiFi network (`owrt`).
 4. Navigate to `http://192.168.1.1/wardriving/index.html` (or your router's IP).
 5. Hit **START** on the screen or press the configured physical router button. Start driving!

@@ -3,7 +3,28 @@
 
 echo "[*] Installing OpenWardRivingT..."
 
-# Copy files from repository to system
+echo "[*] Updating package lists..."
+opkg update
+
+echo "[*] Installing required dependencies..."
+opkg install hcxdumptool hcxtools socat block-mount kmod-fs-ext4 kmod-usb-storage e2fsprogs
+
+echo "[*] Configuring USB Auto-Mount (fstab)..."
+/etc/init.d/fstab enable
+mkdir -p /mnt/wardriving
+
+# Configure fstab to mount the first USB drive (usually /dev/sda1) to /mnt/wardriving
+uci -q delete fstab.wardriving
+uci set fstab.wardriving='mount'
+uci set fstab.wardriving.target='/mnt/wardriving'
+uci set fstab.wardriving.device='/dev/sda1'
+uci set fstab.wardriving.fstype='ext4'
+uci set fstab.wardriving.options='rw,async'
+uci set fstab.wardriving.enabled='1'
+uci set fstab.wardriving.enabled_fsck='1'
+uci commit fstab
+
+echo "[*] Copying files from repository to system..."
 cp -r openwrt_files/* /
 chmod +x /usr/bin/wardriving_core.sh
 chmod +x /etc/init.d/wardriving

@@ -33,12 +33,12 @@ fi
 awk -F'*' '{print $4}' "/tmp/new_targets.hc2200" >> "$ATTACKED_MACS"
 # ------------------------------
 
-for dict in $(ls -v "$DICT_DIR"/* 2>/dev/null); do
+find "$DICT_DIR" -maxdepth 1 -type f -print 2>/dev/null | sort -V | while IFS= read -r dict; do
     if [ -f "$dict" ]; then
         echo "[*] Probando diccionario: $(basename "$dict")"
         
         # Corremos Hashcat SOLO contra las redes nuevas filtradas
-        $HASHCAT_BIN --potfile-path="$POTFILE" -m 22000 -a 0 -w 3 "/tmp/new_targets.hc2200" "$dict"
+        $HASHCAT_BIN --potfile-path="$POTFILE" -m 22000 -a 0 -w 3 --status --status-timer=30 "/tmp/new_targets.hc2200" "$dict"
         STATUS=$?
         
         $HASHCAT_BIN --potfile-path="$POTFILE" -m 22000 --show "/tmp/new_targets.hc2200" > "/tmp/current_cracked.txt"

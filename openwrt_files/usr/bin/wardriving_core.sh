@@ -10,8 +10,10 @@ cleanup() {
 trap cleanup SIGTERM SIGINT SIGHUP
 
 # Start virtual GPS server if it doesn't exist
-pkill -f "socat.*2947" 2>/dev/null
-socat pty,link=/tmp/vGPS,raw,echo=0 tcp-listen:2947,reuseaddr,fork &
+pkill -f "socat.*vGPS" 2>/dev/null
+rm -f /tmp/vGPS_fifo
+mkfifo /tmp/vGPS_fifo
+socat pty,link=/tmp/vGPS,raw,echo=0 pipe:/tmp/vGPS_fifo &
 
 # Función para parpadear un LED si existe (feedback visual)
 blink_led() {

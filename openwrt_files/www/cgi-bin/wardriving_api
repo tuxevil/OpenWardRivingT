@@ -214,7 +214,10 @@ elif [ "$ACTION" = "gps_push" ]; then
 
 elif [ "$ACTION" = "upload_potfile" ]; then
     # Limit upload to 1MB to prevent USB fill attacks
-    dd bs=1k count=1024 of=/mnt/wardriving/hashcat.potfile 2>/dev/null
+    dd bs=1k count=1024 of=/tmp/uploaded.potfile 2>/dev/null
+    cat /tmp/uploaded.potfile >> /mnt/wardriving/hashcat.potfile
+    sort -u /mnt/wardriving/hashcat.potfile -o /mnt/wardriving/hashcat.potfile 2>/dev/null
+    rm -f /tmp/uploaded.potfile
     echo '{"status": "ok"}'
 
 elif [ "$ACTION" = "pwnagotchi_sync" ]; then

@@ -11,6 +11,10 @@ It features a spectacular **Tablet-Optimized Web Dashboard** meant to be used fr
 - **Offline/Online Maps**: See your route and pinpoint geolocated routers using Leaflet.js. Upload your own tile maps directly from the UI for 100% offline usage.
 - **Visual Hardware Feedback**: Bind your router's LEDs to visually blink when actively sniffing handshakes.
 - **Native GPS Integration**: Geotag your captures seamlessly! You can feed GPS data using a dedicated NMEA forwarder app, OR simply use the built-in **Browser GPS Override** toggle right in the dashboard (using HTML5 Geolocation) without needing any third-party apps.
+- **WiGLE Integration**: Automatically upload a CSV of all detected networks directly to your WiGLE account. *(Note: This uploads the list of spotted networks, but your raw .pcapng handshakes remain private on your USB).*
+- **Rich Export Options**: Easily download your captures, KML/GPX route files, and clean `.hc2200` Hashcat-ready crack files.
+- **Smart SQLite Logging & Scoring**: Captures are tracked in a lightning-fast SQLite WAL database, bringing powerful features like Heatmaps and Smart Target Scoring right to the dashboard.
+- **Cyberpunk Night Mode & TTS**: Safely wardrive at night with a deeply-red-tinted "Night Mode" and audio-driven Text-To-Speech (TTS) alerts when specific targets are found.
 
 ## 🛠️ Hardware Requirements
 1. **OpenWrt Router**: Preferably with dual radios (2.4GHz dedicated to monitor mode/injection, and 5GHz to host the stealth control panel).
@@ -57,6 +61,13 @@ The automated installer will automatically detect your package manager (`apk` fo
 ## 🗺️ Offline Map Management
 In the "Settings" tab of the web application, you can upload a `.tar.gz` file containing a standard `Z/X/Y.png` tile folder (generated via tools like Mobile Atlas Creator). This gives you a rich street map on your dashboard without needing mobile data.
 
+
+## 🛑 Known Quirks & Strange Behaviors
+When operating the router, you might notice the following behaviors. These are entirely normal and part of how the software handles heavy processing on low-power hardware:
+
+1. **The 5-Minute CPU Spikes**: `hcxdumptool` works in 5-minute capture blocks. Exactly every 5 minutes, the router stops sniffing to process the resulting `.pcapng` file, crack handshakes using `hcxpcapngtool`, and insert thousands of networks into the SQLite database. During these 5 to 10 seconds, the router's CPU will hit 100% and the *Load Average* will spike. We run these rollover tasks with lower priority (`nice`) so the UI doesn't freeze, but slight API delays are expected.
+2. **GPS Buffer Lag**: When using the Browser GPS Override, your phone batches location updates and sends them to the router every 4 seconds to prevent suffocating the web server with CGI requests. This introduces a slight spatial lag of ~40-50 meters if you are driving at high speeds, which is perfectly acceptable given standard WiFi ranges.
+3. **WiGLE Handshakes**: The "Upload to WiGLE" button securely generates a CSV file with router MACs, SSIDs, and GPS coordinates and sends it to the WiGLE API. It **does not** upload your captured packets or `.hc2200` password hashes.
 
 ## ⚖️ Legal and Ethical Disclosure
 

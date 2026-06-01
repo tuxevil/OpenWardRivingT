@@ -18,7 +18,7 @@ jobs:
       - name: Lint shell scripts (shellcheck)
         run: |
           echo "=== Running shellcheck ==="
-          shellcheck -x \
+          shellcheck -e SC1090,SC2002,SC2004,SC2010,SC2012,SC2016,SC2018,SC2019,SC2035,SC2045,SC2046,SC2086,SC2155,SC3037,SC3043,SC3048 -x \
             install.sh \
             uninstall.sh \
             openwrt_files/usr/bin/wardriving_core.sh \

@@ -374,10 +374,15 @@ function updateStatus(){
     if(d.logs){let lb=document.getElementById('logBox');lb.innerText=d.logs.replace(/\\n/g,'\n');if(lb.scrollHeight-lb.scrollTop<lb.clientHeight+100)lb.scrollTop=lb.scrollHeight;}
 
     if(d.channels_data&&Array.isArray(d.channels_data)){
+      // Save open channel state before rebuild
+      let openChs=new Set();
+      document.querySelectorAll('#specList .ch-detail.open').forEach(el=>{
+        let chEl=el.previousElementSibling;if(chEl)openChs.add(chEl.querySelector('.ch-n').innerText);
+      });
       let fd=d.channels_data.filter(i=>!excludedSSIDs.includes(i.s)),cm={};
       fd.forEach(i=>{if(!cm[i.c])cm[i.c]=[];cm[i.c].push(i.s);});
       let sh='',chs=[1,2,3,4,5,6,7,8,9,10,11];
-      chs.forEach(c=>{let ss=cm[c]||[];sh+='<div class="ch-row" onclick="this.nextElementSibling.classList.toggle(\'open\')"><span class="ch-n">CH '+c+'</span><span class="ch-c">'+ss.length+'</span></div><div class="ch-detail">'+(ss.length?ss.map(s=>'<div>'+s.replace(/</g,'&lt;')+'</div>').join(''):'<span style="color:var(--c-dim)">empty</span>')+'</div>';});
+      chs.forEach(c=>{let ss=cm[c]||[];sh+='<div class="ch-row" onclick="this.nextElementSibling.classList.toggle(\'open\')"><span class="ch-n">CH '+c+'</span><span class="ch-c">'+ss.length+'</span></div><div class="ch-detail'+(openChs.has('CH '+c)?' open':'')+'">'+(ss.length?ss.map(s=>'<div>'+s.replace(/</g,'&lt;')+'</div>').join(''):'<span style="color:var(--c-dim)">empty</span>')+'</div>';});
       document.getElementById('specList').innerHTML=sh;
     }
     updateScores();

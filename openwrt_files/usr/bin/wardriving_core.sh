@@ -89,7 +89,7 @@ while true; do
     
     if [ -f "$FILENAME" ]; then
         echo "[*] Converting $FILENAME to $HC2200FILE"
-        hcxpcapngtool -o "$HC2200FILE" -E "$TMP_ESSID" --csv="/tmp/csv_${TIMESTAMP}.txt" "$FILENAME" > /dev/null 2>&1
+        nice -n 10 hcxpcapngtool -o "$HC2200FILE" -E "$TMP_ESSID" --csv="/tmp/csv_${TIMESTAMP}.txt" "$FILENAME" > /dev/null 2>&1
         
         # SQLite Integration
         if command -v sqlite3 >/dev/null 2>&1 && [ -s "/tmp/csv_${TIMESTAMP}.txt" ]; then
@@ -105,7 +105,7 @@ while true; do
                 printf "INSERT INTO networks (mac, ssid, enc, channel, lat, lon, first_seen, last_seen, rssi) VALUES (\047%s\047, \047%s\047, \047%s\047, %d, %s, %s, \047%s\047, \047%s\047, %d) ON CONFLICT(mac) DO UPDATE SET last_seen=\047%s\047, rssi=EXCLUDED.rssi;\n", mac, ssid, enc, chan, lat, lon, $1, $1, rssi, $1
             }' "/tmp/csv_${TIMESTAMP}.txt" > "/tmp/sql_${TIMESTAMP}.sql"
             
-            sqlite3 /mnt/wardriving/wardriving.db < "/tmp/sql_${TIMESTAMP}.sql"
+            nice -n 10 sqlite3 /mnt/wardriving/wardriving.db < "/tmp/sql_${TIMESTAMP}.sql"
             rm -f "/tmp/csv_${TIMESTAMP}.txt" "/tmp/sql_${TIMESTAMP}.sql"
         fi
 
@@ -115,7 +115,7 @@ while true; do
             blink_led
             # Fusionar hashes para sincronización
             cat "$HC2200FILE" >> /mnt/wardriving/master.hc2200
-            sort -u /mnt/wardriving/master.hc2200 -o /mnt/wardriving/master.hc2200
+            nice -n 10 sort -u /mnt/wardriving/master.hc2200 -o /mnt/wardriving/master.hc2200
         fi
         
         # Limpiar el hc2200 individual (si estaba vacio se borra, si tenia hashes ya estan en el master)

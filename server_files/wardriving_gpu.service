@@ -1,0 +1,15 @@
+[Unit]
+Description=OpenWardrivingT GPU Processing Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+# Cambia esta ruta si guardaste gpu_server.py en otra carpeta
+WorkingDirectory=/root/
+ExecStart=/usr/bin/python3 /root/gpu_server.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

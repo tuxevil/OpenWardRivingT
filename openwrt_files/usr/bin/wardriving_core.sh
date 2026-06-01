@@ -108,7 +108,19 @@ while true; do
                     sqlite3 /mnt/wardriving/wardriving.db < "/tmp/respuesta_server.sql"
                 fi
                 rm -f "/tmp/respuesta_server.sql"
-                rm -f "$FILENAME"
+                rm -f "$FILENAME" "$NMEAFILE"
+                # Sync offline hashes si existen
+                if [ -s "/mnt/wardriving/master.hc2200" ]; then
+                    SYNC_URL=$(echo "$REMOTE_URL" | sed 's|/upload|/upload_hc2200|')
+                    echo "[*] Syncing offline hashes to $SYNC_URL ..."
+                    SYNC_HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST -F "hc2200=@/mnt/wardriving/master.hc2200" "$SYNC_URL" --connect-timeout 10)
+                    if [ "$SYNC_HTTP" = "200" ]; then
+                        echo "[+] Offline hashes synced successfully."
+                        rm -f "/mnt/wardriving/master.hc2200"
+                    else
+                        echo "[-] Failed to sync offline hashes (Code: $SYNC_HTTP). Will retry later."
+                    fi
+                fi
             else
                 echo "[-] Remote server failed (Code: $HTTP_CODE). Falling back to local processing..."
             fi
@@ -157,7 +169,19 @@ while true; do
         
         # Retencion configurable del pcapng
         if [ ! -f /etc/wardriving_keep_pcap.txt ]; then
-            rm -f "$FILENAME"
+            rm -f "$FILENAME" "$NMEAFILE"
+                # Sync offline hashes si existen
+                if [ -s "/mnt/wardriving/master.hc2200" ]; then
+                    SYNC_URL=$(echo "$REMOTE_URL" | sed 's|/upload|/upload_hc2200|')
+                    echo "[*] Syncing offline hashes to $SYNC_URL ..."
+                    SYNC_HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST -F "hc2200=@/mnt/wardriving/master.hc2200" "$SYNC_URL" --connect-timeout 10)
+                    if [ "$SYNC_HTTP" = "200" ]; then
+                        echo "[+] Offline hashes synced successfully."
+                        rm -f "/mnt/wardriving/master.hc2200"
+                    else
+                        echo "[-] Failed to sync offline hashes (Code: $SYNC_HTTP). Will retry later."
+                    fi
+                fi
         fi
     fi
 

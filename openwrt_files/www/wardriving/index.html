@@ -201,21 +201,24 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
     <!-- CAPTURES -->
     <div class="view" id="view-captures" style="padding:8px;overflow-y:auto;width:100%">
       <div class="card" style="margin-bottom:8px">
-        <h3 style="color:var(--c-cyan)">📦 Capture Manager</h3>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
-          <button class="btn small" onclick="loadFiles()">🔄 Refresh</button>
-          <button class="btn small cyan" onclick="window.open('/cgi-bin/wardriving_api?action=download_all','_blank')">📥 .tar.gz</button>
-          <button class="btn small amber" onclick="window.open('/cgi-bin/wardriving_api?action=export_gpx','_blank')">🗺️ GPX</button>
-          <button class="btn small magenta" onclick="window.open('/cgi-bin/wardriving_api?action=export_kml','_blank')">🌍 KML</button>
-          <button class="btn small" onclick="window.open('/cgi-bin/wardriving_api?action=export_hashcat','_blank')">🔥 Hashcat</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <h3 style="color:var(--c-cyan);margin:0;border:none;padding:0">📦 Capture Manager</h3>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn small" onclick="loadFiles()">🔄 Refresh</button>
+            <button class="btn small cyan" onclick="window.open('/cgi-bin/wardriving_api?action=download_all','_blank')">📥 .tar.gz</button>
+            <button class="btn small amber" onclick="window.open('/cgi-bin/wardriving_api?action=export_gpx','_blank')">🗺️ GPX</button>
+            <button class="btn small magenta" onclick="window.open('/cgi-bin/wardriving_api?action=export_kml','_blank')">🌍 KML</button>
+            <button class="btn small" onclick="window.open('/cgi-bin/wardriving_api?action=export_hashcat','_blank')">🔥 Hashcat</button>
+          </div>
         </div>
-        <div style="border:1px dashed var(--c-green);padding:10px;border-radius:8px;margin-bottom:10px">
-          <p style="font-size:0.8em;color:var(--c-green);margin:0 0 6px 0">Upload hashcat.potfile to highlight cracked networks:</p>
-          <input type="file" id="potfileInput" style="margin-bottom:6px">
-          <button class="btn small" onclick="uploadPotfile()">📤 Upload Potfile</button>
-          <div id="potfileStatus" style="margin-top:6px;font-size:0.8em"></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px dashed var(--c-green);padding:8px 12px;border-radius:8px">
+          <span style="font-size:0.85em;color:var(--c-green);flex-shrink:0">🔓 Potfile:</span>
+          <input type="file" id="potfileInput" style="flex:1;min-width:150px">
+          <button class="btn small" onclick="uploadPotfile()" style="width:auto">📤 Upload</button>
+          <span style="font-size:0.8em;color:var(--c-cyan);flex-shrink:0">Keep RAW:</span>
+          <input type="checkbox" id="chkKeepPcap" onchange="togglePcap()">
+          <span id="potfileStatus" style="font-size:0.75em;color:var(--c-green);flex-shrink:0"></span>
         </div>
-        <div class="setting-row" style="justify-content:flex-start;gap:10px"><span style="color:var(--c-cyan)">Keep RAW .pcapng</span><input type="checkbox" id="chkKeepPcap" onchange="togglePcap()"></div>
       </div>
       <div id="fileList"><span style="color:var(--c-dim)">Loading...</span></div>
     </div>

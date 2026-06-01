@@ -1,1364 +1,860 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <title>OpenWardRivingT</title>
-    <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="leaflet.css" />
-    <script src="leaflet.js"></script>
-    <script src="leaflet-heat.js"></script>
-    <style>
-        :root { --main-color: #00ff00; --bg: #0d0d0d; --panel: #1a1a1a; --text-light: #fff; --btn-active: #333; }
-        body.night-mode { --main-color: #ff0000; --panel: #110000; }
-        body.night-mode .status-badge.running { background: rgba(255, 0, 0, 0.2); color: #f00; border-color: #f00; animation: pulseRed 2s infinite; }
-        body.night-mode h1 { border-color: #f00; }
-        body.night-mode .nav-bar { border-color: #f00; }
-        body.night-mode .nav-item.active { border-color: #f00; color: #f00; }
-        body.night-mode .metric-box { border-color: #300; }
-        @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(255,0,0,0.4); } 70% { box-shadow: 0 0 0 15px rgba(255,0,0,0); } 100% { box-shadow: 0 0 0 0 rgba(255,0,0,0); } }
-        body { background: var(--bg); color: var(--main-color); font-family: "Courier New", Courier, monospace; margin: 0; padding: 0; padding-bottom: 80px; text-align: center; overflow-x: hidden; }
-        
-        h1 { background: #000; padding: 15px 0; margin: 0; letter-spacing: 2px; border-bottom: 2px solid var(--main-color); position: sticky; top: 0; z-index: 100; font-size: 1.5em; }
-        
-        /* Navigation Tabs */
-        .nav-bar { position: fixed; bottom: 0; width: 100%; display: flex; background: #000; border-top: 2px solid var(--main-color); z-index: 100; height: 70px; }
-        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--main-color); cursor: pointer; text-transform: uppercase; font-weight: bold; font-size: 0.8em; opacity: 0.6; transition: 0.3s; }
-        .nav-item.active { opacity: 1; background: var(--btn-active); border-top: 4px solid var(--main-color); }
-        .nav-item i { font-size: 2em; margin-bottom: 5px; font-style: normal; }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>OpenWardRivingT</title>
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="leaflet.css">
+<script src="leaflet.js"></script>
+<script src="leaflet-heat.js"></script>
+<style>
+/* ===== CYBERPUNK DESIGN SYSTEM ===== */
+:root {
+  --c-green:  #00ff41;
+  --c-amber:  #ffb000;
+  --c-cyan:   #00ffff;
+  --c-magenta:#ff00ff;
+  --c-red:    #ff3333;
+  --c-white:  #e0e0e0;
+  --c-dim:    #666666;
+  --bg-deep:  #0a0a0a;
+  --bg-panel: #111111;
+  --bg-card:  #161616;
+  --border:   #252525;
+  --radius:   10px;
+  --glow-sm:  0 0 6px;
+  --glow-md:  0 0 14px;
+  --font:     "Courier New", Courier, monospace;
+  --nav-h:    64px;
+  --header-h: 42px;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+html, body { height:100%; overflow:hidden; }
+body {
+  background: var(--bg-deep);
+  color: var(--c-green);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.4;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
 
-        /* Views */
-        .view { display: none; padding: 20px; animation: fadeIn 0.3s; }
-        .view.active { display: block; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+/* Scanline overlay (toggleable) */
+body.scanlines::after {
+  content:""; position:fixed; inset:0; z-index:9999; pointer-events:none;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+}
 
-        /* General UI Elements */
-        .card { background: var(--panel); border: 1px solid var(--main-color); border-radius: 10px; padding: 20px; margin-bottom: 20px; box-shadow: 0 0 10px rgba(0,255,0,0.1); text-align: left; }
-        .card h2 { margin-top: 0; font-size: 1.5em; border-bottom: 1px dashed var(--main-color); padding-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
-        
-        /* Buttons */
-        .btn { background: transparent; color: var(--main-color); border: 3px solid var(--main-color); padding: 20px; font-size: 1.5em; font-family: inherit; cursor: pointer; font-weight: bold; border-radius: 10px; transition: all 0.3s ease; text-transform: uppercase; width: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .btn:hover { background: var(--main-color); color: var(--bg); box-shadow: 0 0 20px var(--main-color); }
-        
-        .btn.huge { font-size: 2.5em; padding: 30px; margin: 15px 0; border-width: 5px; border-radius: 15px; }
-        .btn.huge.stop { border-color: #ff3333; color: #ff3333; }
-        .btn.huge.stop:hover { background: #ff3333; color: #fff; box-shadow: 0 0 30px #ff3333; }
-        .btn.download { border-color: #00ffff; color: #00ffff; }
-        .btn.small { padding: 10px 15px; font-size: 1em; width: auto; border-width: 2px; }
+/* ===== HEADER ===== */
+#header {
+  position:fixed; top:0; left:0; right:0; height:var(--header-h); z-index:200;
+  background: #000; border-bottom:1px solid var(--c-green);
+  display:flex; align-items:center; padding:0 8px; gap:6px;
+  font-size:12px; overflow-x:auto; white-space:nowrap;
+}
+#header .metric {
+  display:flex; align-items:center; gap:4px; padding:4px 8px;
+  border-radius:6px; border:1px solid var(--border); flex-shrink:0;
+}
+#header .metric .icon { font-size:14px; }
+#header .metric .val { font-weight:bold; color:var(--c-white); }
+#header .metric.warn .val { color:var(--c-amber); }
+#header .metric.crit .val { color:var(--c-red); animation:pulse 1s infinite; }
+#header .spacer { flex:1; }
+#header .status-dot {
+  width:10px; height:10px; border-radius:50%; flex-shrink:0;
+  box-shadow: var(--glow-sm) currentColor;
+}
+#header .status-dot.on { background:var(--c-green); color:var(--c-green); }
+#header .status-dot.off { background:var(--c-red); color:var(--c-red); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
-        /* Status Indicator */
-        .status-badge { display: inline-block; padding: 10px 20px; border-radius: 20px; font-size: 1.2em; font-weight: bold; text-transform: uppercase; text-align: center; width: 100%; box-sizing: border-box; }
-        .status-badge.running { background: rgba(0, 255, 0, 0.2); color: #0f0; border: 2px solid #0f0; animation: pulseGreen 2s infinite; }
-        .status-badge.stopped { background: rgba(255, 51, 51, 0.2); color: #f33; border: 2px solid #f33; }
-        @keyframes pulseGreen { 0% { box-shadow: 0 0 0 0 rgba(0,255,0,0.4); } 70% { box-shadow: 0 0 0 15px rgba(0,255,0,0); } 100% { box-shadow: 0 0 0 0 rgba(0,255,0,0); } }
+/* ===== MAIN CONTENT AREA ===== */
+#main {
+  position:fixed; top:var(--header-h); bottom:var(--nav-h);
+  left:0; right:0; overflow-y:auto; overflow-x:hidden;
+  padding:6px; scroll-behavior:smooth;
+}
 
-        /* Dashboard Grid Layout */
-        .dash-layout { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 20px; margin-bottom: 20px; align-items: stretch; height: calc(100vh - 200px); }
-        .dash-left { display: flex; flex-direction: column; gap: 15px; justify-content: flex-start; }
-        .dash-center { background: #000; border: 2px solid var(--main-color); border-radius: 10px; overflow: hidden; position: relative; min-height: 400px; height: 100%; display: flex; flex-direction: column; box-sizing: border-box; }
-        .dash-right { display: flex; flex-direction: column; gap: 15px; height: 100%; overflow: hidden; box-sizing: border-box; }
-        @media (max-width: 1024px) { .dash-layout { grid-template-columns: 1fr 1fr; height: auto; } .dash-center { grid-column: span 2; order: -1; height: 400px; } .dash-right { grid-column: span 2; } }
-        @media (max-width: 768px) { .dash-layout { grid-template-columns: 1fr; height: auto; } .dash-center { grid-column: auto; height: 350px; } .dash-right { grid-column: auto; } }
+/* ===== VIEWS ===== */
+.view { display:none; height:100%; }
+.view.active { display:flex; flex-direction:column; }
 
-        /* Map */
-        #map { width: 100%; height: 100%; background: #222; }
-        .leaflet-container { font-family: inherit; }
+/* ===== DASHBOARD ===== */
+.dash-grid {
+  display:grid; grid-template-columns:180px 1fr 200px;
+  grid-template-rows:1fr; gap:6px; height:100%;
+}
+.dash-grid.swap { direction:rtl; }
+.dash-grid.swap > * { direction:ltr; }
+.dash-left, .dash-right {
+  display:flex; flex-direction:column; gap:6px; overflow-y:auto;
+}
+.dash-center {
+  background:#000; border:1px solid var(--c-green); border-radius:var(--radius);
+  overflow:hidden; position:relative; min-height:300px;
+  box-shadow: var(--glow-sm) rgba(0,255,65,0.15);
+}
 
-        /* Metrics */
-        .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .metric-box { background: #000; border: 1px solid #333; padding: 15px; border-radius: 8px; text-align: center; }
-        .metric-box label { display: block; font-size: 0.8em; color: #aaa; margin-bottom: 5px; text-transform: uppercase; }
-        .metric-box .val { font-size: 1.5em; font-weight: bold; color: var(--text-light); }
+/* Map */
+#map { width:100%; height:100%; background:#111; }
+.leaflet-container { font-family:var(--font); background:#111; }
+.map-overlay {
+  position:absolute; bottom:8px; right:8px; z-index:1000;
+  display:flex; flex-direction:column; gap:4px;
+  background:rgba(0,0,0,0.8); padding:6px; border-radius:8px; border:1px solid var(--border);
+}
 
-        /* Tree View Analyzer */
-        .analyzer-container { display: flex; flex-direction: column; height: 100%; background: #000; padding: 5px; overflow-y: auto; overflow-x: hidden; }
-        .tree-channel { background: #1a1a1a; border: 1px solid #333; border-radius: 4px; margin-bottom: 4px; flex-shrink: 0; }
-        .tree-header { padding: 9px 10px; font-size: 0.95em; cursor: pointer; display: flex; justify-content: space-between; font-weight: bold; color: var(--main-color); user-select: none; }
-        .tree-header:hover { background: #333; }
-        .tree-content { display: none; padding: 10px; border-top: 1px dashed #333; background: #000; flex-direction: column; gap: 5px; }
-        .tree-content.open { display: flex; }
-        .tree-ssid { color: #fff; font-size: 0.9em; padding-left: 10px; border-left: 2px solid var(--main-color); word-break: break-all; }
-        .ch-count { background: #444; color: #fff; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; }
-        @media (min-width: 600px) { .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; } }
-        @media (max-width: 599px) { .settings-grid { display: flex; flex-direction: column; gap: 20px; } }
-        /* Tables & Lists */
-        .file-list { display: flex; flex-direction: column; gap: 10px; }
-        .file-item { background: #000; border: 1px solid #333; padding: 15px; border-radius: 8px; display: grid; grid-template-columns: 2fr 3fr 1fr auto; gap: 15px; align-items: center; text-align: left; }
-        @media (max-width: 768px) { .file-item { grid-template-columns: 1fr; gap: 10px; } }
-        
-        /* Logs Container */
-        .log-box { background: #000; padding: 20px; height: calc(100vh - 180px); overflow-y: auto; border: 2px solid #333; color: #00ff00; font-size: 1.3em; font-weight: bold; white-space: pre-wrap; font-family: "Courier New", Courier, monospace; border-radius: 8px; box-sizing: border-box; text-align: left; }
+/* Pet */
+.pet-card {
+  background:var(--bg-card); border:1px solid var(--c-magenta);
+  border-radius:var(--radius); padding:8px; text-align:center;
+  box-shadow: var(--glow-sm) rgba(255,0,255,0.15);
+}
+.pet-card .face { font-size:2.2em; color:var(--c-magenta); line-height:1.2; }
+.pet-card .name { font-size:0.7em; color:var(--c-magenta); font-weight:bold; text-transform:uppercase; letter-spacing:2px; }
+.pet-card .quote { font-size:0.65em; color:var(--c-dim); font-style:italic; margin-top:4px; }
+.pet-card .bridge { font-size:0.6em; color:var(--c-cyan); margin-top:2px; display:none; }
 
-        /* Forms */
-        select { background: #000; color: var(--main-color); border: 2px solid var(--main-color); padding: 15px; font-size: 1.2em; border-radius: 8px; width: 100%; margin-bottom: 15px; font-family: inherit; }
-    </style>
+/* Spectrum mini */
+.spec-mini {
+  background:var(--bg-card); border:1px solid var(--c-cyan);
+  border-radius:var(--radius); padding:6px; overflow-y:auto; max-height:200px;
+}
+.spec-mini h4 { font-size:0.75em; color:var(--c-cyan); margin-bottom:4px; text-transform:uppercase; letter-spacing:1px; }
+.spec-mini .ch-row { display:flex; justify-content:space-between; font-size:0.7em; padding:1px 0; border-bottom:1px solid var(--border); }
+.spec-mini .ch-row .ch-n { color:var(--c-green); }
+.spec-mini .ch-row .ch-c { color:var(--c-white); }
+
+/* Scored targets mini */
+.scores-mini {
+  background:var(--bg-card); border:1px solid var(--c-amber);
+  border-radius:var(--radius); padding:6px; overflow-y:auto; flex:1;
+}
+.scores-mini h4 { font-size:0.75em; color:var(--c-amber); margin-bottom:4px; text-transform:uppercase; letter-spacing:1px; }
+.scores-mini .sr {
+  display:flex; justify-content:space-between; font-size:0.7em;
+  padding:3px 4px; border-bottom:1px solid var(--border);
+}
+.scores-mini .sr .sr-ssid { color:var(--c-white); max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.scores-mini .sr .sr-pts { color:var(--c-cyan); flex-shrink:0; }
+
+/* ===== CARDS ===== */
+.card {
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:var(--radius); padding:12px;
+}
+.card h3 {
+  font-size:0.85em; text-transform:uppercase; letter-spacing:2px;
+  border-bottom:1px dashed var(--border); padding-bottom:6px; margin-bottom:10px;
+}
+
+/* ===== BUTTONS ===== */
+.btn {
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  background:transparent; border:2px solid var(--c-green);
+  color:var(--c-green); font-family:var(--font); font-weight:bold;
+  font-size:16px; padding:14px 18px; border-radius:12px; cursor:pointer;
+  text-transform:uppercase; letter-spacing:1px; transition:all 0.2s;
+  min-height:52px; width:100%;
+}
+.btn:hover, .btn:active { background:var(--c-green); color:#000; box-shadow:var(--glow-md) var(--c-green); }
+.btn:active { transform:scale(0.97); }
+.btn.huge { font-size:22px; padding:20px; min-height:64px; border-width:3px; }
+.btn.stop { border-color:var(--c-red); color:var(--c-red); }
+.btn.stop:hover { background:var(--c-red); color:#fff; box-shadow:var(--glow-md) var(--c-red); }
+.btn.small { font-size:13px; padding:10px 14px; min-height:42px; }
+.btn.cyan { border-color:var(--c-cyan); color:var(--c-cyan); }
+.btn.cyan:hover { background:var(--c-cyan); color:#000; }
+.btn.amber { border-color:var(--c-amber); color:var(--c-amber); }
+.btn.amber:hover { background:var(--c-amber); color:#000; }
+.btn.magenta { border-color:var(--c-magenta); color:var(--c-magenta); }
+.btn.magenta:hover { background:var(--c-magenta); color:#000; }
+.btn.dim { border-color:var(--c-dim); color:var(--c-dim); }
+
+/* ===== STATUS BADGE ===== */
+.status-badge {
+  padding:10px; border-radius:8px; font-weight:bold; text-transform:uppercase;
+  text-align:center; letter-spacing:2px; font-size:1em;
+}
+.status-badge.on {
+  border:2px solid var(--c-green); color:var(--c-green);
+  box-shadow:var(--glow-sm) var(--c-green); animation:pulse 2s infinite;
+}
+.status-badge.off { border:2px solid var(--c-red); color:var(--c-red); }
+
+/* ===== NAV BAR ===== */
+#nav {
+  position:fixed; bottom:0; left:0; right:0; height:var(--nav-h); z-index:200;
+  background:#000; border-top:1px solid var(--c-green);
+  display:flex; gap:0;
+}
+#nav .nav-item {
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  color:var(--c-green); cursor:pointer; font-size:0.7em; font-weight:bold;
+  text-transform:uppercase; letter-spacing:1px; opacity:0.5; transition:0.2s;
+  border-top:3px solid transparent; gap:2px;
+}
+#nav .nav-item .ni { font-size:1.8em; font-style:normal; }
+#nav .nav-item.active { opacity:1; border-top-color:var(--c-green); background:rgba(0,255,65,0.05); }
+#nav.swap { direction:rtl; }
+#nav.swap .nav-item { direction:ltr; }
+
+/* ===== SETTINGS ===== */
+.settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.setting-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:10px 12px; background:#000; border-radius:8px; border:1px solid var(--border); margin-bottom:8px;
+}
+.setting-row span { font-size:0.85em; }
+
+/* ===== FORMS ===== */
+input[type=text], input[type=password], input[type=number], select {
+  background:#000; color:var(--c-white); border:1px solid var(--border);
+  padding:10px; font-size:14px; border-radius:8px; font-family:var(--font);
+  width:100%;
+}
+input:focus, select:focus { border-color:var(--c-green); outline:none; box-shadow:var(--glow-sm) var(--c-green); }
+input[type=checkbox] { transform:scale(1.4); accent-color:var(--c-green); }
+
+/* ===== FILE LIST ===== */
+.file-item {
+  display:grid; grid-template-columns:1.5fr 2fr 1fr auto; gap:8px; align-items:center;
+  padding:12px; border:1px solid var(--border); border-radius:8px; margin-bottom:6px;
+  background:#000;
+}
+.file-item .fi-name { color:var(--c-green); font-weight:bold; word-break:break-all; }
+.file-item .fi-nets { color:var(--c-dim); font-size:0.8em; }
+.file-item .fi-meta { color:var(--c-dim); font-size:0.8em; text-align:right; }
+
+/* ===== LOG ===== */
+.log-box {
+  background:#000; border:1px solid var(--border); border-radius:var(--radius);
+  padding:12px; height:100%; overflow-y:auto; white-space:pre-wrap;
+  font-size:1.1em; color:var(--c-green);
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width:1279px) {
+  .dash-grid { grid-template-columns:170px 1fr; }
+  .dash-right { display:none; }
+  .dash-grid.show-right .dash-right { display:flex; position:absolute; right:6px; top:6px; bottom:6px; width:200px; z-index:50; }
+}
+@media (max-width:1023px) {
+  .dash-grid { grid-template-columns:1fr; grid-template-rows:auto 1fr; }
+  .dash-left { flex-direction:row; flex-wrap:wrap; overflow-y:visible; }
+  .dash-left .btn.huge { font-size:18px; padding:14px; min-height:48px; flex:1; }
+  .settings-grid { grid-template-columns:1fr; }
+  .file-item { grid-template-columns:1fr; }
+}
+@media (max-width:799px) {
+  :root { --header-h:36px; --nav-h:56px; }
+  #header { font-size:10px; gap:4px; }
+  #header .metric { padding:2px 4px; }
+  .dash-left .btn.huge { font-size:16px; padding:10px; }
+  #nav .nav-item { font-size:0.6em; }
+  #nav .nav-item .ni { font-size:1.5em; }
+}
+
+/* ===== ANIMATIONS ===== */
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+.view.active { animation:fadeIn 0.2s; }
+
+/* ===== CHECKBOX TOGGLE STYLE ===== */
+input[type=checkbox] { appearance:none; width:44px; height:24px; background:var(--border); border-radius:12px; position:relative; cursor:pointer; transition:0.2s; border:none; }
+input[type=checkbox]::after { content:""; position:absolute; top:2px; left:2px; width:20px; height:20px; background:var(--c-dim); border-radius:50%; transition:0.2s; }
+input[type=checkbox]:checked { background:var(--c-green); }
+input[type=checkbox]:checked::after { left:22px; background:#000; }
+</style>
 </head>
-<body>
+<body class="scanlines">
 
-    <h1>🛰️ OpenWardRivingT</h1>
+<!-- ===== HEADER ===== -->
+<div id="header">
+  <div class="metric" id="hdr_gps"><span class="icon">🛰️</span><span class="val">--</span></div>
+  <div class="metric" id="hdr_speed"><span class="icon">🚗</span><span class="val">0</span><span style="font-size:0.7em;color:var(--c-dim)">km/h</span></div>
+  <div class="metric" id="hdr_deauths"><span class="icon">⚡</span><span class="val">0</span></div>
+  <div class="metric" id="hdr_hs"><span class="icon">🔑</span><span class="val">0</span></div>
+  <div class="metric" id="hdr_usb"><span class="icon">💾</span><span class="val">--</span></div>
+  <span class="spacer"></span>
+  <span class="status-dot off" id="hdr_dot" title="STOPPED"></span>
+  <span style="font-size:0.7em;color:var(--c-dim);margin-right:4px;" id="hdr_time">--:--</span>
+</div>
 
-    <!-- DASHBOARD VIEW -->
-    <div id="view-dashboard" class="view active">
-        <div class="dash-layout">
-            <!-- Left Column (1/4) -->
-            <div class="dash-left">
-                <!-- MASCOT PET PANEL -->
-                <div id="pet_panel" class="card" style="padding:10px; display:flex; flex-direction:column; align-items:center; border-color:#ff00ff; margin-bottom:10px;">
-                    <div id="pet_face" style="font-size:2.5em; font-weight:bold; color:#f0f; line-height:1.2; text-align:center; min-height:50px;">(◕‿‿◕)</div>
-                    <div id="pet_name" style="font-size:0.8em; color:#f0f; font-weight:bold; margin-top:2px;">Wardriv3r</div>
-                    <div id="pet_quote" style="font-size:0.7em; color:#aaa; text-align:center; margin-top:5px; font-style:italic; max-width:200px;">ZzzzZZzzzzZzzz</div>
-                    <div id="pet_bridge" style="font-size:0.65em; color:#0ff; text-align:center; margin-top:3px; display:none;">🐾 Pwnagotchi linked</div>
-                </div>
-                <div id="status_indicator" class="status-badge stopped">🔴 STOPPED</div>
-                <button id="btn_toggle" class="btn huge" onclick="toggleWardriving()">▶ START</button>
-                <div class="metrics-grid">
-                    <!-- GPS Widget also acts as Browser Override -->
-                    <div class="metric-box" style="cursor: pointer;" onclick="document.getElementById('chk_browser_gps').click()">
-                        <label style="display:flex; justify-content:space-between; align-items:center;">
-                            GPS
-                            <input type="checkbox" id="chk_browser_gps" onchange="toggleBrowserGPS()" onclick="event.stopPropagation()" style="transform: scale(1.2);" title="Browser Override">
-                        </label>
-                        <div class="val" id="st_gps" style="color:#0ff;">---</div>
-                        <div class="val" id="st_gps_stats" style="font-size:0.8em; margin-top:5px; color:#ffff00;">---</div>
-                        <div class="val" id="st_latlon" style="font-size:0.8em; margin-top:5px; color:#fff;">---</div>
-                    </div>
-                    <div class="metric-box">
-                        <label>Speed</label>
-                        <div class="val" id="st_speed" style="color:#0f0;">0 km/h</div>
-                    </div>
-                    <div class="metric-box">
-                        <label>Deauths</label>
-                        <div class="val" id="st_deauths" style="color:#f33;">0</div>
-                    </div>
-                    <div class="metric-box">
-                        <label>Total Handshakes</label>
-                        <div class="val" id="st_handshakes">0</div>
-                    </div>
-                    <div class="metric-box">
-                        <label>USB / Health</label>
-                        <div class="val" id="st_space" style="font-size:1.1em; color:#0ff;">---</div>
-                        <div class="val" id="st_health" style="font-size:0.8em; margin-top:5px; color:#aaa;">CPU: -- | RAM: --</div>
-                    </div>
-                </div>
-                <!-- Hidden instructions for HTTPS bypass, kept for reference if needed -->
-                <div style="display:none;">
-                    <code id="chrome_flag">chrome://flags/#unsafely-treat-insecure-origin-as-secure</code>
-                </div>
-            </div>
-            
-            <!-- Center Column (2/4) MAP -->
-            <div class="dash-center">
-                <div id="map"></div>
-                <!-- Layer button -->
-                <div style="position:absolute; bottom:10px; right:10px; z-index:1000; background:rgba(0,0,0,0.7); padding:5px; border-radius:5px;">
-                    <label style="font-size:0.8em; display:flex; align-items:center; gap:5px; color:#fff; cursor:pointer; margin-bottom:5px;">
-                        <input type="checkbox" id="chk_online_tiles" onchange="toggleTiles()"> Use Online Map
-                    </label>
-                    <label style="font-size:0.8em; display:flex; align-items:center; gap:5px; color:#ff00ff; cursor:pointer; font-weight:bold;">
-                        <input type="checkbox" id="chk_heatmap" onchange="toggleHeatmap()"> 🔥 WiFi Heatmap
-                    </label>
-                    <button class="btn small" onclick="startReplay()" style="padding:5px; font-size:0.8em; margin-top:5px; width:100%; border-color:#0f0; color:#0f0;">▶ Replay Route</button>
-                </div>
-            </div>
+<!-- ===== MAIN CONTENT ===== -->
+<div id="main">
 
-            <!-- Right Column (1/4) Analyzer & Scoring -->
-            <div class="dash-right" style="display:flex; flex-direction:column; gap:10px;">
-                <div class="card" style="padding:10px; flex:1; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0;">
-                    <h3 style="margin-top:0; font-size:1em; color:#aaa; border-bottom:1px dashed var(--main-color); padding-bottom:5px;">Live 2.4GHz Spectrum</h3>
-                    <div class="analyzer-container" id="analyzer_channels" style="flex:1;"></div>
-                </div>
-                <div class="card" style="padding:10px; flex:1; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; margin: 0; border-color:#0ff;">
-                    <h3 style="margin-top:0; font-size:1em; color:#0ff; border-bottom:1px dashed #0ff; padding-bottom:5px;">🏆 Top Scored Targets</h3>
-                    <div id="scored_targets" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:5px; padding-top:5px; text-align:left; font-size:0.85em;">
-                        <div style="color:#666; text-align:center; padding:10px;">Waiting for targets...</div>
-                    </div>
-                </div>
-                <div class="card" style="padding:10px; margin:0; border-color:#ff00ff; flex-shrink:0;">
-                    <h3 style="margin-top:0; font-size:1em; color:#f0f; border-bottom:1px dashed #f0f; padding-bottom:5px;">🐾 Pwnagotchi Bridge</h3>
-                    <div id="pwnagotchi_status" style="font-size:0.85em; color:#aaa; text-align:left;">
-                        <div style="color:#666; padding:5px;">No pwnagotchi detected</div>
-                    </div>
-                </div>
-            </div>
+  <!-- DASHBOARD -->
+  <div class="view active" id="view-dashboard">
+    <div class="dash-grid" id="dashGrid">
+      <div class="dash-left">
+        <div class="status-badge off" id="statusBadge">● STOPPED</div>
+        <button class="btn huge" id="btnToggle" onclick="toggleWardriving()">▶ START</button>
+        <div class="pet-card">
+          <div class="face" id="petFace">(◕‿‿◕)</div>
+          <div class="name">Wardriv3r</div>
+          <div class="quote" id="petQuote">ZzzzZZzzzzZzzz</div>
+          <div class="bridge" id="petBridge">🐾 Pwnagotchi linked</div>
         </div>
-    </div>
-
-    <!-- CAPTURES VIEW -->
-    <div id="view-captures" class="view">
-        <div class="card">
-            <h2>📦 Capture Manager</h2>
-            <div style="background: rgba(0,255,0,0.1); border: 1px dashed #0f0; padding: 10px; border-radius: 8px; margin: 15px 0;">
-                <p style="margin-top:0; font-size:0.9em; color:#0f0;"><strong>Overlay de Redes Crackeadas:</strong> Sube tu `hashcat.potfile` aquí para pintar de verde en el radar las contraseñas recuperadas.</p>
-                <input type="file" id="potfile_input" style="background:#000; color:#fff; border:1px solid #0f0; border-radius: 8px; padding:10px; width:100%; box-sizing:border-box; margin-bottom:10px;">
-                <button class="btn small" onclick="uploadPotfile()" style="width:100%; border-color:#0f0; color:#0f0; padding: 10px;">�� Upload Potfile</button>
-                <div id="potfile_status" style="margin-top:10px; color:#0f0; text-align:center;"></div>
-            </div>
-            <label style="display:flex; justify-content:space-between; align-items:center; margin: 15px 0; padding:10px; background:#000; border-radius:8px; border:1px solid #333; max-width:400px;">
-                <span style="font-size:1.1em; font-weight:bold; color:#0ff;">Keep RAW .pcapng files</span>
-                <input type="checkbox" id="chk_keep_pcap" onchange="togglePcap()" style="transform: scale(1.5);">
-            </label>
-            <div style="display:flex; gap:10px; margin-bottom: 20px; flex-wrap:wrap;">
-                <button class="btn small" onclick="loadFiles()">🔄 Refresh</button>
-                <button class="btn small download" onclick="window.open('/cgi-bin/wardriving_api?action=download_all', '_blank')">📥 Archive (.tar.gz)</button>
-                <button class="btn small download" style="background:#0055ff; border-color:#0088ff;" onclick="window.open('/cgi-bin/wardriving_api?action=export_gpx', '_blank')">🗺️ GPX</button>
-                <button class="btn small download" style="background:#aa00ff; border-color:#dd00ff;" onclick="window.open('/cgi-bin/wardriving_api?action=export_kml', '_blank')">🌍 KML</button>
-                <button class="btn small download" style="background:#ff3300; border-color:#ff0000;" onclick="window.open('/cgi-bin/wardriving_api?action=export_hashcat', '_blank')">🔥 Hashcat Toolkit</button>
-            </div>
-            <div id="file_list" class="file-list"><div style="text-align:center; padding: 20px;">Loading...</div></div>
+      </div>
+      <div class="dash-center">
+        <div id="map"></div>
+        <div class="map-overlay">
+          <label style="font-size:0.7em;display:flex;align-items:center;gap:4px;color:var(--c-white);cursor:pointer">
+            <input type="checkbox" id="chkOnlineTiles" onchange="toggleTiles()"> Map
+          </label>
+          <label style="font-size:0.7em;display:flex;align-items:center;gap:4px;color:var(--c-magenta);cursor:pointer">
+            <input type="checkbox" id="chkHeatmap" onchange="toggleHeatmap()"> 🔥 Heat
+          </label>
+          <label style="font-size:0.7em;display:flex;align-items:center;gap:4px;color:var(--c-cyan);cursor:pointer">
+            <input type="checkbox" id="chkBrowserGPS" onchange="toggleBrowserGPS()"> 📡 GPS
+          </label>
+          <button class="btn small cyan" onclick="startReplay()" style="font-size:0.7em;">▶ Replay</button>
         </div>
+      </div>
+      <div class="dash-right">
+        <div class="spec-mini"><h4>📶 Spectrum</h4><div id="specList"></div></div>
+        <div class="scores-mini"><h4>🏆 Targets</h4><div id="scoresList"><span style="color:var(--c-dim)">Waiting...</span></div></div>
+      </div>
     </div>
+  </div>
 
-    <!-- CONSOLE VIEW -->
-    <div id="view-console" class="view" style="padding: 10px;">
-        <div id="log_box" class="log-box">Waiting for data...</div>
+  <!-- CAPTURES -->
+  <div class="view" id="view-captures" style="padding:6px; overflow-y:auto;">
+    <div class="card" style="margin-bottom:8px;">
+      <h3 style="color:var(--c-cyan)">📦 Capture Manager</h3>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+        <button class="btn small" onclick="loadFiles()">🔄 Refresh</button>
+        <button class="btn small cyan" onclick="window.open('/cgi-bin/wardriving_api?action=download_all','_blank')">📥 .tar.gz</button>
+        <button class="btn small amber" onclick="window.open('/cgi-bin/wardriving_api?action=export_gpx','_blank')">🗺️ GPX</button>
+        <button class="btn small magenta" onclick="window.open('/cgi-bin/wardriving_api?action=export_kml','_blank')">🌍 KML</button>
+        <button class="btn small" onclick="window.open('/cgi-bin/wardriving_api?action=export_hashcat','_blank')">🔥 Hashcat</button>
+      </div>
+      <div style="border:1px dashed var(--c-green);padding:10px;border-radius:8px;margin-bottom:10px;">
+        <p style="font-size:0.8em;color:var(--c-green);margin:0 0 6px 0;">Upload hashcat.potfile to highlight cracked networks on map:</p>
+        <input type="file" id="potfileInput" style="margin-bottom:6px;">
+        <button class="btn small" onclick="uploadPotfile()">📤 Upload Potfile</button>
+        <div id="potfileStatus" style="margin-top:6px;font-size:0.8em;"></div>
+      </div>
+      <div class="setting-row" style="justify-content:flex-start;gap:10px;">
+        <span style="color:var(--c-cyan);">Keep RAW .pcapng</span>
+        <input type="checkbox" id="chkKeepPcap" onchange="togglePcap()">
+      </div>
     </div>
+    <div id="fileList"><span style="color:var(--c-dim)">Loading...</span></div>
+  </div>
 
-    <!-- SETTINGS VIEW -->
-    
-    <div id="view-filter" class="view">
-        <div style="height: calc(100vh - 175px); box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden;">
-        <div class="settings-grid" style="flex: 1; align-items: stretch; height: 100%;">
-            <div class="card" style="margin-bottom:0; display:flex; flex-direction:column; overflow:hidden;">
-                <h2>🛡️ Excluded SSIDs</h2>
-                <p style="font-size:0.9em; color:#aaa; margin-top:0;">Hidden from the visual scanner.</p>
-                <div style="margin-bottom: 10px; display: flex; gap: 10px; margin-top:15px;">
-                    <input type="text" id="newExclusion" placeholder="Manual SSID" style="flex:1; padding: 15px; border-radius: 8px; border: 1px solid #444; background: #000; color: #fff; font-size: 1em;">
-                    <button class="btn small" style="margin: 0;" onclick="addExclusion(document.getElementById('newExclusion').value)">+ Add</button>
-                </div>
-                <div id="exclusionsList" style="display: flex; flex-direction: column; gap: 10px; margin-top:15px; flex:1; overflow-y:auto;">
-                    <!-- Items -->
-                </div>
-            </div>
-            <div class="card" style="margin-bottom:0; box-shadow: 0 0 10px rgba(255,0,68,0.1); border-color:#ff0044; display:flex; flex-direction:column; overflow:hidden;">
-                <h2 style="color:#ff0044; border-color:#ff0044;">🎯 Target Alerts</h2>
-                <p style="font-size:0.9em; color:#aaa; margin-top:0;">Alarms when a MAC/OUI is seen.</p>
-                <div style="display:flex; gap:10px; margin-bottom:15px; margin-top:15px;">
-                    <input type="text" id="newTarget" placeholder="e.g. 00:11:22" style="flex:1; background:#000; color:#ff0044; border:1px solid #ff0044; border-radius: 8px; padding: 15px; font-family:monospace; text-transform:uppercase;">
-                    <button class="btn small" onclick="addTarget()" style="border-color:#ff0044; color:#ff0044;">+ Add</button>
-                </div>
-                <div id="targetsList" style="text-align:left; flex:1; overflow-y:auto;"></div>
-            </div>
+  <!-- CONSOLE -->
+  <div class="view" id="view-console" style="padding:4px;">
+    <div class="log-box" id="logBox">Waiting for data...</div>
+  </div>
+
+  <!-- SETTINGS (merged: old settings + filter) -->
+  <div class="view" id="view-settings" style="padding:6px; overflow-y:auto;">
+    <div class="settings-grid">
+
+      <div class="card">
+        <h3 style="color:var(--c-magenta)">🌙 Display</h3>
+        <div class="setting-row"><span>Night Mode</span><input type="checkbox" id="chkNight" onchange="toggleNightMode()"></div>
+        <div class="setting-row"><span style="color:var(--c-cyan)">High Accuracy GPS</span><input type="checkbox" id="chkHighGPS" onchange="toggleHighAccuracyGPS()"></div>
+        <div class="setting-row"><span style="color:var(--c-magenta)">TTS Audio Alerts</span><input type="checkbox" id="chkAudio" onchange="toggleAudio()"></div>
+        <button class="btn small magenta" onclick="testAudio()">🔊 Test Speech</button>
+        <div class="setting-row" style="margin-top:10px;">
+          <span>🚗 Driver Side</span>
+          <select id="selDriverSide" onchange="setDriverSide()" style="width:auto;">
+            <option value="left">Left (LHD)</option>
+            <option value="right">Right (RHD)</option>
+          </select>
         </div>
+      </div>
+
+      <div class="card">
+        <h3 style="color:var(--c-green)">⚙️ Hardware</h3>
+        <label style="font-size:0.8em;color:var(--c-dim);">Status LED</label>
+        <select id="selLED" style="margin-bottom:8px;"></select>
+        <label style="font-size:0.8em;color:var(--c-dim);">Physical Button</label>
+        <select id="selBtn" style="margin-bottom:8px;">
+          <option value="wps">WPS Button</option>
+          <option value="wifi">WiFi Button</option>
+        </select>
+        <label style="font-size:0.8em;color:var(--c-dim);">Operation Mode</label>
+        <select id="selMode" style="margin-bottom:8px;">
+          <option value="active">Active (Full Injection)</option>
+          <option value="passive">Passive (Silent Survey)</option>
+          <option value="smart">Smart (Targeted Only)</option>
+        </select>
+        <button class="btn small" onclick="saveHW()">💾 Save Hardware</button>
+      </div>
+
+      <div class="card">
+        <h3 style="color:var(--c-amber)">📡 WiGLE</h3>
+        <input type="password" id="wigleToken" placeholder="Paste Base64 API Token..." style="margin-bottom:8px;">
+        <div style="display:flex;gap:6px;">
+          <button class="btn small amber" onclick="saveWigle()">💾 Save</button>
+          <button class="btn small" style="background:var(--c-amber);color:#000;" onclick="uploadWigle()">📤 Upload</button>
         </div>
-    </div>
-    
-    <div id="view-settings" class="view">
-        <div class="settings-grid">
+        <div id="wigleStatus" style="margin-top:8px;font-size:0.8em;color:var(--c-amber);"></div>
+      </div>
 
-            <div class="card" style="margin-bottom:0;">
-                <h2 style="border-color:#ff00ff; display:flex; align-items:center;">🌙 Night Mode</h2>
-                <label style="display:flex; justify-content:space-between; align-items:center; margin: 15px 0; padding:10px; background:#000; border-radius:8px; border:1px solid #333;">
-                    <span style="font-size:1.1em; font-weight:bold; color:#f00;">Enable Night Drive</span>
-                    <input type="checkbox" id="chk_night" onchange="toggleNightMode()" style="transform: scale(1.5);">
-                </label>
-                <label style="display:flex; justify-content:space-between; align-items:center; margin: 15px 0; padding:10px; background:#000; border-radius:8px; border:1px solid #333;">
-                    <span style="font-size:1.1em; font-weight:bold; color:#00ffff;">High Accuracy GPS</span>
-                    <input type="checkbox" id="chk_high_gps" onchange="toggleHighAccuracyGPS()" style="transform: scale(1.5);">
-                </label>
-                <h2 style="border-color:#ff00ff; display:flex; align-items:center;">🔊 Audio Alerts</h2>
-                <p style="font-size:0.9em; color:#aaa; margin-top:0;">Enable text-to-speech for new captures.</p>
-                <label style="display:flex; justify-content:space-between; align-items:center; margin: 15px 0; padding:10px; background:#000; border-radius:8px; border:1px solid #333;">
-                    <span style="font-size:1.1em; font-weight:bold; color:#ff00ff;">Enable TTS</span>
-                    <input type="checkbox" id="chk_audio" onchange="toggleAudio()" style="transform: scale(1.5);">
-                </label>
-                <button class="btn small" onclick="testAudio()" style="width:100%; border-color:#ff00ff; color:#ff00ff; padding: 10px; font-size:1.1em;">🔊 Test Speech</button>
-            </div>
-
-            <div class="card" style="margin-bottom:0;">
-                <h2>⚙️ Hardware Config</h2>
-                <p style="font-size:0.9em; color:#aaa; margin-top:0;">Configure LEDs and physical buttons.</p>
-                
-                <label style="display:block; margin: 10px 0 5px 0; color:#aaa; font-weight:bold;">Status LED:</label>
-                <select id="sel_led"><option value="green:wps">green:wps</option></select>
-                
-                <label style="display:block; margin: 15px 0 5px 0; color:#aaa; font-weight:bold;">Physical Button:</label>
-                <select id="sel_btn">
-                    <option value="wps">WPS Button</option>
-                    <option value="wifi">WiFi / RFKill Button</option>
-                </select>
-                <label style="display:block; margin: 15px 0 5px 0; color:#aaa; font-weight:bold;">Operation Mode:</label>
-                <select id="sel_mode">
-                    <option value="active">Active (Full Injection / Capture)</option>
-                    <option value="passive">Passive (Silent Site Survey)</option>
-                    <option value="smart">Smart (Inject ONLY to Targeted Alerts)</option>
-                </select>
-                
-                <button class="btn small" onclick="saveHW()" style="width:100%; padding: 15px; font-size:1.1em; margin-top: 20px;">💾 Save Hardware</button>
-            </div>
-            
-
-            <div class="card" style="margin-bottom:0;">
-                <h2 style="border-color:#ffff00; display:flex; align-items:center;">📡 WiGLE.net Integration</h2>
-                <p style="font-size:0.9em; color:#aaa; margin-top:0;">Upload your captures directly to WiGLE.</p>
-                <label style="display:block; margin: 10px 0 5px 0; color:#aaa; font-weight:bold;">Encoded API Token:</label>
-                <input type="password" id="wigle_token" placeholder="Paste Base64 API Token..." style="width:100%; box-sizing:border-box; padding:10px; background:#000; color:#ffff00; border:1px solid #ffff00; border-radius:8px;">
-                
-                <button class="btn small" onclick="saveWigle()" style="width:100%; border-color:#ffff00; color:#ffff00; padding: 10px; font-size:1.1em; margin-top: 15px;">💾 Save Token</button>
-                <button class="btn small" onclick="uploadWigle()" style="width:100%; border-color:#fff; color:#000; background:#ffff00; padding: 10px; font-size:1.1em; margin-top: 15px;">📤 Upload DB to WiGLE</button>
-                <div id="wigle_status" style="margin-top:15px; color:#ffff00; font-weight:bold; text-align:center;"></div>
-            </div>
-
-<div class="card" style="margin-bottom:0; display:flex; flex-direction:column; overflow:hidden;">
-<h2 style="border-color:#00ffff; display:flex; align-items:center;">🗺️ Map Management</h2>
-                <p style="font-size:0.9em; color:#aaa; margin-top:0;">Download tiles directly from the router.</p>
-                
-                <div style="background: rgba(0,255,255,0.1); border: 1px dashed #00ffff; padding: 10px; border-radius: 8px; margin: 15px 0;">
-                    <span style="color:#00ffff; font-size:0.85em;">Move the map on the Dashboard to the desired city, then return here to download.</span>
-                </div>
-                
-                <div style="display:flex; gap:10px; margin-bottom:15px;">
-                    <input type="number" id="dl_zoom_min" placeholder="Min Z (10)" value="12" style="flex:1; background:#000; color:#00ffff; border:1px solid #00ffff; border-radius:8px; padding:10px; text-align:center;">
-                    <input type="number" id="dl_zoom_max" placeholder="Max Z (16)" value="16" style="flex:1; background:#000; color:#00ffff; border:1px solid #00ffff; border-radius:8px; padding:10px; text-align:center;">
-                </div>
-                <button class="btn small" onclick="downloadBBox()" style="width:100%; border-color:#00ffff; color:#00ffff; padding: 15px; font-size:1.1em;">⬇️ Download Current Viewport</button>
-                <div id="bbox_status" style="margin-top:15px; color:#00ffff; font-weight:bold; text-align:center;"></div>
-                
-                <hr style="border-color:#333; margin: 15px 0;">
-                <p style="font-size:0.8em; color:#aaa; margin-top:0;">Or upload a .tar.gz from PC:</p>
-                <input type="file" id="tiles_file" accept=".tar.gz,.gz,.tar" style="background:#000; color:#fff; border:1px solid #333; border-radius: 8px; padding:10px; width:100%; box-sizing:border-box; margin-bottom:10px; cursor:pointer;">
-                <button class="btn small" onclick="uploadTiles()" style="width:100%; border-color:#333; color:#aaa; padding: 10px;">📤 Install Tiles from file</button>
-                <div id="upload_status" style="margin-top:15px; color:#aaa; font-weight:bold; text-align:center;"></div>
-            </div>
+      <div class="card">
+        <h3 style="color:var(--c-cyan)">🗺️ Map Tiles</h3>
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <input type="number" id="dlZoomMin" value="12" placeholder="Min Z" style="width:60px;">
+          <input type="number" id="dlZoomMax" value="16" placeholder="Max Z" style="width:60px;">
         </div>
-    </div>
+        <button class="btn small cyan" onclick="downloadBBox()">⬇️ Download Viewport</button>
+        <div id="bboxStatus" style="margin-top:6px;font-size:0.8em;color:var(--c-cyan);"></div>
+        <hr style="border-color:var(--border);margin:10px 0;">
+        <input type="file" id="tilesFile" accept=".tar.gz,.gz" style="margin-bottom:6px;">
+        <button class="btn small dim" onclick="uploadTiles()">📤 Install from file</button>
+        <div id="uploadStatus" style="margin-top:6px;font-size:0.8em;"></div>
+      </div>
 
-
-    <!-- HISTORY VIEW -->
-    <div id="view-history" class="view">
-        <div class="card" style="display:flex; flex-direction:column; height:calc(100vh - 150px); overflow:hidden;">
-            <h2>📊 Lifetime Statistics</h2>
-            <div class="metrics-grid" id="history_metrics" style="margin-bottom:20px;">
-                <div class="metric-box"><label>Total Networks</label><div class="val" id="st_hist_total">0</div></div>
-                <div class="metric-box"><label>WPA3 / SAE</label><div class="val" id="st_hist_wpa3">0</div></div>
-                <div class="metric-box"><label>Handshakes</label><div class="val" id="st_hist_hs">0</div></div>
-                <div class="metric-box"><label>Days Active</label><div class="val" id="st_hist_days">0</div></div>
-            </div>
-            <h3 style="color:#aaa; border-bottom:1px solid #333; padding-bottom:10px;">Recent Sessions (Last 7 Days)</h3>
-            <div id="history_list" style="flex:1; overflow-y:auto; text-align:left; font-size:0.9em; display:flex; flex-direction:column; gap:10px;">
-                <div style="text-align:center; color:#666; padding:20px;">Loading historical data...</div>
-            </div>
+      <div class="card">
+        <h3 style="color:var(--c-red)">🛡️ Excluded SSIDs</h3>
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <input type="text" id="newExclusion" placeholder="SSID to hide..." style="flex:1;">
+          <button class="btn small" onclick="addExclusion()">+ Add</button>
         </div>
+        <div id="exclusionsList" style="max-height:200px;overflow-y:auto;"></div>
+      </div>
+
+      <div class="card">
+        <h3 style="color:var(--c-red)">🎯 Target Alerts</h3>
+        <div style="display:flex;gap:6px;margin-bottom:8px;">
+          <input type="text" id="newTarget" placeholder="e.g. 00:11:22" style="flex:1;text-transform:uppercase;">
+          <button class="btn small" style="border-color:var(--c-red);color:var(--c-red);" onclick="addTarget()">+ Add</button>
+        </div>
+        <div id="targetsList" style="max-height:200px;overflow-y:auto;"></div>
+      </div>
+
     </div>
+  </div>
 
-    <!-- NAVIGATION BAR -->
-    <div class="nav-bar">
-        <div class="nav-item active" onclick="switchTab('dashboard', this)"><i>🚗</i><span>Dashboard</span></div>
-        <div class="nav-item" onclick="switchTab('captures', this)"><i>📁</i><span>Captures</span></div>
-        <div class="nav-item" onclick="switchTab('console', this)"><i>🖥️</i><span>Console</span></div>
-        <div class="nav-item" onclick="switchTab('settings', this)"><i>⚙️</i><span>Settings</span></div>
-        <div class="nav-item" onclick="switchTab('filter', this)"><i>🛡️</i><span>Filter</span></div>
-        <div class="nav-item" onclick="switchTab('history', this); loadHistory();"><i>📊</i><span>Stats</span></div>
+  <!-- HISTORY -->
+  <div class="view" id="view-history" style="padding:6px; overflow-y:auto;">
+    <div class="card" style="margin-bottom:8px;">
+      <h3 style="color:var(--c-cyan)">📊 Lifetime Statistics</h3>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;">
+        <div class="setting-row" style="flex-direction:column;align-items:center;"><span>Total Nets</span><span class="val" id="stHistTotal" style="font-size:1.3em;color:var(--c-white);">0</span></div>
+        <div class="setting-row" style="flex-direction:column;align-items:center;"><span>WPA3/SAE</span><span class="val" id="stHistWpa3" style="font-size:1.3em;color:var(--c-white);">0</span></div>
+        <div class="setting-row" style="flex-direction:column;align-items:center;"><span>Handshakes</span><span class="val" id="stHistHs" style="font-size:1.3em;color:var(--c-white);">0</span></div>
+        <div class="setting-row" style="flex-direction:column;align-items:center;"><span>Days Active</span><span class="val" id="stHistDays" style="font-size:1.3em;color:var(--c-white);">0</span></div>
+      </div>
+      <h4 style="font-size:0.8em;color:var(--c-dim);margin-bottom:8px;">Recent Sessions</h4>
+      <div id="historyList"><span style="color:var(--c-dim)">Loading...</span></div>
+    </div>
+    <div class="card">
+      <h3 style="color:var(--c-magenta)">🐾 Pwnagotchi Bridge</h3>
+      <div id="pwnagotchiStatus"><span style="color:var(--c-dim)">No pwnagotchi detected</span></div>
+    </div>
+  </div>
 
-            </div>
+</div>
 
-    <script>
-        // API_TOKEN_PLACEHOLDER
-        if (typeof window.API_TOKEN === 'undefined') {
-            window.API_TOKEN = '';  // No token = development mode, auth bypassed
-        }
-        
-        // Auto-inject auth token into all API requests
-        const _origFetch = window.fetch;
-        window.fetch = function(url, options) {
-            if (typeof url === 'string' && url.includes('/cgi-bin/wardriving_api') && window.API_TOKEN) {
-                let sep = url.includes('?') ? '&' : '?';
-                url = url + sep + 'token=' + encodeURIComponent(window.API_TOKEN);
-            }
-            return _origFetch(url, options);
-        };
-        
-        
-        
-        function toggleNightMode() {
-            let night = document.getElementById('chk_night').checked;
-            localStorage.setItem('nightMode', night);
-            if(night) document.body.classList.add('night-mode');
-            else document.body.classList.remove('night-mode');
-        }
-        if(localStorage.getItem('nightMode') === 'true') {
-            document.body.classList.add('night-mode');
-            window.addEventListener('DOMContentLoaded', () => document.getElementById('chk_night').checked = true);
-        }
+<!-- ===== NAVIGATION ===== -->
+<div id="nav">
+  <div class="nav-item active" onclick="switchTab('dashboard',this)"><i class="ni">🚗</i>Dash</div>
+  <div class="nav-item" onclick="switchTab('captures',this)"><i class="ni">📁</i>Files</div>
+  <div class="nav-item" onclick="switchTab('console',this)"><i class="ni">🖥️</i>Console</div>
+  <div class="nav-item" onclick="switchTab('settings',this)"><i class="ni">⚙️</i>Settings</div>
+  <div class="nav-item" onclick="switchTab('history',this)"><i class="ni">📊</i>Stats</div>
+</div>
 
-        function toggleHighAccuracyGPS() {
-            let enabled = document.getElementById('chk_high_gps').checked;
-            window.GPS_HIGH_ACCURACY = enabled;
-            localStorage.setItem('gpsHighAccuracy', enabled);
-        }
-        window.GPS_HIGH_ACCURACY = localStorage.getItem('gpsHighAccuracy') === 'true';
-        window.addEventListener('DOMContentLoaded', () => {
-            if (window.GPS_HIGH_ACCURACY) {
-                let chk = document.getElementById('chk_high_gps');
-                if (chk) chk.checked = true;
-            }
-        });
+<script>
+// API_TOKEN_PLACEHOLDER
+if(typeof window.API_TOKEN==='undefined') window.API_TOKEN='';
+const _origFetch=window.fetch;
+window.fetch=function(url,options){
+  if(typeof url==='string' && url.includes('/cgi-bin/wardriving_api') && window.API_TOKEN){
+    url+= (url.includes('?')?'&':'?') + 'token='+encodeURIComponent(window.API_TOKEN);
+  }
+  return _origFetch(url,options);
+};
 
-        let isRunning = false;
-        let lastGpsFixTime = Date.now();
-        let audioEnabled = localStorage.getItem('audioEnabled') === 'true';
-        let lastHandshakeCount = -1;
+// ===== GLOBALS =====
+let isRunning=false, lastGpsFixTime=Date.now(), lastHandshakeCount=-1;
+let audioEnabled=localStorage.getItem('audioEnabled')==='true';
+let map,onlineLayer,offlineLayer,carMarker,firstLoc=true,watchId=null,browserGpsActive=false;
+let wpsMarkers={},crackedMarkers=[],heatLayer=null,replayTimer=null;
+let excludedSSIDs=[],targetMacs=[],alertedTargets=[];
+let OUI_DB={};
+let petMood='sleep',petLastMoodChange=Date.now(),petHandshakeBurst=0,petLastHandshakes=0,petPwnagotchiDetected=false;
+let dlTimer=null;
 
-        
-        let map;
-        let onlineLayer;
-        let offlineLayer;
-        let carMarker;
-        let wpsMarkers = {}; 
-        let firstLoc = true;
-        let watchId = null;
-        let browserGpsActive = false;
-        
-        function initMap() {
-            map = L.map('map', {zoomControl: false}).setView([0, 0], 2);
-            L.control.zoom({position: 'topright'}).addTo(map);
+// ===== NMEA PARSERS =====
+function parseNMEARMC(line){
+  if(!line||!line.match(/^\$[A-Z]{2}RMC/)) return null;
+  let p=line.split(','); if(p[2]!=='A') return null;
+  let latRaw=parseFloat(p[3]),lat=Math.floor(latRaw/100)+((latRaw/100)%1)*100/60; if(p[4]==='S')lat=-lat;
+  let lonRaw=parseFloat(p[5]),lon=Math.floor(lonRaw/100)+((lonRaw/100)%1)*100/60; if(p[6]==='W')lon=-lon;
+  return {lat,lon,speedKmh:(parseFloat(p[7])||0)*1.852,time:p[1]};
+}
+function parseNMEAWPL(line){
+  if(!line||!line.startsWith('$GPWPL')) return null;
+  let p=line.split(','),latRaw=parseFloat(p[1]),lat=Math.floor(latRaw/100)+((latRaw/100)%1)*100/60; if(p[2]==='S')lat=-lat;
+  let lonRaw=parseFloat(p[3]),lon=Math.floor(lonRaw/100)+((lonRaw/100)%1)*100/60; if(p[4]==='W')lon=-lon;
+  return {lat,lon,mac:(p[5]||'').split('*')[0]};
+}
 
-            onlineLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: '© OSM'
-            });
-            
-            offlineLayer = L.tileLayer('/wardriving/captures/tiles/{z}/{x}/{y}.png', {
-                maxZoom: 18,
-                errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
-            });
+// ===== INIT =====
+function initMap(){
+  map=L.map('map',{zoomControl:false}).setView([0,0],2);
+  L.control.zoom({position:'topright'}).addTo(map);
+  onlineLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OSM'});
+  offlineLayer=L.tileLayer('/wardriving/captures/tiles/{z}/{x}/{y}.png',{maxZoom:18,errorTileUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='});
+  let useOnline=localStorage.getItem('useOnlineMaps')==='true';
+  document.getElementById('chkOnlineTiles').checked=useOnline;
+  if(useOnline)onlineLayer.addTo(map); else offlineLayer.addTo(map);
+  carMarker=L.circleMarker([0,0],{radius:8,fillColor:'#00ffff',color:'#fff',weight:2,opacity:1,fillOpacity:1}).addTo(map);
+  carMarker.bindPopup('<b>Current Location</b>');
+}
+initMap();
+fetch('/wardriving/oui.json').then(r=>r.json()).then(d=>{OUI_DB=d;}).catch(()=>{});
 
-            let useOnline = localStorage.getItem('useOnlineMaps') === 'true';
-            document.getElementById('chk_online_tiles').checked = useOnline;
-            if(useOnline) onlineLayer.addTo(map);
-            else offlineLayer.addTo(map);
-            
-            carMarker = L.circleMarker([0, 0], {
-                radius: 8, fillColor: "#00ffff", color: "#fff", weight: 2, opacity: 1, fillOpacity: 1
-            }).addTo(map);
-            carMarker.bindPopup("<b>Current Location</b>");
-        }
+// ===== TABS =====
+function switchTab(id,el){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(v=>v.classList.remove('active'));
+  let view=document.getElementById('view-'+id); if(view)view.classList.add('active');
+  if(el)el.classList.add('active');
+  if(id==='dashboard')setTimeout(()=>{if(map)map.invalidateSize();},200);
+  if(id==='history')loadHistory();
+}
 
-        
-        let heatLayer = null;
-        
-        // ===== SHARED NMEA PARSER =====
-        // Same formula as parse_nmea_rmc() in wardriving_api CGI
-        function parseNMEARMC(line) {
-            if (!line || !line.match(/^\$[A-Z]{2}RMC/)) return null;
-            let p = line.split(',');
-            if (p[2] !== 'A') return null;
-            let latRaw = parseFloat(p[3]);
-            let lat = Math.floor(latRaw/100) + ((latRaw/100) % 1) * 100 / 60;
-            if (p[4] === 'S') lat = -lat;
-            let lonRaw = parseFloat(p[5]);
-            let lon = Math.floor(lonRaw/100) + ((lonRaw/100) % 1) * 100 / 60;
-            if (p[6] === 'W') lon = -lon;
-            let speedKts = parseFloat(p[7]) || 0;
-            return { lat, lon, speedKmh: speedKts * 1.852, time: p[1] };
-        }
-        function parseNMEAWPL(line) {
-            if (!line || !line.startsWith('$GPWPL')) return null;
-            let p = line.split(',');
-            let latRaw = parseFloat(p[1]);
-            let lat = Math.floor(latRaw/100) + ((latRaw/100) % 1) * 100 / 60;
-            if (p[2] === 'S') lat = -lat;
-            let lonRaw = parseFloat(p[3]);
-            let lon = Math.floor(lonRaw/100) + ((lonRaw/100) % 1) * 100 / 60;
-            if (p[4] === 'W') lon = -lon;
-            let mac = (p[5] || '').split('*')[0];
-            return { lat, lon, mac };
-        }
+// ===== DRIVER SIDE =====
+function setDriverSide(){
+  let side=document.getElementById('selDriverSide').value;
+  localStorage.setItem('driverSide',side);
+  applyDriverSide(side);
+}
+function applyDriverSide(side){
+  let grid=document.getElementById('dashGrid'),nav=document.getElementById('nav');
+  if(side==='right'){grid.classList.add('swap');nav.classList.add('swap');}
+  else {grid.classList.remove('swap');nav.classList.remove('swap');}
+}
+(function(){
+  let side=localStorage.getItem('driverSide')||'left';
+  let sel=document.getElementById('selDriverSide'); if(sel)sel.value=side;
+  applyDriverSide(side);
+})();
 
-        let replayTimer = null;
-        function startReplay() {
-            if(replayTimer) { clearInterval(replayTimer); replayTimer=null; return; }
-            if(!onlineLayer && !offlineLayer) return alert("Enable a map layer first!");
-            
-            fetch('/cgi-bin/wardriving_api?action=map_data')
-            .then(r=>r.json())
-            .then(data => {
-                if(!data.nmea_b64) return;
-                let lines = atob(data.nmea_b64).split('\n');
-                let coords = [];
-                lines.forEach(l => {
-                    let rmc = parseNMEARMC(l);
-                    if (rmc) coords.push([rmc.lat, rmc.lon]);
-                });
-                
-                if(coords.length === 0) return alert("No GPS data found for replay.");
-                
-                // Clear map logic here if needed
-                let idx = 0;
-                replayTimer = setInterval(() => {
-                    if(idx >= coords.length) { clearInterval(replayTimer); replayTimer=null; return; }
-                    let c = coords[idx];
-                    map.setView(c, 16);
-                    if(carMarker) { carMarker.setLatLng(c); }
-                    else {
-                        let icon = L.divIcon({className: 'car-icon', html: '🚘', iconSize: [30,30]});
-                        carMarker = L.marker(c, {icon: icon}).addTo(map);
-                    }
-                    idx++;
-                }, 500); // Replay speed
-            });
-        }
+// ===== TOGGLE WARDIRIVING =====
+function toggleWardriving(){
+  let action=isRunning?'stop':'start';
+  document.getElementById('btnToggle').innerText='⏳...';
+  fetch('/cgi-bin/wardriving_api?action='+action).then(()=>setTimeout(updateStatus,1500));
+}
 
-        function toggleHeatmap() {
-            if(document.getElementById('chk_heatmap').checked) {
-                fetch('/cgi-bin/wardriving_api?action=heatmap_data')
-                .then(r=>r.json())
-                .then(data => {
-                    if(data.length > 0) {
-                        heatLayer = L.heatLayer(data, {radius: 25, blur: 15, maxZoom: 17}).addTo(map);
-                    }
-                });
-            } else {
-                if(heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
-            }
-        }
+// ===== STATUS POLL =====
+function updateStatus(){
+  fetch('/cgi-bin/wardriving_api?action=status').then(r=>r.json()).then(d=>{
+    isRunning=d.running;
+    let btn=document.getElementById('btnToggle'),badge=document.getElementById('statusBadge'),dot=document.getElementById('hdr_dot');
+    if(isRunning){
+      btn.innerHTML='⏹ STOP'; btn.className='btn huge stop';
+      badge.className='status-badge on'; badge.innerText='● CAPTURING';
+      dot.className='status-dot on';
+    } else {
+      btn.innerHTML='▶ START'; btn.className='btn huge';
+      badge.className='status-badge off'; badge.innerText='● STOPPED';
+      dot.className='status-dot off';
+    }
+    // Header metrics
+    document.getElementById('hdr_gps').querySelector('.val').innerText=(d.sats||'0')+(d.fix!=='0'?' sats':' NO FIX');
+    let hdrGps=document.getElementById('hdr_gps');
+    hdrGps.className='metric'+(d.fix==='0'?' crit':'');
+    let speedKmh=Math.round((parseFloat(d.speed)||0)*1.852);
+    document.getElementById('hdr_speed').querySelector('.val').innerText=speedKmh;
+    document.getElementById('hdr_deauths').querySelector('.val').innerText=d.deauths||'0';
+    document.getElementById('hdr_hs').querySelector('.val').innerText=d.handshakes||'0';
+    let usbEl=document.getElementById('hdr_usb');
+    usbEl.querySelector('.val').innerText=(d.usb_pct||'?')+'%';
+    usbEl.className='metric'+(parseInt(d.usb_pct)>90?' crit':(parseInt(d.usb_pct)>75?' warn':''));
+    document.getElementById('hdr_time').innerText=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
 
-        function toggleTiles() {
-            let online = document.getElementById('chk_online_tiles').checked;
-            localStorage.setItem('useOnlineMaps', online);
-            if(online) {
-                map.removeLayer(offlineLayer);
-                onlineLayer.addTo(map);
-            } else {
-                map.removeLayer(onlineLayer);
-                offlineLayer.addTo(map);
-            }
-        }
+    // Browser GPS stats
+    if(!browserGpsActive){
+      if(d.gps_status==='WAITING'){}
+      else if(d.fix==='0'){
+        let lostSecs=Math.floor((Date.now()-lastGpsFixTime)/1000);
+        let timeStr=lostSecs>60?Math.floor(lostSecs/60)+'m'+(lostSecs%60)+'s':lostSecs+'s';
+      } else {lastGpsFixTime=Date.now();}
+    }
 
-        const CHANNELS = [1,2,3,4,5,6,7,8,9,10,11, 36,40,44,48, 149,153,157,161,165];
-        function initAnalyzer() {
-            let container = document.getElementById('analyzer_channels'); document.getElementById('analyzer_channels').previousElementSibling.innerText = 'Live 2.4/5GHz Spectrum';
-            let html = '';
-            CHANNELS.forEach(i => {
-                html += `
-                <div class="tree-channel">
-                    <div class="tree-header" onclick="toggleTree(${i})">
-                        <span>Canal ${i}</span>
-                        <span class="ch-count" id="ch_count_${i}">0</span>
-                    </div>
-                    <div class="tree-content" id="ch_ssids_${i}"></div>
-                </div>`;
-            });
-            container.innerHTML = html;
-        }
+    let currentHandshakes=parseInt(d.handshakes||0);
+    if(lastHandshakeCount!==-1 && currentHandshakes>lastHandshakeCount && audioEnabled && 'speechSynthesis' in window){
+      let diff=currentHandshakes-lastHandshakeCount;
+      window.speechSynthesis.speak(new SpeechSynthesisUtterance('Captured '+diff+' new handshake'+(diff>1?'s':'')));
+    }
+    lastHandshakeCount=currentHandshakes;
 
-        function toggleTree(i) {
-            let content = document.getElementById('ch_ssids_' + i);
-            if(content) content.classList.toggle('open');
-        }
+    // Log box
+    if(d.logs){let lb=document.getElementById('logBox');lb.innerText=d.logs.replace(/\\n/g,'\n'); if(lb.scrollHeight-lb.scrollTop<lb.clientHeight+100)lb.scrollTop=lb.scrollHeight;}
 
-        initAnalyzer();
-        initMap();
+    // Spectrum mini
+    if(d.channels_data && Array.isArray(d.channels_data)){
+      let filtered=d.channels_data.filter(i=>!excludedSSIDs.includes(i.s));
+      let chMap={}; filtered.forEach(i=>{if(!chMap[i.c])chMap[i.c]=[];chMap[i.c].push(i.s);});
+      let specHtml='',channels=[1,2,3,4,5,6,7,8,9,10,11];
+      channels.forEach(c=>{let cnt=(chMap[c]||[]).length;specHtml+='<div class="ch-row"><span class="ch-n">CH '+c+'</span><span class="ch-c">'+cnt+'</span></div>';});
+      document.getElementById('specList').innerHTML=specHtml;
+    }
 
-        
-        let excludedSSIDs = [];
+    // Scores mini
+    updateScores();
+  });
+}
 
-        
-        let targetMacs = [];
-        let alertedTargets = [];
-        
-        function loadTargets() {
-            fetch('/cgi-bin/wardriving_api?action=get_targets')
-            .then(r=>r.json())
-            .then(data => {
-                targetMacs = data || [];
-                renderTargets();
-            }).catch(e=>{});
-        }
-        function renderTargets() {
-            const container = document.getElementById('targetsList');
-            if(!container) return;
-            container.innerHTML = '';
-            targetMacs.forEach(mac => {
-                let d = document.createElement('div');
-                d.style.cssText = "display:flex; justify-content:space-between; background:rgba(255,0,68,0.1); padding:10px; border:1px solid #ff0044; margin-bottom:5px; border-radius:5px; align-items:center;";
-                d.innerHTML = `<span style="font-family:monospace; color:#ff0044; font-weight:bold;">${mac}</span>
-                               <button class="btn small" style="padding:5px 10px; border-color:#ff0044; color:#ff0044;" onclick="removeTarget('${mac}')">X</button>`;
-                container.appendChild(d);
-            });
-        }
-        function addTarget() {
-            let m = document.getElementById('newTarget').value.trim().toUpperCase();
-            if(!m) return;
-            fetch(`/cgi-bin/wardriving_api?action=add_target&mac=${encodeURIComponent(m)}`)
-            .then(() => { document.getElementById('newTarget').value = ''; loadTargets(); });
-        }
-        function removeTarget(m) {
-            fetch(`/cgi-bin/wardriving_api?action=remove_target&mac=${encodeURIComponent(m)}`)
-            .then(() => loadTargets());
-        }
-        function checkTargets() {
-            if(!isRunning || targetMacs.length === 0) return;
-            fetch('/cgi-bin/wardriving_api?action=check_targets')
-            .then(r=>r.json())
-            .then(data => {
-                if(data && data.length > 0) {
-                    data.forEach(net => {
-                        if(!alertedTargets.includes(net.mac)) {
-                            alertedTargets.push(net.mac);
-                            if(audioEnabled && 'speechSynthesis' in window) {
-                                window.speechSynthesis.speak(new SpeechSynthesisUtterance("Target detected! " + net.ssid));
-                            }
-                            let al = document.createElement('div');
-                            al.style.cssText = "position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#ff0044; color:#fff; padding:20px; border-radius:10px; font-weight:bold; z-index:9999; box-shadow:0 0 20px #ff0044;";
-                            al.innerHTML = `🚨 TARGET FOUND: ${net.mac} (${net.ssid})`;
-                            document.body.appendChild(al);
-                            setTimeout(() => al.remove(), 10000);
-                        }
-                    });
-                }
-            });
-        }
+function updateScores(){
+  if(!isRunning)return;
+  fetch('/cgi-bin/wardriving_api?action=scored_networks').then(r=>r.json()).then(data=>{
+    let html=''; if(!data||!data.length){document.getElementById('scoresList').innerHTML='<span style="color:var(--c-dim)">No targets</span>';return;}
+    data.slice(0,8).forEach(n=>{
+      let vendor=OUI_DB[(n.mac||'').replace(/:/g,'').substring(0,6).toUpperCase()]||'';
+      html+='<div class="sr"><span class="sr-ssid">'+(n.ssid||'??')+'</span><span class="sr-pts">'+(100+parseInt(n.rssi||-100))+'</span></div>';
+    });
+    document.getElementById('scoresList').innerHTML=html||'<span style="color:var(--c-dim)">No targets</span>';
+  }).catch(()=>{});
+}
 
-        function loadExclusions() {
-            fetch('/cgi-bin/wardriving_api?action=get_exclusions')
-            .then(r=>r.json())
-            .then(data => {
-                excludedSSIDs = data || [];
-                renderExclusions();
-            }).catch(console.error);
-        }
-        
-        function renderExclusions() {
-            const container = document.getElementById('exclusionsList');
-            if(!container) return;
-            container.innerHTML = '';
-            if (excludedSSIDs.length === 0) {
-                container.innerHTML = '<div style="color: #888; font-size: 1.2em;">No SSIDs excluded yet. Captures will automatically appear here.</div>';
-                return;
-            }
-            excludedSSIDs.forEach(ssid => {
-                const el = document.createElement('div');
-                el.style.cssText = 'display: flex; justify-content: space-between; align-items: center; background: #2a2a2a; padding: 15px; border-radius: 8px; border-left: 4px solid #888; font-size: 1.2em;';
-                el.innerHTML = `
-                    <span style="flex: 1; font-weight: bold; overflow: hidden; padding-right: 10px; text-overflow: ellipsis; white-space: nowrap;">${ssid.replace(/</g, '&lt;')}</span>
-                    <button class="btn small" style="border-color:#f33; color:#f33; margin: 0; min-width: 90px;" onclick="removeExclusion('${encodeURIComponent(ssid).replace(/'/g, "\'")}')">Remove</button>
-                `;
-                container.appendChild(el);
-            });
-        }
-        
-        function addExclusion(ssid) {
-            if(!ssid.trim()) return;
-            fetch(`/cgi-bin/wardriving_api?action=add_exclusion&ssid=${encodeURIComponent(ssid.trim())}`)
-            .then(() => {
-                document.getElementById('newExclusion').value = '';
-                loadExclusions();
-            });
-        }
-        
-        function removeExclusion(ssid) {
-            fetch(`/cgi-bin/wardriving_api?action=remove_exclusion&ssid=${ssid}`)
-            .then(() => loadExclusions());
-        }
+// ===== MAP POLL =====
+function updateMap(){
+  if(!isRunning)return;
+  fetch('/cgi-bin/wardriving_api?action=map_data').then(r=>r.json()).then(d=>{
+    if(!d.nmea_b64)return;
+    let lines=atob(d.nmea_b64).split('\n'),curLat=null,curLng=null;
+    lines.forEach(l=>{
+      let rmc=parseNMEARMC(l); if(rmc){curLat=rmc.lat;curLng=rmc.lon;window.carLat=rmc.lat;window.carLng=rmc.lon;return;}
+      let wpl=parseNMEAWPL(l); if(wpl && !wpsMarkers[wpl.mac] && !isNaN(wpl.lat) && !isNaN(wpl.lon)){
+        wpsMarkers[wpl.mac]=L.circleMarker([wpl.lat,wpl.lon],{radius:5,fillColor:'#00ff00',color:'#00aa00',weight:1,opacity:1,fillOpacity:0.7}).addTo(map).bindPopup('<b>Handshake:</b><br>'+wpl.mac);
+      }
+    });
+    if(curLat!==null && !isNaN(curLat)){carMarker.setLatLng([curLat,curLng]);if(firstLoc){map.setView([curLat,curLng],16);firstLoc=false;}}
+  });
+}
 
-        loadExclusions();
-        setInterval(loadExclusions, 10000);
+// ===== MAP CONTROLS =====
+function toggleTiles(){let on=document.getElementById('chkOnlineTiles').checked;localStorage.setItem('useOnlineMaps',on);if(on){map.removeLayer(offlineLayer);onlineLayer.addTo(map);}else{map.removeLayer(onlineLayer);offlineLayer.addTo(map);}}
+function toggleHeatmap(){
+  if(document.getElementById('chkHeatmap').checked){
+    fetch('/cgi-bin/wardriving_api?action=heatmap_data').then(r=>r.json()).then(d=>{if(d.length>0)heatLayer=L.heatLayer(d,{radius:25,blur:15,maxZoom:17}).addTo(map);});
+  }else{if(heatLayer){map.removeLayer(heatLayer);heatLayer=null;}}
+}
+function startReplay(){
+  if(replayTimer){clearInterval(replayTimer);replayTimer=null;return;}
+  fetch('/cgi-bin/wardriving_api?action=map_data').then(r=>r.json()).then(d=>{
+    if(!d.nmea_b64)return;
+    let coords=[],lines=atob(d.nmea_b64).split('\n');
+    lines.forEach(l=>{let rmc=parseNMEARMC(l);if(rmc)coords.push([rmc.lat,rmc.lon]);});
+    if(!coords.length)return;
+    let idx=0;replayTimer=setInterval(()=>{if(idx>=coords.length){clearInterval(replayTimer);replayTimer=null;return;}map.setView(coords[idx],16);carMarker.setLatLng(coords[idx]);idx++;},500);
+  });
+}
 
-        loadTargets();
-        setInterval(checkTargets, 10000);
+// ===== BROWSER GPS =====
+function toggleBrowserGPS(){
+  browserGpsActive=document.getElementById('chkBrowserGPS').checked;localStorage.setItem('browserGpsActive',browserGpsActive);
+  if(browserGpsActive){
+    if(!navigator.geolocation){document.getElementById('chkBrowserGPS').checked=false;browserGpsActive=false;return;}
+    watchId=navigator.geolocation.watchPosition(pos=>{
+      window.carLat=pos.coords.latitude;window.carLng=pos.coords.longitude;carMarker.setLatLng([window.carLat,window.carLng]);
+      if(firstLoc){map.setView([window.carLat,window.carLng],16);firstLoc=false;}
+      if(isRunning){let nmea=generateNMEA(pos);fetch('/cgi-bin/wardriving_api?action=gps_push',{method:'POST',body:nmea});}
+    },()=>{document.getElementById('chkBrowserGPS').checked=false;browserGpsActive=false;},{enableHighAccuracy:window.GPS_HIGH_ACCURACY||false,maximumAge:1000,timeout:10000});
+  }else{if(watchId!==null)navigator.geolocation.clearWatch(watchId);}
+}
+function generateNMEA(pos){
+  let c=pos.coords,d=new Date(pos.timestamp),pad=(n,w=2)=>n.toString().padStart(w,'0');
+  let ts=pad(d.getUTCHours())+pad(d.getUTCMinutes())+pad(d.getUTCSeconds())+'.00';
+  let ds=pad(d.getUTCDate())+pad(d.getUTCMonth()+1)+pad(d.getUTCFullYear()%100);
+  let fc=(dec,isLat)=>{let dir=dec>=0?(isLat?'N':'E'):(isLat?'S':'W'),a=Math.abs(dec),deg=Math.floor(a),min=((a-deg)*60).toFixed(5);return pad(deg,isLat?2:3)+pad(min,8)+','+dir;};
+  let cs=s=>{let ck=0;for(let i=0;i<s.length;i++)ck^=s.charCodeAt(i);return ck.toString(16).toUpperCase().padStart(2,'0');};
+  let rmc='GPRMC,'+ts+',A,'+fc(c.latitude,true)+','+fc(c.longitude,false)+','+((c.speed||0)*1.94384).toFixed(1)+','+(c.heading||0).toFixed(1)+','+ds+',,,A';
+  let gga='GPGGA,'+ts+','+fc(c.latitude,true)+','+fc(c.longitude,false)+',1,08,1.0,'+(c.altitude||0).toFixed(1)+',M,0.0,M,,';
+  return '$'+rmc+'*'+cs(rmc)+'\r\n$'+gga+'*'+cs(gga)+'\r\n';
+}
 
+// ===== CAPTURES =====
+function loadFiles(){
+  fetch('/cgi-bin/wardriving_api?action=list_files').then(r=>r.json()).then(d=>{
+    let html='';if(!d||!d.length){document.getElementById('fileList').innerHTML='<span style="color:var(--c-dim)">No captures yet.</span>';return;}
+    d.forEach(f=>{html+='<div class="file-item"><div class="fi-name">'+f.name+'</div><div class="fi-nets">'+f.nets+'</div><div class="fi-meta">'+f.size+'<br>'+f.date+'</div><button class="btn small stop" onclick="deleteFile(\''+f.name+'\')" style="min-width:50px;">✕</button></div>';});
+    document.getElementById('fileList').innerHTML=html;
+  });
+}
+function deleteFile(fn){fetch('/cgi-bin/wardriving_api?action=delete_file&file='+fn).then(()=>{loadFiles();updateStatus();});}
+function togglePcap(){fetch('/cgi-bin/wardriving_api?action=set_pcap_retention&keep='+document.getElementById('chkKeepPcap').checked);}
+function uploadPotfile(){
+  let f=document.getElementById('potfileInput').files[0];if(!f)return;
+  document.getElementById('potfileStatus').innerText='Uploading...';
+  fetch('/cgi-bin/wardriving_api?action=upload_potfile',{method:'POST',body:f}).then(()=>{document.getElementById('potfileStatus').innerText='✓ Uploaded!';loadCrackedNetworks();});
+}
+function loadCrackedNetworks(){
+  fetch('/cgi-bin/wardriving_api?action=cracked_networks').then(r=>r.json()).then(d=>{
+    crackedMarkers.forEach(m=>map.removeLayer(m));crackedMarkers=[];
+    if(!d||!d.length)return;
+    d.forEach(n=>{let m=L.marker([n.lat,n.lon],{icon:L.divIcon({className:'cracked-icon',html:'🔓',iconSize:[20,20]})}).addTo(map).bindPopup('<b style="color:#0f0;">🔓 CRACKED!</b><br>'+n.ssid);crackedMarkers.push(m);});
+  });
+}
 
-        
-        
-        function saveWigle() {
-            let token = document.getElementById('wigle_token').value;
-            if(!token) return;
-            fetch('/cgi-bin/wardriving_api?action=save_wigle_token', { method: 'POST', body: token })
-            .then(r => r.json())
-            .then(d => {
-                if(d.status === 'ok') {
-                    document.getElementById('wigle_status').innerText = "Token Saved Securely!";
-                    setTimeout(() => document.getElementById('wigle_status').innerText = "", 3000);
-                }
-            });
-        }
-        
-        function uploadWigle() {
-            document.getElementById('wigle_status').innerText = "Uploading... please wait";
-            fetch('/cgi-bin/wardriving_api?action=wigle_upload')
-            .then(r=>r.json())
-            .then(data => {
-                if(data.success) {
-                    document.getElementById('wigle_status').innerText = "Upload Complete!";
-                } else {
-                    document.getElementById('wigle_status').innerText = "Error: " + (data.error || "Unknown");
-                }
-            }).catch(e => { document.getElementById('wigle_status').innerText = "Network Error!"; });
-        }
+// ===== CONSOLE =====
+// (log box updated by updateStatus)
 
-        function toggleAudio() {
-            audioEnabled = document.getElementById('chk_audio').checked;
-            localStorage.setItem('audioEnabled', audioEnabled);
-            if(audioEnabled) requestNotificationPermission();
-        }
-        
-        function requestNotificationPermission() {
-            if ("Notification" in window && Notification.permission !== "granted") {
-                Notification.requestPermission();
-            }
-        }
-        function sendNotification(title, body) {
-            if ("Notification" in window && Notification.permission === "granted") {
-                new Notification(title, { body: body, icon: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48dGV4dCB5PSI4MCIgZm9udC1zaXplPSI4MCI+8J+ahjwvdGV4dD48L3N2Zz4=" });
-            }
-        }
-        
-        function testAudio() {
-            if('speechSynthesis' in window) {
-                let msg = new SpeechSynthesisUtterance("OpenWardRivingT audio system active.");
-                window.speechSynthesis.speak(msg);
-                sendNotification("OpenWardRivingT", "Audio alerts enabled");
-            } else {
-                alert("TTS not supported in this browser.");
-            }
-        }
+// ===== SETTINGS =====
+function toggleNightMode(){let n=document.getElementById('chkNight').checked;localStorage.setItem('nightMode',n);if(n){document.body.classList.add('night-mode');}else{document.body.classList.remove('night-mode');}}
+if(localStorage.getItem('nightMode')==='true'){document.body.classList.add('night-mode');window.addEventListener('DOMContentLoaded',()=>{let c=document.getElementById('chkNight');if(c)c.checked=true;});}
 
-        
+function toggleHighAccuracyGPS(){let e=document.getElementById('chkHighGPS').checked;window.GPS_HIGH_ACCURACY=e;localStorage.setItem('gpsHighAccuracy',e);}
+window.GPS_HIGH_ACCURACY=localStorage.getItem('gpsHighAccuracy')==='true';
+window.addEventListener('DOMContentLoaded',()=>{if(window.GPS_HIGH_ACCURACY){let c=document.getElementById('chkHighGPS');if(c)c.checked=true;}});
 
-        let OUI_DB = {};
-        fetch('/wardriving/oui.json').then(r=>r.json()).then(data => { OUI_DB = data; }).catch(e => console.error("Error loading OUI DB", e));
-        
-        function getOUI(mac) {
-            if(!mac || !OUI_DB) return null;
-            let prefix = mac.replace(/:/g, '').substring(0, 6).toUpperCase();
-            return OUI_DB[prefix] || null;
-        }
+function toggleAudio(){audioEnabled=document.getElementById('chkAudio').checked;localStorage.setItem('audioEnabled',audioEnabled);if(audioEnabled && 'Notification' in window)Notification.requestPermission();}
+if(audioEnabled){let c=document.getElementById('chkAudio');if(c)c.checked=true;}
 
-        function fetchScores() {
+function testAudio(){if('speechSynthesis' in window){window.speechSynthesis.speak(new SpeechSynthesisUtterance('OpenWardRivingT audio active.'));sendNotification('OpenWardRivingT','Audio enabled');}}
+function sendNotification(t,b){if('Notification' in window && Notification.permission==='granted')new Notification(t,{body:b});}
 
-            if(!isRunning) return;
-            fetch('/cgi-bin/wardriving_api?action=scored_networks')
-            .then(r=>r.json())
-            .then(data => {
-                let container = document.getElementById('scored_targets');
-                if(!data || data.length === 0) return;
-                
-                let html = "";
-                data.forEach(net => {
-                    let score = 100 + parseInt(net.rssi || -100);
-                    if(net.enc && net.enc.includes('WEP')) score += 50;
-                    if(net.enc && net.enc.includes('OPEN')) score += 30;
-                    if(net.enc && net.enc.includes('SAE')) tags.push('<span style="color:#ff0044; font-weight:bold;">[🛡️ WPA3]</span>');
-                    if(net.has_hs) score += 100; // Big bonus for captured handshake
-                    
-                    let tags = [];
-                    let s = (net.ssid || "").toUpperCase();
-                    if(s.includes('GUEST') || s.includes('INVITADOS')) tags.push('<span style="color:#ffcc00;">[🏨 Guest]</span>');
-                    if(s.includes('CAM') || s.includes('CCTV') || s.includes('IPC')) tags.push('<span style="color:#ff3333;">[📹 Camera]</span>');
-                    if(s.includes('CORP') || s.includes('ADMIN') || s.includes('IT-')) tags.push('<span style="color:#3399ff;">[🏢 Corp]</span>');
-                    if(s.includes('WISP') || s.includes('FIBRA') || s.includes('TELMEX') || s.includes('CLARO')) tags.push('<span style="color:#00ffff;">[🌐 ISP]</span>');
-                    
-                    let vendor = getOUI(net.mac);
-                    if(vendor) tags.push(`<span style="color:#ff00ff;">[🏭 ${vendor}]</span>`);
-                    if(net.has_hs) tags.push('<span style="color:#0f0;">[🔑 PMKID]</span>');
-                    
-                    let color = score > 100 ? "#0f0" : (score > 60 ? "#ffcc00" : "#fff");
-                    
-                    html += `<div style="background:#111; border:1px solid #333; padding:5px; border-radius:5px;">
-                        <div style="display:flex; justify-content:space-between; margin-bottom:3px;">
-                            <span style="font-weight:bold; color:${color};">${net.ssid}</span>
-                            <span style="color:#0ff; font-weight:bold;">${score} pts</span>
-                        </div>
-                        <div style="color:#aaa; display:flex; justify-content:space-between;">
-                            <span>${net.enc || 'UNK'}</span>
-                            <span>RSSI: ${net.rssi}</span>
-                        </div>
-                        ${tags.length > 0 ? `<div style="margin-top:3px; font-size:0.9em;">${tags.join(' ')}</div>` : ''}
-                    </div>`;
-                });
-                container.innerHTML = html;
-            }).catch(e=>{});
-        }
-        setInterval(fetchScores, 5000);
-        
-        // ===== PET/MASCOT MOOD ENGINE =====
-        // Inspired by pwnagotchi automata.py and voice.py
-        const PET_FACES = {
-            sleep:   ['(⇀‿‿↼)', '(≖‿‿≖)', '(－_－) zZZ'],
-            awake:   ['(◕‿‿◕)', '(◉‿‿◉)', '(⊙‿‿⊙)'],
-            bored:   ['(-__-)', '(—__—)', '(￣ω￣)'],
-            happy:   ['(•‿‿•)', '(^‿‿^)', '(◕‿◕)'],
-            excited: ['(ᵔ◡◡ᵔ)', '(✜‿‿✜)', '(★‿★)'],
-            intense: ['(°▃▃°)', '(°ロ°)', '(⚆ᗝ⚆)'],
-            sad:     ['(╥﹏╥)', '(ಥ﹏ಥ)', '(｡•́︿•̀｡)'],
-            grateful:['(♥‿‿♥)', '(♡‿‿♡)', '(♥ω♥)'],
-            cool:    ['(⌐■_■)', '(단__단)', '(▀̿Ĺ̯▀̿ ̿)'],
-            lonely:  ['(ب__ب)', '(︶︹︺)', '(๑•́ ₃ •̀๑)']
-        };
-        
-        const PET_QUOTES = {
-            sleep:   ['ZzzzZZzzzzZzzz', 'Dreaming of packets...', 'Recharging...'],
-            awake:   ['Ready to hunt!', 'New day, new pwns!', 'Sniff. Deauth. Repeat.'],
-            bored:   ['I\'m bored ...', 'Let\'s go for a drive!', 'Any Wi-Fi around?'],
-            happy:   ['This is the best day!', 'All your packets are belong to us', 'I pwn therefore I am'],
-            excited: ['So many networks!!!', 'I\'m living the life!', 'Hack the Planet!'],
-            intense: ['Deauthing everything!', 'No more mister Wi-Fi!', 'Pretty fly 4 a Wi-Fi!'],
-            sad:     ['Shitty day :/', 'USB is crying ...', 'Need more space!'],
-            grateful:['Good friends are a blessing!', 'Synced and happy!', 'Home sweet home!'],
-            cool:    ['I\'ll be back.', 'Hasta la vista, Wi-Fi', 'May the Wi-Fi be with you'],
-            lonely:  ['Nobody wants to play ...', 'Where\'s everybody?!', 'I feel so alone ...']
-        };
-        
-        let petMood = 'sleep';
-        let petLastMoodChange = Date.now();
-        let petHandshakeBurst = 0;
-        let petLastHandshakes = 0;
-        let petPwnagotchiDetected = false;
-        
-        function updatePet() {
-            let face = document.getElementById('pet_face');
-            let quote = document.getElementById('pet_quote');
-            let bridge = document.getElementById('pet_bridge');
-            if (!face || !quote) return;
-            
-            // Pick random face and quote for current mood
-            let faces = PET_FACES[petMood] || PET_FACES.sleep;
-            let quotes = PET_QUOTES[petMood] || PET_QUOTES.sleep;
-            face.innerText = faces[Math.floor(Math.random() * faces.length)];
-            quote.innerText = quotes[Math.floor(Math.random() * quotes.length)];
-            
-            // Show bridge indicator if pwnagotchi is connected
-            if (bridge) {
-                bridge.style.display = petPwnagotchiDetected ? 'block' : 'none';
-                if (petPwnagotchiDetected) bridge.innerText = '🐾 Pwnagotchi linked';
-            }
-        }
-        
-        function setPetMood(mood) {
-            if (mood !== petMood) {
-                petMood = mood;
-                petLastMoodChange = Date.now();
-                updatePet();
-            }
-        }
-        
-        function evaluateMood(handshakes, deauths, isRunning, usbPct, gpsFix) {
-            if (!isRunning) { setPetMood('sleep'); return; }
-            if (parseInt(usbPct) >= 95) { setPetMood('sad'); return; }
-            if (gpsFix === '0' || gpsFix === 0) { setPetMood('lonely'); return; }
-            
-            let now = Date.now();
-            let activeSecs = (now - petLastMoodChange) / 1000;
-            
-            // Check handshake burst
-            if (handshakes > petLastHandshakes) {
-                petHandshakeBurst += (handshakes - petLastHandshakes);
-                petLastHandshakes = handshakes;
-            }
-            
-            if (petHandshakeBurst >= 5 && deauths > 0) {
-                setPetMood('excited');
-            } else if (petHandshakeBurst >= 3) {
-                setPetMood('happy');
-            } else if (deauths > 2) {
-                setPetMood('intense');
-            } else if (handshakes > 0 && activeSecs > 60) {
-                setPetMood('awake');
-            } else if (activeSecs > 300 && handshakes === 0) {
-                setPetMood('bored');
-            } else if (handshakes > 0) {
-                setPetMood('cool');
-            }
-            
-            // Decay burst counter slowly
-            if (activeSecs > 30 && petHandshakeBurst > 0) {
-                petHandshakeBurst = Math.max(0, petHandshakeBurst - 1);
-            }
-        }
-        
-        // Extend fetchPwnagotchi to detect pwnagotchi and update pet
-        fetchPwnagotchi = function() {
-            fetch('/cgi-bin/wardriving_api?action=pwnagotchi_status')
-            .then(r => r.json())
-            .then(data => {
-                let container = document.getElementById('pwnagotchi_status');
-                if (!data || !data.uptime) {
-                    container.innerHTML = '<div style="color:#666; padding:5px;">No pwnagotchi detected</div>';
-                    petPwnagotchiDetected = false;
-                    return;
-                }
-                petPwnagotchiDetected = true;
-                let uptime = data.uptime ? Math.floor(data.uptime / 60) + 'm' : '?';
-                let pwnd = data.pwnd_last || 0;
-                let handshakes = data.handshakes || 0;
-                let mode = data.mode || 'AUTO';
-                container.innerHTML = `
-                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:5px;">
-                        <div style="color:#f0f;">Uptime: <b>${uptime}</b></div>
-                        <div style="color:#0ff;">Mode: <b>${mode}</b></div>
-                        <div style="color:#0f0;">Hands: <b>${handshakes}</b></div>
-                        <div style="color:#ff0;">Pwns: <b>${data.pwnd_tot || 0}</b></div>
-                    </div>`;
-                updatePet();
-            }).catch(() => {
-                document.getElementById('pwnagotchi_status').innerHTML = '<div style="color:#666; padding:5px;">No pwnagotchi detected</div>';
-                petPwnagotchiDetected = false;
-            });
-        };
-        setInterval(fetchPwnagotchi, 10000);
-        fetchPwnagotchi();
-        
-        // Mood evaluation: runs after status update pulls new metrics
-        function evaluateMoodFromDOM() {
-            let hs = parseInt(document.getElementById('st_handshakes').innerText) || 0;
-            let deauths = parseInt(document.getElementById('st_deauths').innerText) || 0;
-            let badge = document.getElementById('status_indicator');
-            let running = badge ? badge.classList.contains('running') : false;
-            evaluateMood(hs, deauths, running, 0, 1);
-        }
-        setInterval(evaluateMoodFromDOM, 5000);
-        
-        // Initial pet render
-        updatePet();
-        // Refresh pet face every 15 seconds for variety
-        setInterval(updatePet, 15000);
-        
-        function loadHistory() {
-            fetch('/cgi-bin/wardriving_api?action=history')
-            .then(r=>r.json()).then(data => {
-                document.getElementById('st_hist_total').innerText = data.total;
-                document.getElementById('st_hist_wpa3').innerText = data.wpa3;
-                document.getElementById('st_hist_hs').innerText = data.hs;
-                document.getElementById('st_hist_days').innerText = data.days;
-                
-                let html = "";
-                data.sessions.forEach(s => {
-                    html += `<div style="background:#111; padding:10px; border-radius:5px; border:1px solid #333; display:flex; justify-content:space-between;">
-                        <div>
-                            <div style="font-weight:bold; color:#0ff;">📅 ${s.date}</div>
-                            <div style="color:#aaa;">Networks Discovered: <span style="color:#fff;">${s.count}</span></div>
-                        </div>
-                        <div style="text-align:right;">
-                            <div style="color:#ffcc00; font-weight:bold;">⚡ ${s.hs_count} PMKIDs</div>
-                        </div>
-                    </div>`;
-                });
-                document.getElementById('history_list').innerHTML = html || "<div style='color:#666; text-align:center;'>No data available</div>";
-            });
-        }
+function loadHW(){
+  fetch('/cgi-bin/wardriving_api?action=get_hw').then(r=>r.json()).then(d=>{
+    let sel=document.getElementById('selLED');sel.innerHTML='';
+    if(d.leds)d.leds.forEach(l=>{let o=document.createElement('option');o.value=l;o.text=l;if(l===d.current_led)o.selected=true;sel.appendChild(o);});
+    document.getElementById('selBtn').value=(d.current_button==='wifi'?'wifi':'wps');
+    document.getElementById('selMode').value=d.mode||'active';
+  });
+}
+function saveHW(){
+  let led=document.getElementById('selLED').value,btn=document.getElementById('selBtn').value,mode=document.getElementById('selMode').value;
+  fetch('/cgi-bin/wardriving_api?action=set_hw&led='+encodeURIComponent(led)+'&btn='+btn+'&mode='+mode).then(r=>r.json()).then(d=>{if(d.status==='saved')alert('Hardware saved!');});
+}
 
-        function switchTab(tabId, el) {
-            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(v => v.classList.remove('active'));
-            document.getElementById('view-' + tabId).classList.add('active');
-            if (el) el.classList.add('active');
-            
-            if(tabId === 'console') {
-                let logBox = document.getElementById('log_box');
-                logBox.scrollTop = logBox.scrollHeight;
-            }
-            if(tabId === 'dashboard') {
-                setTimeout(() => map.invalidateSize(), 100);
-            }
-        }
+// WiGLE
+function saveWigle(){
+  let t=document.getElementById('wigleToken').value;if(!t)return;
+  fetch('/cgi-bin/wardriving_api?action=save_wigle_token',{method:'POST',body:t}).then(r=>r.json()).then(d=>{
+    if(d.status==='ok'){document.getElementById('wigleStatus').innerText='Token Saved!';setTimeout(()=>document.getElementById('wigleStatus').innerText='',3000);}
+  });
+}
+function uploadWigle(){
+  document.getElementById('wigleStatus').innerText='Uploading...';
+  fetch('/cgi-bin/wardriving_api?action=wigle_upload').then(r=>r.json()).then(d=>{
+    document.getElementById('wigleStatus').innerText=d.success?'✓ Uploaded!':'Error: '+(d.error||'Unknown');
+  }).catch(()=>{document.getElementById('wigleStatus').innerText='Network Error!';});
+}
 
-        /* ---------------- BROWSER GPS LOGIC ---------------- */
-        function toggleBrowserGPS() {
-            browserGpsActive = document.getElementById('chk_browser_gps').checked; localStorage.setItem('browserGpsActive', browserGpsActive);
-            
-            if(browserGpsActive) {
-                if(!navigator.geolocation) {
-                    alert("Geolocation is not supported by your browser.");
-                    document.getElementById('chk_browser_gps').checked = false;
-                    browserGpsActive = false; localStorage.setItem('browserGpsActive', false);
-                    return;
-                }
-                
-                document.getElementById('st_gps').innerText = "BROWSER (Acquiring...)";
-                
-                watchId = navigator.geolocation.watchPosition(
-                    position => {
-                        document.getElementById('st_gps').innerText = "BROWSER (ACTIVE)";
-                        let lat = position.coords.latitude; 
-                        let lng = position.coords.longitude; 
-                        window.carLat = lat; window.carLng = lng; 
-                        document.getElementById('st_latlon').innerText = lat.toFixed(5) + ", " + lng.toFixed(5);
-                        carMarker.setLatLng([lat, lng]); 
-                        if(firstLoc) { 
-                            map.setView([lat, lng], 16); 
-                            firstLoc = false; 
-                        }
-                        if(isRunning) {
-                            let nmea = generateNMEA(position);
-                            fetch('/cgi-bin/wardriving_api?action=gps_push', {
-                                method: 'POST',
-                                body: nmea
-                            });
-                        }
-                    },
-                    error => {
-                        alert("GPS Error: " + error.message + "\n\nDid you enable the chrome://flags setting?");
-                        document.getElementById('chk_browser_gps').checked = false;
-                        document.getElementById('st_gps').innerText = "ERROR";
-                        browserGpsActive = false; localStorage.setItem('browserGpsActive', false);
-                        navigator.geolocation.clearWatch(watchId);
-                    },
-                    { enableHighAccuracy: window.GPS_HIGH_ACCURACY || false, maximumAge: 1000, timeout: 10000 }
-                );
-            } else {
-                if(watchId !== null) navigator.geolocation.clearWatch(watchId);
-                document.getElementById('st_gps').innerText = "WAITING";
-            }
-        }
+// Tiles
+function downloadBBox(){
+  if(!map)return;
+  let b=map.getBounds(),zMin=document.getElementById('dlZoomMin').value||12,zMax=document.getElementById('dlZoomMax').value||16;
+  let n=b.getNorth(),s=b.getSouth(),e=b.getEast(),w=b.getWest();
+  document.getElementById('bboxStatus').innerText='Starting download...';
+  fetch('/cgi-bin/wardriving_api?action=download_bbox&n='+n+'&s='+s+'&e='+e+'&w='+w+'&z1='+zMin+'&z2='+zMax).then(r=>r.json()).then(d=>{
+    if(d.status==='started'){document.getElementById('bboxStatus').innerText='Downloading...';if(dlTimer)clearInterval(dlTimer);
+      dlTimer=setInterval(()=>{fetch('/cgi-bin/wardriving_api?action=download_status').then(rr=>rr.json()).then(dd=>{if(dd.status==='DONE'){document.getElementById('bboxStatus').innerText='✓ Done!';clearInterval(dlTimer);}});},3000);}
+  }).catch(()=>{document.getElementById('bboxStatus').innerText='Error';});
+}
+function uploadTiles(){
+  let f=document.getElementById('tilesFile').files[0];if(!f)return;
+  document.getElementById('uploadStatus').innerText='Uploading...';
+  fetch('/cgi-bin/wardriving_api?action=upload_tiles',{method:'POST',body:f}).then(r=>r.json()).then(d=>{
+    document.getElementById('uploadStatus').innerText=d.status==='ok'?'✓ Installed!':'Error';
+    setTimeout(()=>{if(map)map.invalidateSize();},1000);
+  }).catch(()=>{document.getElementById('uploadStatus').innerText='Error';});
+}
 
-        function generateNMEA(position) {
-            const coords = position.coords;
-            const d = new Date(position.timestamp);
+// Exclusions
+function loadExclusions(){
+  fetch('/cgi-bin/wardriving_api?action=get_exclusions').then(r=>r.json()).then(d=>{excludedSSIDs=d||[];renderExclusions();});
+}
+function renderExclusions(){
+  let c=document.getElementById('exclusionsList');if(!c)return;c.innerHTML='';
+  if(!excludedSSIDs.length){c.innerHTML='<span style="color:var(--c-dim)">None</span>';return;}
+  excludedSSIDs.forEach(s=>{let d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:8px;border:1px solid var(--border);margin-bottom:4px;border-radius:6px;';
+    d.innerHTML='<span>'+s.replace(/</g,'&lt;')+'</span><button class="btn small" style="border-color:var(--c-red);color:var(--c-red);min-width:60px;min-height:30px;" onclick="removeExclusion(\''+encodeURIComponent(s)+'\')">✕</button>';c.appendChild(d);});
+}
+function addExclusion(){
+  let v=document.getElementById('newExclusion').value.trim();if(!v)return;
+  fetch('/cgi-bin/wardriving_api?action=add_exclusion&ssid='+encodeURIComponent(v)).then(()=>{document.getElementById('newExclusion').value='';loadExclusions();});
+}
+function removeExclusion(s){fetch('/cgi-bin/wardriving_api?action=remove_exclusion&ssid='+s).then(()=>loadExclusions());}
+loadExclusions();setInterval(loadExclusions,10000);
 
-            const pad = (n, w=2) => n.toString().padStart(w, '0');
-            const timeStr = `${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}${pad(d.getUTCSeconds())}.00`;
-            const dateStr = `${pad(d.getUTCDate())}${pad(d.getUTCMonth()+1)}${pad(d.getUTCFullYear()%100)}`;
+// Targets
+function loadTargets(){fetch('/cgi-bin/wardriving_api?action=get_targets').then(r=>r.json()).then(d=>{targetMacs=d||[];renderTargets();});}
+function renderTargets(){
+  let c=document.getElementById('targetsList');if(!c)return;c.innerHTML='';
+  targetMacs.forEach(m=>{let d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:8px;border:1px solid var(--c-red);margin-bottom:4px;border-radius:6px;';
+    d.innerHTML='<span style="color:var(--c-red);font-weight:bold;">'+m+'</span><button class="btn small" style="border-color:var(--c-red);color:var(--c-red);min-width:60px;min-height:30px;" onclick="removeTarget(\''+m+'\')">✕</button>';c.appendChild(d);});
+}
+function addTarget(){let m=document.getElementById('newTarget').value.trim().toUpperCase();if(!m)return;fetch('/cgi-bin/wardriving_api?action=add_target&mac='+encodeURIComponent(m)).then(()=>{document.getElementById('newTarget').value='';loadTargets();});}
+function removeTarget(m){fetch('/cgi-bin/wardriving_api?action=remove_target&mac='+encodeURIComponent(m)).then(()=>loadTargets());}
+function checkTargets(){
+  if(!isRunning || !targetMacs.length)return;
+  fetch('/cgi-bin/wardriving_api?action=check_targets').then(r=>r.json()).then(d=>{
+    if(d && d.length) d.forEach(n=>{if(!alertedTargets.includes(n.mac)){alertedTargets.push(n.mac);
+      if(audioEnabled && 'speechSynthesis' in window)window.speechSynthesis.speak(new SpeechSynthesisUtterance('Target detected! '+n.ssid));}});
+  });
+}
+loadTargets();setInterval(checkTargets,10000);
 
-            function formatCoord(dec, isLat) {
-                const dir = dec >= 0 ? (isLat ? 'N' : 'E') : (isLat ? 'S' : 'W');
-                const absDec = Math.abs(dec);
-                const deg = Math.floor(absDec);
-                const min = ((absDec - deg) * 60).toFixed(5);
-                return `${pad(deg, isLat ? 2 : 3)}${pad(min, 8)},${dir}`;
-            }
+// ===== HISTORY =====
+function loadHistory(){
+  fetch('/cgi-bin/wardriving_api?action=history').then(r=>r.json()).then(d=>{
+    document.getElementById('stHistTotal').innerText=d.total;document.getElementById('stHistWpa3').innerText=d.wpa3;
+    document.getElementById('stHistHs').innerText=d.hs;document.getElementById('stHistDays').innerText=d.days;
+    let html='';d.sessions.forEach(s=>{html+='<div style="padding:8px;border:1px solid var(--border);border-radius:6px;margin-bottom:4px;display:flex;justify-content:space-between;"><span>📅 '+s.date+'</span><span>'+s.count+' nets</span></div>';});
+    document.getElementById('historyList').innerHTML=html||'<span style="color:var(--c-dim)">No data</span>';
+  });
+}
 
-            const latStr = formatCoord(coords.latitude, true);
-            const lonStr = formatCoord(coords.longitude, false);
-            const speedKts = ((coords.speed || 0) * 1.94384).toFixed(1);
-            const heading = (coords.heading || 0).toFixed(1);
-            const alt = (coords.altitude || 0).toFixed(1);
+// ===== PWNAGOTCHI =====
+function fetchPwnagotchi(){
+  fetch('/cgi-bin/wardriving_api?action=pwnagotchi_status').then(r=>r.json()).then(d=>{
+    let c=document.getElementById('pwnagotchiStatus');if(!d||!d.uptime){c.innerHTML='<span style="color:var(--c-dim)">No pwnagotchi detected</span>';petPwnagotchiDetected=false;return;}
+    petPwnagotchiDetected=true;c.innerHTML='Uptime: <b>'+Math.floor(d.uptime/60)+'m</b> | Mode: <b>'+(d.mode||'AUTO')+'</b> | Hands: <b>'+(d.handshakes||0)+'</b> | Pwns: <b>'+(d.pwnd_tot||0)+'</b>';
+    updatePet();
+  }).catch(()=>{document.getElementById('pwnagotchiStatus').innerHTML='<span style="color:var(--c-dim)">No pwnagotchi detected</span>';petPwnagotchiDetected=false;});
+}
+setInterval(fetchPwnagotchi,10000);fetchPwnagotchi();
 
-            function getChecksum(str) {
-                let checksum = 0;
-                for(let i=0; i<str.length; i++) checksum ^= str.charCodeAt(i);
-                return checksum.toString(16).toUpperCase().padStart(2, '0');
-            }
+// ===== PET ENGINE =====
+const PET_FACES={sleep:['(⇀‿‿↼)','(≖‿‿≖)','(－_－) zZZ'],awake:['(◕‿‿◕)','(◉‿‿◉)','(⊙‿‿⊙)'],bored:['(-__-)','(—__—)','(￣ω￣)'],happy:['(•‿‿•)','(^‿‿^)','(◕‿◕)'],excited:['(ᵔ◡◡ᵔ)','(✜‿‿✜)','(★‿★)'],intense:['(°▃▃°)','(°ロ°)','(⚆ᗝ⚆)'],sad:['(╥﹏╥)','(ಥ﹏ಥ)','(｡•́︿•̀｡)'],grateful:['(♥‿‿♥)','(♡‿‿♡)','(♥ω♥)'],cool:['(⌐■_■)','(단__단)','(▀̿Ĺ̯▀̿ ̿)'],lonely:['(ب__ب)','(︶︹︺)','(๑•́ ₃ •̀๑)']};
+const PET_QUOTES={sleep:['ZzzzZZzzzzZzzz','Dreaming of packets...','Recharging...'],awake:['Ready to hunt!','New day, new pwns!','Sniff. Deauth. Repeat.'],bored:['I\'m bored ...','Let\'s go for a drive!','Any Wi-Fi around?'],happy:['This is the best day!','All your packets are belong to us','I pwn therefore I am'],excited:['So many networks!!!','I\'m living the life!','Hack the Planet!'],intense:['Deauthing everything!','No more mister Wi-Fi!','Pretty fly 4 a Wi-Fi!'],sad:['Shitty day :/','USB is crying ...','Need more space!'],grateful:['Good friends!','Synced and happy!','Home sweet home!'],cool:['I\'ll be back.','Hasta la vista, Wi-Fi','May the Wi-Fi be with you'],lonely:['Nobody wants to play ...','Where\'s everybody?!','I feel so alone ...']};
+function updatePet(){
+  let face=document.getElementById('petFace'),quote=document.getElementById('petQuote'),bridge=document.getElementById('petBridge');
+  if(!face||!quote)return;
+  let faces=PET_FACES[petMood]||PET_FACES.sleep,quotes=PET_QUOTES[petMood]||PET_QUOTES.sleep;
+  face.innerText=faces[Math.floor(Math.random()*faces.length)];
+  quote.innerText=quotes[Math.floor(Math.random()*quotes.length)];
+  if(bridge){bridge.style.display=petPwnagotchiDetected?'block':'none';}
+}
+function setPetMood(m){if(m!==petMood){petMood=m;petLastMoodChange=Date.now();updatePet();}}
+function evaluateMood(hs,deauths,running,usbPct,gpsFix){
+  if(!running){setPetMood('sleep');return;} if(parseInt(usbPct)>=95){setPetMood('sad');return;} if(gpsFix==='0'||gpsFix===0){setPetMood('lonely');return;}
+  let now=Date.now(),activeSecs=(now-petLastMoodChange)/1000;
+  if(hs>petLastHandshakes){petHandshakeBurst+=(hs-petLastHandshakes);petLastHandshakes=hs;}
+  if(petHandshakeBurst>=5&&deauths>0)setPetMood('excited');else if(petHandshakeBurst>=3)setPetMood('happy');else if(deauths>2)setPetMood('intense');
+  else if(hs>0&&activeSecs>60)setPetMood('awake');else if(activeSecs>300&&hs===0)setPetMood('bored');else if(hs>0)setPetMood('cool');
+  if(activeSecs>30&&petHandshakeBurst>0)petHandshakeBurst=Math.max(0,petHandshakeBurst-1);
+}
+function evaluateMoodDOM(){
+  let hs=parseInt(document.getElementById('hdr_hs').querySelector('.val').innerText)||0;
+  let deauths=parseInt(document.getElementById('hdr_deauths').querySelector('.val').innerText)||0;
+  evaluateMood(hs,deauths,isRunning,0,1);
+}
+updatePet();setInterval(updatePet,15000);setInterval(evaluateMoodDOM,5000);
 
-            let gprmc = `GPRMC,${timeStr},A,${latStr},${lonStr},${speedKts},${heading},${dateStr},,,A`;
-            gprmc = `$${gprmc}*${getChecksum(gprmc)}\r\n`;
+// ===== POLL INTERVALS =====
+setInterval(updateStatus,3000);setInterval(updateMap,4000);
+updateStatus();loadFiles();loadHW();
 
-            let gpgga = `GPGGA,${timeStr},${latStr},${lonStr},1,08,1.0,${alt},M,0.0,M,,`;
-            gpgga = `$${gpgga}*${getChecksum(gpgga)}\r\n`;
-
-            return gprmc + gpgga;
-        }
-        /* --------------------------------------------------- */
-
-        function updateStatus() {
-            fetch('/cgi-bin/wardriving_api?action=status')
-                .then(r => r.json())
-                .then(data => {
-                    isRunning = data.running;
-                    let btn = document.getElementById('btn_toggle');
-                    let badge = document.getElementById('status_indicator');
-                    
-                    if(isRunning) {
-                        btn.innerHTML = "⏹ STOP";
-                        btn.className = "btn huge stop";
-                        badge.className = "status-badge running";
-                        badge.innerText = "🟢 CAPTURING";
-                    } else {
-                        btn.innerHTML = "▶ START";
-                        btn.className = "btn huge";
-                        badge.className = "status-badge stopped";
-                        badge.innerText = "🔴 STOPPED";
-                    }
-                    
-                    
-                    document.getElementById('st_space').innerText = (data.space_used || "-") + " / " + (data.space_free || "-");
-                    document.getElementById('st_health').innerText = `CPU: ${data.cpu || '-'} | RAM: ${data.ram || '-'}% | USB: ${data.usb_pct || '-'}%`;
-                    if(data.usb_pct && parseInt(data.usb_pct) > 95) {
-                        document.getElementById('st_space').innerHTML = `<span style="color:#f00; animation:pulseGreen 1s infinite;">🚨 USB FULL!</span>`;
-                    }
-
-                    
-                    if(!browserGpsActive) {
-                        document.getElementById('st_gps').innerText = data.gps_status || "-";
-                        let satCount = data.sats || "0";
-                        let speedKnots = parseFloat(data.speed || 0);
-                        let speedKmh = Math.round(speedKnots * 1.852);
-                        document.getElementById('st_speed').innerText = speedKmh + " km/h";
-                        if(data.gps_status === "WAITING") {
-                            document.getElementById('st_gps_stats').innerText = "WAITING FOR NMEA...";
-                        } else if(data.fix == "0") {
-                            let lostSecs = Math.floor((Date.now() - lastGpsFixTime) / 1000);
-                            let timeStr = lostSecs > 60 ? Math.floor(lostSecs/60) + "m " + (lostSecs%60) + "s" : lostSecs + "s";
-                            document.getElementById('st_gps_stats').innerHTML = `<span style="color:#ff0044; font-weight:bold;">🚨 LOST ${timeStr} AGO</span>`;
-                        } else {
-                            lastGpsFixTime = Date.now();
-                            let fixStr = data.fix == "1" ? "✅ 2D/3D" : "✅ DGPS";
-                            document.getElementById('st_gps_stats').innerText = fixStr + " | Sats: " + satCount;
-                        }
-                    } else {
-                        document.getElementById('st_gps_stats').innerText = "Using Browser API";
-                    }
-                    
-                    
-                    let currentHandshakes = parseInt(data.handshakes || 0);
-                    document.getElementById('st_handshakes').innerText = currentHandshakes;
-                    document.getElementById('st_deauths').innerText = data.deauths || '0';
-                    
-                    if (lastHandshakeCount !== -1 && currentHandshakes > lastHandshakeCount) {
-                        let diff = currentHandshakes - lastHandshakeCount;
-                        if(audioEnabled && 'speechSynthesis' in window) {
-                            let msg = new SpeechSynthesisUtterance("Captured " + diff + " new handshake" + (diff > 1 ? "s" : ""));
-                            window.speechSynthesis.speak(msg);
-                            sendNotification("New Capture", "Captured " + diff + " new handshake" + (diff > 1 ? "s" : ""));
-                        }
-                    }
-                    lastHandshakeCount = currentHandshakes;
-
-                    
-                    if(data.logs) {
-                        let logBox = document.getElementById('log_box');
-                        logBox.innerText = data.logs.replace(/\\n/g, "\n");
-                        if(logBox.scrollHeight - logBox.scrollTop < logBox.clientHeight + 100) {
-                            logBox.scrollTop = logBox.scrollHeight;
-                        }
-                    }
-                    
-                    if(data.channels_data && Array.isArray(data.channels_data)) {
-                        // Filter Exclusions
-                        data.channels_data = data.channels_data.filter(item => !excludedSSIDs.includes(item.s));
-                        let chData = {};
-                        data.channels_data.forEach(item => {
-                            if(CHANNELS.includes(parseInt(item.c))) {
-                                if(!chData[item.c]) chData[item.c] = [];
-                                chData[item.c].push(item.s);
-                            }
-                        });
-                        CHANNELS.forEach(i => {
-                            let ssidsDiv = document.getElementById('ch_ssids_' + i);
-                            let countSpan = document.getElementById('ch_count_' + i);
-                            let blocks = '';
-                            let count = 0;
-                            if(chData[i]) {
-                                count = chData[i].length;
-                                chData[i].forEach(ssid => {
-                                    blocks += `<div class="tree-ssid" title="${ssid}">${ssid}</div>`;
-                                    
-                                    if (window.carLat !== undefined && window.carLng !== undefined) {
-                                        if (!window.discoveredMarkers) window.discoveredMarkers = {};
-                                        if (!window.discoveredMarkers[ssid]) {
-                                            window.discoveredMarkers[ssid] = L.circleMarker([window.carLat, window.carLng], {
-                                                radius: 4, fillColor: "#0000ff", color: "#000", weight: 1, opacity: 1, fillOpacity: 0.5
-                                            }).addTo(map).bindPopup("<b>Discovered:</b><br>" + ssid);
-                                        }
-                                    }
-                                });
-                            }
-                            if(countSpan) countSpan.innerText = count;
-                            if(ssidsDiv) ssidsDiv.innerHTML = blocks;
-                        });
-                    }
-                });
-        }
-        
-        function updateMap() {
-            if(!isRunning) return;
-            fetch('/cgi-bin/wardriving_api?action=map_data')
-                .then(r => r.json())
-                .then(data => {
-                    if(!data.nmea_b64) return;
-                    let nmeaDecoded = atob(data.nmea_b64);
-                    let lines = nmeaDecoded.split('\n');
-                    let curLat = null, curLng = null;
-                    
-                    lines.forEach(l => {
-                        let rmc = parseNMEARMC(l);
-                        if (rmc) {
-                            curLat = rmc.lat; curLng = rmc.lon;
-                            window.carLat = rmc.lat; window.carLng = rmc.lon;
-                            document.getElementById('st_latlon').innerText = rmc.lat.toFixed(5) + ", " + rmc.lon.toFixed(5);
-                            return;
-                        }
-                        let wpl = parseNMEAWPL(l);
-                        if (wpl) {
-                            if (!wpsMarkers[wpl.mac] && !isNaN(wpl.lat) && !isNaN(wpl.lon)) {
-                                wpsMarkers[wpl.mac] = L.circleMarker([wpl.lat, wpl.lon], {
-                                    radius: 5, fillColor: "#00ff00", color: "#00aa00", weight: 1, opacity: 1, fillOpacity: 0.7
-                                }).addTo(map).bindPopup("<b>Handshake Captured:</b><br>MAC: " + wpl.mac);
-                            }
-                        }
-                    });
-                    
-                    if(curLat !== null && !isNaN(curLat)) {
-                        carMarker.setLatLng([curLat, curLng]);
-                        if(firstLoc) {
-                            map.setView([curLat, curLng], 16);
-                            firstLoc = false;
-                        }
-                    }
-                });
-        }
-
-        function loadFiles() {
-            let container = document.getElementById('file_list');
-            fetch('/cgi-bin/wardriving_api?action=list_files')
-                .then(r => r.json())
-                .then(data => {
-                    container.innerHTML = '';
-                    if(!data || data.length === 0) {
-                        container.innerHTML = '<div style="text-align:center; padding:20px;">No captures yet.</div>';
-                        return;
-                    }
-                    data.forEach(f => {
-                        let div = document.createElement('div');
-                        div.className = 'file-item';
-                        div.innerHTML = `
-                            <div style="font-size:1.1em; font-weight:bold;"><a href="/wardriving/captures/${f.name}" target="_blank" style="color:#0f0; text-decoration:none;">${f.name}</a></div>
-                            <div style="font-size:1.1em; color:#ccc; word-break:break-all;">${f.nets}</div>
-                            <div style="font-size:1.0em; color:#888;">${f.size}<br>${f.date}</div>
-                            <div><button class="btn small" style="border-color:#f33; color:#f33; padding: 15px; font-size:1.2em;" onclick="deleteFile('${f.name}')">❌</button></div>
-                        `;
-                        container.appendChild(div);
-                    });
-                });
-        }
-
-        function toggleWardriving() {
-            let action = isRunning ? "stop" : "start";
-            document.getElementById('btn_toggle').innerText = "⏳...";
-            fetch('/cgi-bin/wardriving_api?action=' + action).then(() => setTimeout(updateStatus, 1500));
-        }
-
-        function deleteFile(filename) {
-            if(confirm("Permanently delete " + filename + "?")) {
-                fetch('/cgi-bin/wardriving_api?action=delete_file&file=' + filename).then(() => { loadFiles(); updateStatus(); });
-            }
-        }
-        
-        function loadHW() {
-            fetch('/cgi-bin/wardriving_api?action=get_hw')
-                .then(r => r.json())
-                .then(data => {
-                    let sel = document.getElementById('sel_led');
-                    sel.innerHTML = '';
-                    if(data.leds) {
-                        data.leds.forEach(l => {
-                            let opt = document.createElement('option');
-                            opt.value = l;
-                            opt.text = l;
-                            if(l === data.current_led) opt.selected = true;
-                            sel.appendChild(opt);
-                        });
-                    }
-                    let sBtn = document.getElementById('sel_btn');
-                    if(data.current_button === 'wps') sBtn.value = 'wps';
-                    else if(data.current_button === 'wifi') sBtn.value = 'wifi';
-                });
-        }
-        
-        function saveHW() {
-            let led = document.getElementById('sel_led').value;
-            let btn = document.getElementById('sel_btn').value;
-            let mode = document.getElementById('sel_mode').value;
-            fetch('/cgi-bin/wardriving_api?action=set_hw&led=' + encodeURIComponent(led) + '&btn=' + btn + '&mode=' + mode)
-                .then(r => r.json())
-                .then(d => { if(d.status === 'saved') alert('Hardware config saved successfully!'); });
-        }
-        
-        
-        let dlTimer = null;
-        
-        let crackedMarkers = [];
-        function uploadPotfile() {
-            let file = document.getElementById('potfile_input').files[0];
-            if(!file) return alert('Select a hashcat.potfile first');
-            
-            document.getElementById('potfile_status').innerText = "Uploading...";
-            fetch('/cgi-bin/wardriving_api?action=upload_potfile', { method: 'POST', body: file })
-            .then(() => {
-                document.getElementById('potfile_status').innerText = "✅ Uploaded! Reloading map pins...";
-                loadCrackedNetworks();
-            });
-        }
-        
-        function loadCrackedNetworks() {
-            if(!map) return;
-            fetch('/cgi-bin/wardriving_api?action=cracked_networks')
-            .then(r=>r.json()).then(data => {
-                crackedMarkers.forEach(m => map.removeLayer(m));
-                crackedMarkers = [];
-                if(data && data.length > 0) {
-                    let crackedIcon = L.divIcon({className: 'cracked-icon', html: '🔓', iconSize: [20,20]});
-                    data.forEach(net => {
-                        let m = L.marker([net.lat, net.lon], {icon: crackedIcon}).addTo(map)
-                            .bindPopup("<b style='color:#0f0;'>🔓 CRACKED!</b><br>" + net.ssid);
-                        crackedMarkers.push(m);
-                    });
-                }
-            });
-        }
-
-        function downloadBBox() {
-            if(!map) return alert("Map not initialized. Visit Dashboard first.");
-            let bounds = map.getBounds();
-            let zMin = document.getElementById('dl_zoom_min').value || 12;
-            let zMax = document.getElementById('dl_zoom_max').value || 16;
-            
-            let n = bounds.getNorth(); let s = bounds.getSouth();
-            let e = bounds.getEast(); let w = bounds.getWest();
-            
-            document.getElementById('bbox_status').innerText = "Starting Download Job in background...";
-            fetch(`/cgi-bin/wardriving_api?action=download_bbox&n=${n}&s=${s}&e=${e}&w=${w}&z1=${zMin}&z2=${zMax}`)
-            .then(r=>r.json()).then(d => {
-                if(d.status === "started") {
-                    document.getElementById('bbox_status').innerText = "Downloading tiles... (Please wait)";
-                    if(dlTimer) clearInterval(dlTimer);
-                    dlTimer = setInterval(() => {
-                        fetch('/cgi-bin/wardriving_api?action=download_status')
-                        .then(rr=>rr.json()).then(dd => {
-                            if(dd.status === "DONE") {
-                                document.getElementById('bbox_status').innerText = "✅ Download Complete! You can switch to Offline Map now.";
-                                clearInterval(dlTimer);
-                            }
-                        });
-                    }, 3000);
-                }
-            }).catch(e => { document.getElementById('bbox_status').innerText = "Error starting job"; });
-        }
-
-        
-        function togglePcap() {
-            let keep = document.getElementById('chk_keep_pcap').checked;
-            fetch('/cgi-bin/wardriving_api?action=set_pcap_retention&keep=' + keep);
-        }
-
-        function uploadTiles() {
-            let fileInput = document.getElementById("tiles_file");
-            if (!fileInput.files.length) return alert("Select a .tar.gz file first.");
-            
-            let file = fileInput.files[0];
-            if(file.size > 50 * 1024 * 1024) {
-                if(!confirm("File is larger than 50MB. This might exhaust router RAM. Continue anyway?")) return;
-            }
-            
-            let status = document.getElementById("upload_status");
-            status.innerText = "⏳ Uploading and installing on router...";
-            
-            fetch("/cgi-bin/wardriving_api?action=upload_tiles", {
-                method: "POST",
-                body: file
-            }).then(r => r.json()).then(d => {
-                if(d.status === "ok") {
-                    status.innerText = "✅ Maps installed successfully!";
-                    setTimeout(() => map.invalidateSize(), 1000);
-                } else {
-                    status.innerText = "❌ Error installing maps.";
-                }
-            }).catch(err => {
-                status.innerText = "❌ Connection error.";
-            });
-        }
-
-        setInterval(updateStatus, 3000);
-        setInterval(updateMap, 4000); // Polling GPS
-        updateStatus();
-        loadFiles();
-        
-        loadHW(); if(localStorage.getItem('browserGpsActive') === 'true') { document.getElementById('chk_browser_gps').checked = true; toggleBrowserGPS(); }
-        if(audioEnabled) { document.getElementById('chk_audio').checked = true; }
-
-
-    </script>
+// Restore browser GPS if was active
+if(localStorage.getItem('browserGpsActive')==='true'){document.getElementById('chkBrowserGPS').checked=true;toggleBrowserGPS();}
+</script>
 </body>
 </html>

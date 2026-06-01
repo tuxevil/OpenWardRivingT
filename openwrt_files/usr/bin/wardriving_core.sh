@@ -10,20 +10,21 @@ cleanup() {
 trap cleanup SIGTERM SIGINT SIGHUP
 
 # Start virtual GPS server if it doesn't exist
-killall socat 2>/dev/null
+pkill -f "socat.*2947" 2>/dev/null
 socat pty,link=/tmp/vGPS,raw,echo=0 tcp-listen:2947,reuseaddr,fork &
 
 # Función para parpadear un LED si existe (feedback visual)
 blink_led() {
     # Intenta encontrar un LED que probablemente sea seguro usar
-    local LED=$(ls /sys/class/leds/ 2>/dev/null | grep -iE "usb" | head -n 1); [ -z "$LED" ] && LED=$(ls /sys/class/leds/ 2>/dev/null | grep -iE "wps|wlan|wifi|system|power" | head -n 1)
-    if [ -n "$LED" ] && [ -f "/sys/class/leds/$LED/brightness" ]; then
-        local current=$(cat /sys/class/leds/$LED/brightness)
-        echo 0 > /sys/class/leds/$LED/brightness
-        sleep 0.1
-        echo 255 > /sys/class/leds/$LED/brightness 2>/dev/null || echo 1 > /sys/class/leds/$LED/brightness
-        sleep 0.1
-        echo $current > /sys/class/leds/$LED/brightness
+    _LED=$(ls /sys/class/leds/ 2>/dev/null | grep -iE "usb" | head -n 1)
+    [ -z "$_LED" ] && _LED=$(ls /sys/class/leds/ 2>/dev/null | grep -iE "wps|wlan|wifi|system|power" | head -n 1)
+    if [ -n "$_LED" ] && [ -f "/sys/class/leds/$_LED/brightness" ]; then
+        _current=$(cat /sys/class/leds/$_LED/brightness)
+        echo 0 > /sys/class/leds/$_LED/brightness
+        usleep 100000 2>/dev/null || sleep 1
+        echo 255 > /sys/class/leds/$_LED/brightness 2>/dev/null || echo 1 > /sys/class/leds/$_LED/brightness
+        usleep 100000 2>/dev/null || sleep 1
+        echo $_current > /sys/class/leds/$_LED/brightness
     fi
 }
 
@@ -81,6 +82,7 @@ while true; do
         fi
     fi
 
+    # shellcheck disable=SC2086 # OPTS needs word splitting for multi-flag modes
     hcxdumptool -i wlan0mon -w "$FILENAME" --nmea_dev=/tmp/vGPS --nmea_pcapng --nmea_out="$NMEAFILE" -F -t 3 --tot=5 $OPTS
     
     if [ -f "$FILENAME" ]; then

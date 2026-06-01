@@ -280,7 +280,7 @@ elif [ "$ACTION" = "cracked_networks" ]; then
             BEGIN { first=1 }
             {
                 if(!first) printf ","
-                ssid=$3; gsub(/\\/, "\\\\", ssid); gsub(/"/, "\\"", ssid);
+                ssid=$3; gsub(/\\/, "\\\\", ssid); gsub("\x22", "\\\"", ssid);
                 printf "{\"lat\":%s, \"lon\":%s, \"ssid\":\"%s\"}", $1, $2, ssid
                 first=0
             }'
@@ -616,7 +616,7 @@ elif [ "$ACTION" = "scored_networks" ]; then
             mac=$1; ssid=$2; enc=$3; rssi=$4;
             # Proper JSON escaping in awk
             gsub(/\\/, "\\\\", ssid);
-            gsub(/"/, "\\"", ssid);
+            gsub("\x22", "\\\"", ssid);
             gsub(/\x08/, "\\b", ssid);
             gsub(/\x0c/, "\\f", ssid);
             gsub(/\n/, "\\n", ssid);

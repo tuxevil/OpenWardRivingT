@@ -133,11 +133,11 @@ echo ""
 if [ "$ACTION" = "status" ]; then
     [ -f /var/run/wardriving_core.pid ] && kill -0 $(cat /var/run/wardriving_core.pid) 2>/dev/null && IS_RUNNING="true" || IS_RUNNING="false"
     HANDSHAKES=$(wc -l < /mnt/wardriving/master.hc2200 2>/dev/null || echo 0)
-    read SPACE_USED SPACE_FREE USB_PCT <<_EOF
+    read -r SPACE_USED SPACE_FREE USB_PCT <<_EOF
 $(df -h /mnt/wardriving | awk 'NR==2 {print $3, $4, $5}' | tr -d '%')
 _EOF
-    read CPU_LOAD _ < /proc/loadavg
-    read RAM_TOTAL RAM_USED <<_EOF
+    read -r CPU_LOAD _ < /proc/loadavg
+    read -r RAM_TOTAL RAM_USED <<_EOF
 $(free -m | awk '/^Mem:/{print $2, $3}')
 _EOF
     RAM_PCT=0; [ "$RAM_TOTAL" -gt 0 ] && RAM_PCT=$(( 100 * RAM_USED / RAM_TOTAL ))
@@ -146,7 +146,7 @@ _EOF
     DEAUTHS="N/A"
     FIX="0"
     if [ -f "$LATEST_NMEA" ]; then
-        read FIX SATS SPEED <<_EOF
+        read -r FIX SATS SPEED <<_EOF
 $(tail -n 30 "$LATEST_NMEA" | awk -F',' '/^\$G[PN]GGA/{f=$7; s=$8} /^\$[A-Z]{2}RMC/{sp=$8} END{print (f?f:0), (s?s:0), (sp?sp:0)}')
 _EOF
     fi
@@ -156,7 +156,7 @@ _EOF
         NOW=$(date +%s)
         if [ "$((NOW - LAST_MOD))" -lt 15 ]; then
             GPS_STAT="CONNECTED"
-            read FIX SATS SPEED <<_EOF
+            read -r FIX SATS SPEED <<_EOF
 $(awk -F',' '/^\$G[PN]GGA/{f=$7; s=$8} /^\$[A-Z]{2}RMC/{sp=$8} END{print (f?f:0), (s?s:0), (sp?sp:0)}' /tmp/vGPS_last 2>/dev/null)
 _EOF
         fi

@@ -200,29 +200,24 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
 
     <!-- CAPTURES -->
     <div class="view" id="view-captures" style="padding:8px;overflow-y:auto;width:100%">
-      <div class="card" style="margin-bottom:8px;padding:12px;">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:5px;">
-          <h3 style="color:var(--c-cyan);margin:0;border:none;padding:0;margin-right:auto;flex-shrink:0;">📦 Capture Manager</h3>
-          
-          <button class="btn small" style="white-space:nowrap;flex-shrink:0;" onclick="loadFiles()">🔄 Refresh</button>
-          <button class="btn small cyan" onclick="window.open('/cgi-bin/wardriving_api?action=download_all','_blank')">📥 .tar.gz</button>
-          <button class="btn small amber" onclick="window.open('/cgi-bin/wardriving_api?action=export_gpx','_blank')">🗺️ GPX</button>
-          <button class="btn small magenta" onclick="window.open('/cgi-bin/wardriving_api?action=export_kml','_blank')">🌍 KML</button>
-          <button class="btn small" style="white-space:nowrap;flex-shrink:0;" onclick="window.open('/cgi-bin/wardriving_api?action=export_hashcat','_blank')">🔥 Hashcat</button>
-          
-          <div style="width:1px;height:24px;background:#333;margin:0 2px;"></div>
-          
+      <div class="card" style="margin-bottom:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <h3 style="color:var(--c-cyan);margin:0;border:none;padding:0">📦 Capture Manager</h3>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn small" onclick="loadFiles()">🔄 Refresh</button>
+            <button class="btn small cyan" onclick="window.open('/cgi-bin/wardriving_api?action=download_all','_blank')">📥 .tar.gz</button>
+            <button class="btn small amber" onclick="window.open('/cgi-bin/wardriving_api?action=export_gpx','_blank')">🗺️ GPX</button>
+            <button class="btn small magenta" onclick="window.open('/cgi-bin/wardriving_api?action=export_kml','_blank')">🌍 KML</button>
+            <button class="btn small" onclick="window.open('/cgi-bin/wardriving_api?action=export_hashcat','_blank')">🔥 Hashcat</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px dashed var(--c-green);padding:8px 12px;border-radius:8px">
           <span style="font-size:0.85em;color:var(--c-green);flex-shrink:0">🔓 Potfile:</span>
-          <input type="file" id="potfileInput" style="max-width:200px;font-size:0.8em;padding:4px;border:1px solid var(--c-green);border-radius:4px;background:#000;color:#fff;">
-          <button class="btn small" style="white-space:nowrap;flex-shrink:0;" onclick="uploadPotfile()">📤 Upload</button>
-          
-          <div style="width:1px;height:24px;background:#333;margin:0 2px;"></div>
-          
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:0.85em;color:var(--c-cyan);flex-shrink:0;">
-            Keep RAW: <input type="checkbox" id="chkKeepPcap" onchange="togglePcap()" style="margin:0;">
-          </label>
-          
-          <span id="potfileStatus" style="font-size:0.8em;color:var(--c-green);flex-shrink:0;margin-left:auto;"></span>
+          <input type="file" id="potfileInput" style="flex:1;min-width:150px">
+          <button class="btn small" onclick="uploadPotfile()" style="width:auto">📤 Upload</button>
+          <span style="font-size:0.8em;color:var(--c-cyan);flex-shrink:0">Keep RAW:</span>
+          <input type="checkbox" id="chkKeepPcap" onchange="togglePcap()">
+          <span id="potfileStatus" style="font-size:0.75em;color:var(--c-green);flex-shrink:0"></span>
         </div>
       </div>
       <div id="fileList"><span style="color:var(--c-dim)">Loading...</span></div>
@@ -247,11 +242,11 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
           <label style="font-size:0.8em;color:var(--c-dim)">Status LED</label><select id="selLED" style="margin-bottom:8px"></select>
           <label style="font-size:0.8em;color:var(--c-dim)">Physical Button</label><select id="selBtn" style="margin-bottom:8px"><option value="wps">WPS Button</option><option value="wifi">WiFi Button</option></select>
           <label style="font-size:0.8em;color:var(--c-dim)">Operation Mode</label><select id="selMode" style="margin-bottom:8px"><option value="active">Active (Full Injection)</option><option value="passive">Passive (Silent Survey)</option><option value="smart">Smart (Targeted Only)</option></select>
-          <button class="btn small" style="white-space:nowrap;flex-shrink:0;" onclick="saveHW()">💾 Save Hardware</button>
+          <button class="btn small" onclick="saveHW()">💾 Save Hardware</button>
         </div>
         <div class="card"><h3 style="color:var(--c-amber)">📡 WiGLE</h3>
           <input type="password" id="wigleToken" placeholder="Paste Base64 API Token..." style="margin-bottom:8px">
-          <div style="display:flex;gap:6px"><button class="btn small amber" onclick="saveWigle()">💾 Save</button><button class="btn small" style="white-space:nowrap;flex-shrink:0;" style="background:var(--c-amber);color:#000" onclick="uploadWigle()">📤 Upload</button></div>
+          <div style="display:flex;gap:6px"><button class="btn small amber" onclick="saveWigle()">💾 Save</button><button class="btn small" style="background:var(--c-amber);color:#000" onclick="uploadWigle()">📤 Upload</button></div>
           <div id="wigleStatus" style="margin-top:8px;font-size:0.8em;color:var(--c-amber)"></div>
         </div>
         <div class="card"><h3 style="color:var(--c-cyan)">🗺️ Map Tiles</h3>
@@ -261,11 +256,11 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
           <button class="btn small dim" onclick="uploadTiles()">📤 Install from file</button><div id="uploadStatus" style="margin-top:6px;font-size:0.8em"></div>
         </div>
         <div class="card"><h3 style="color:var(--c-red)">🛡️ Excluded SSIDs</h3>
-          <div style="display:flex;gap:6px;margin-bottom:8px"><input type="text" id="newExclusion" placeholder="SSID to hide..." style="flex:1"><button class="btn small" style="white-space:nowrap;flex-shrink:0;" onclick="addExclusion()">+ Add</button></div>
+          <div style="display:flex;gap:6px;margin-bottom:8px"><input type="text" id="newExclusion" placeholder="SSID to hide..." style="flex:1"><button class="btn small" onclick="addExclusion()">+ Add</button></div>
           <div id="exclusionsList" style="max-height:200px;overflow-y:auto"></div>
         </div>
         <div class="card"><h3 style="color:var(--c-red)">🎯 Target Alerts</h3>
-          <div style="display:flex;gap:6px;margin-bottom:8px"><input type="text" id="newTarget" placeholder="e.g. 00:11:22" style="flex:1;text-transform:uppercase"><button class="btn small" style="white-space:nowrap;flex-shrink:0;" style="border-color:var(--c-red);color:var(--c-red)" onclick="addTarget()">+ Add</button></div>
+          <div style="display:flex;gap:6px;margin-bottom:8px"><input type="text" id="newTarget" placeholder="e.g. 00:11:22" style="flex:1;text-transform:uppercase"><button class="btn small" style="border-color:var(--c-red);color:var(--c-red)" onclick="addTarget()">+ Add</button></div>
           <div id="targetsList" style="max-height:200px;overflow-y:auto"></div>
         </div>
       </div>
@@ -471,12 +466,12 @@ function uploadTiles(){let f=document.getElementById('tilesFile').files[0];if(!f
 
 // EXCLUSIONS & TARGETS
 function loadExclusions(){fetch('/cgi-bin/wardriving_api?action=get_exclusions').then(r=>r.json()).then(d=>{excludedSSIDs=d||[];renderExclusions();});}
-function renderExclusions(){let c=document.getElementById('exclusionsList');if(!c)return;c.innerHTML='';if(!excludedSSIDs.length){c.innerHTML='<span style="color:var(--c-dim)">None</span>';return;}excludedSSIDs.forEach(s=>{let d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:8px;border:1px solid var(--border);margin-bottom:4px;border-radius:6px';d.innerHTML='<span>'+s.replace(/</g,'&lt;')+'</span><button class="btn small" style="white-space:nowrap;flex-shrink:0;" style="border-color:var(--c-red);color:var(--c-red);min-width:60px;min-height:30px" onclick="removeExclusion(\''+encodeURIComponent(s)+'\')">✕</button>';c.appendChild(d);});}
+function renderExclusions(){let c=document.getElementById('exclusionsList');if(!c)return;c.innerHTML='';if(!excludedSSIDs.length){c.innerHTML='<span style="color:var(--c-dim)">None</span>';return;}excludedSSIDs.forEach(s=>{let d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:8px;border:1px solid var(--border);margin-bottom:4px;border-radius:6px';d.innerHTML='<span>'+s.replace(/</g,'&lt;')+'</span><button class="btn small" style="border-color:var(--c-red);color:var(--c-red);min-width:60px;min-height:30px" onclick="removeExclusion(\''+encodeURIComponent(s)+'\')">✕</button>';c.appendChild(d);});}
 function addExclusion(){let v=document.getElementById('newExclusion').value.trim();if(!v)return;fetch('/cgi-bin/wardriving_api?action=add_exclusion&ssid='+encodeURIComponent(v)).then(()=>{document.getElementById('newExclusion').value='';loadExclusions();});}
 function removeExclusion(s){fetch('/cgi-bin/wardriving_api?action=remove_exclusion&ssid='+s).then(()=>loadExclusions());}
 loadExclusions();setInterval(loadExclusions,10000);
 function loadTargets(){fetch('/cgi-bin/wardriving_api?action=get_targets').then(r=>r.json()).then(d=>{targetMacs=d||[];renderTargets();});}
-function renderTargets(){let c=document.getElementById('targetsList');if(!c)return;c.innerHTML='';targetMacs.forEach(m=>{let d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:8px;border:1px solid var(--c-red);margin-bottom:4px;border-radius:6px';d.innerHTML='<span style="color:var(--c-red);font-weight:bold">'+m+'</span><button class="btn small" style="white-space:nowrap;flex-shrink:0;" style="border-color:var(--c-red);color:var(--c-red);min-width:60px;min-height:30px" onclick="removeTarget(\''+m+'\')">✕</button>';c.appendChild(d);});}
+function renderTargets(){let c=document.getElementById('targetsList');if(!c)return;c.innerHTML='';targetMacs.forEach(m=>{let d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:8px;border:1px solid var(--c-red);margin-bottom:4px;border-radius:6px';d.innerHTML='<span style="color:var(--c-red);font-weight:bold">'+m+'</span><button class="btn small" style="border-color:var(--c-red);color:var(--c-red);min-width:60px;min-height:30px" onclick="removeTarget(\''+m+'\')">✕</button>';c.appendChild(d);});}
 function addTarget(){let m=document.getElementById('newTarget').value.trim().toUpperCase();if(!m)return;fetch('/cgi-bin/wardriving_api?action=add_target&mac='+encodeURIComponent(m)).then(()=>{document.getElementById('newTarget').value='';loadTargets();});}
 function removeTarget(m){fetch('/cgi-bin/wardriving_api?action=remove_target&mac='+encodeURIComponent(m)).then(()=>loadTargets());}
 function checkTargets(){if(!isRunning||!targetMacs.length)return;fetch('/cgi-bin/wardriving_api?action=check_targets').then(r=>r.json()).then(d=>{if(d&&d.length)d.forEach(n=>{if(!alertedTargets.includes(n.mac)){alertedTargets.push(n.mac);if(audioEnabled&&'speechSynthesis' in window)window.speechSynthesis.speak(new SpeechSynthesisUtterance('Target detected! '+n.ssid));}});});}

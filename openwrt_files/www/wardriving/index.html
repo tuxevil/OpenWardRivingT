@@ -64,7 +64,7 @@ body.scanlines::after {
 }
 #header .metric .icon { font-size:17px; }
 #header .metric .val { font-weight:bold; color:var(--c-white); font-size:17px; }
-#header .metric .unit { font-size:12px; color:var(--c-dim); }
+#header .metric .unit { font-size:17px; color:var(--c-dim); margin-left:2px; }
 #header .metric.warn .val { color:var(--c-amber); }
 #header .metric.crit .val { color:var(--c-red); animation:pulse 1s infinite; }
 #header .spacer { flex:1; }
@@ -200,16 +200,7 @@ body.scanlines::after {
 .btn.magenta:hover { background:var(--c-magenta); color:#000; }
 .btn.dim { border-color:var(--c-dim); color:var(--c-dim); }
 
-/* ===== STATUS BADGE ===== */
-.status-badge {
-  padding:10px; border-radius:8px; font-weight:bold; text-transform:uppercase;
-  text-align:center; letter-spacing:2px; font-size:1em;
-}
-.status-badge.on {
-  border:2px solid var(--c-green); color:var(--c-green);
-  box-shadow:var(--glow-sm) var(--c-green); animation:pulse 2s infinite;
-}
-.status-badge.off { border:2px solid var(--c-red); color:var(--c-red); }
+/* ===== STATUS BADGE (header only) ===== */
 
 /* ===== NAV BAR ===== */
 #nav {
@@ -320,7 +311,6 @@ input[type=checkbox]:checked::after { left:22px; background:#000; }
   <div class="view active" id="view-dashboard">
     <div class="dash-grid" id="dashGrid">
       <div class="dash-left">
-        <div class="status-badge off" id="statusBadge">● STOPPED</div>
         <button class="btn huge" id="btnToggle" onclick="toggleWardriving()">▶ START</button>
         <div class="pet-card">
           <div class="face" id="petFace">(◕‿‿◕)</div>
@@ -582,14 +572,12 @@ function toggleWardriving(){
 function updateStatus(){
   fetch('/cgi-bin/wardriving_api?action=status').then(r=>r.json()).then(d=>{
     isRunning=d.running;
-    let btn=document.getElementById('btnToggle'),badge=document.getElementById('statusBadge'),dot=document.getElementById('hdr_dot');
+    let btn=document.getElementById('btnToggle'),dot=document.getElementById('hdr_dot');
     if(isRunning){
       btn.innerHTML='⏹ STOP'; btn.className='btn huge stop';
-      badge.className='status-badge on'; badge.innerText='● CAPTURING';
       dot.className='status-dot on'; dot.innerText='● LIVE';
     } else {
       btn.innerHTML='▶ START'; btn.className='btn huge';
-      badge.className='status-badge off'; badge.innerText='● STOPPED';
       dot.className='status-dot off'; dot.innerText='● STOPPED';
     }
     // Header metrics

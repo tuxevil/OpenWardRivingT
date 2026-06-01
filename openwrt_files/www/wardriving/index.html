@@ -114,11 +114,12 @@ body.scanlines::after {
 .map-overlay {
   position:absolute; bottom:8px; right:8px; z-index:1000;
   display:flex; flex-direction:column; gap:6px;
-  background:rgba(0,0,0,0.85); padding:8px; border-radius:8px; border:1px solid var(--border);
+  background:rgba(0,0,0,0.9); padding:10px; border-radius:8px; border:1px solid var(--border);
+  min-width:140px;
 }
 .map-overlay label {
-  font-size:0.75em; display:flex; align-items:center; gap:6px;
-  color:var(--c-white); cursor:pointer; padding:2px 0;
+  font-size:0.85em; display:flex; align-items:center; gap:8px;
+  color:var(--c-white); cursor:pointer; padding:3px 0;
 }
 
 /* Pet */
@@ -299,14 +300,14 @@ input[type=checkbox]:checked::after { left:22px; background:#000; }
 
 <!-- ===== HEADER ===== -->
 <div id="header">
-  <div class="metric" id="hdr_gps"><span class="icon">🛰️</span><span class="val">--</span></div>
+  <div class="metric" id="hdr_gps"><span class="icon">🛰️</span><span class="val">--</span><span class="unit">sats</span></div>
   <div class="metric" id="hdr_speed"><span class="icon">🚗</span><span class="val">0</span><span class="unit">km/h</span></div>
-  <div class="metric" id="hdr_deauths"><span class="icon">⚡</span><span class="val">0</span></div>
-  <div class="metric" id="hdr_hs"><span class="icon">🔑</span><span class="val">0</span></div>
+  <div class="metric" id="hdr_deauths"><span class="icon">⚡</span><span class="val">0</span><span class="unit">deauths</span></div>
+  <span class="spacer"></span>
+  <span class="title">🛰️ OpenWardRivingT</span>
+  <span class="spacer"></span>
+  <div class="metric" id="hdr_hs"><span class="icon">🔑</span><span class="val">0</span><span class="unit">HS</span></div>
   <div class="metric" id="hdr_usb"><span class="icon">💾</span><span class="val">--</span></div>
-  <span class="spacer"></span>
-  <span class="title">OpenWardRivingT</span>
-  <span class="spacer"></span>
   <span class="status-dot off" id="hdr_dot" title="STOPPED"></span>
 </div>
 
@@ -333,10 +334,10 @@ input[type=checkbox]:checked::after { left:22px; background:#000; }
       <div class="dash-center">
         <div id="map"></div>
         <div class="map-overlay">
-          <label><input type="checkbox" id="chkOnlineTiles" onchange="toggleTiles()"> Online Map</label>
-          <label><input type="checkbox" id="chkHeatmap" onchange="toggleHeatmap()"> 🔥 Heatmap</label>
-          <label><input type="checkbox" id="chkBrowserGPS" onchange="toggleBrowserGPS()"> 📡 GPS</label>
-          <button class="btn small cyan" onclick="startReplay()" style="width:100%;margin-top:2px;">▶ Replay</button>
+          <label title="Switch between online OpenStreetMap and offline tiles"><input type="checkbox" id="chkOnlineTiles" onchange="toggleTiles()"> 🌐 Online Map</label>
+          <label title="Show WiFi signal heatmap overlay"><input type="checkbox" id="chkHeatmap" onchange="toggleHeatmap()"> 🔥 Heatmap</label>
+          <label title="Use your device GPS for live positioning"><input type="checkbox" id="chkBrowserGPS" onchange="toggleBrowserGPS()"> 📡 Phone GPS</label>
+          <button class="btn small cyan" onclick="startReplay()" style="width:100%;margin-top:4px;">▶ Replay Route</button>
         </div>
       </div>
       <div class="dash-right">
@@ -590,7 +591,9 @@ function updateStatus(){
       dot.className='status-dot off';
     }
     // Header metrics
-    document.getElementById('hdr_gps').querySelector('.val').innerText=(d.sats||'0')+(d.fix!=='0'?' sats':' NO FIX');
+    document.getElementById('hdr_gps').querySelector('.val').innerText=(d.sats||'0');
+    let gpsUnit=document.getElementById('hdr_gps').querySelector('.unit');
+    if(gpsUnit)gpsUnit.innerText=d.fix!=='0'?'sats':'NO FIX';
     let hdrGps=document.getElementById('hdr_gps');
     hdrGps.className='metric'+(d.fix==='0'?' crit':'');
     let speedKmh=Math.round((parseFloat(d.speed)||0)*1.852);

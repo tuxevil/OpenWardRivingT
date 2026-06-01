@@ -31,6 +31,8 @@
   --font:     "Courier New", Courier, monospace;
   --nav-h:    64px;
   --header-h: 52px;
+  --sidebar-w: 200px;
+  --right-w:   200px;
 }
 * { box-sizing:border-box; margin:0; padding:0; }
 html, body { height:100%; overflow:hidden; }
@@ -83,28 +85,32 @@ body.scanlines::after {
 
 /* ===== MAIN CONTENT AREA ===== */
 #main {
-  position:fixed; top:var(--header-h); bottom:var(--nav-h);
-  left:0; right:0; overflow:hidden; padding:6px;
+  position:fixed; top:var(--header-h); bottom:0; left:0; right:0;
+  display:flex; overflow:hidden;
 }
 
 /* ===== VIEWS ===== */
-.view { display:none; height:100%; }
+.view { display:none; width:100%; height:100%; }
 .view.active { display:flex; flex-direction:column; }
+
+/* ===== CONTENT AREA (right of sidebar) ===== */
+#content-area {
+  flex:1; display:flex; overflow:hidden; min-width:0;
+}
 
 /* ===== DASHBOARD ===== */
 .dash-grid {
-  display:grid; grid-template-columns:20% 60% 20%;
-  grid-template-rows:1fr; gap:8px; height:100%; width:100%; overflow:hidden;
-}
-.dash-grid.swap { direction:rtl; }
-.dash-grid.swap > * { direction:ltr; }
-.dash-left, .dash-right {
-  display:flex; flex-direction:column; gap:6px; overflow-y:auto; overflow-x:hidden; height:100%; min-width:0;
+  display:flex; width:100%; height:100%; overflow:hidden;
 }
 .dash-center {
-  background:#000; border:1px solid var(--c-green); border-radius:var(--radius);
-  overflow:hidden; position:relative; min-height:300px;
+  flex:1; background:#000; border:1px solid var(--c-green);
+  position:relative; min-width:0; overflow:hidden;
   box-shadow: var(--glow-sm) rgba(0,255,65,0.15);
+}
+.dash-right {
+  width:var(--right-w); flex-shrink:0; display:flex; flex-direction:column;
+  padding:6px; gap:6px; overflow-y:auto; overflow-x:hidden;
+  border-left:1px solid var(--border);
 }
 
 /* Map */
@@ -150,21 +156,19 @@ body.scanlines::after {
 .spec-panel .ch-detail { display:none; padding:3px 8px 8px 16px; font-size:0.85em; color:var(--c-dim); }
 .spec-panel .ch-detail.open { display:block; }
 
-/* Scores in right column - full height, larger text */
+/* Scores in right panel */
 .scores-panel {
   background:var(--bg-card); border:1px solid var(--c-amber);
-  border-radius:var(--radius); padding:8px; overflow-y:auto; overflow-x:hidden; height:100%;
+  border-radius:var(--radius); padding:8px; overflow-y:auto; flex:1; min-height:0;
   box-shadow: var(--glow-sm) rgba(255,176,0,0.1);
-  word-break:break-all;
 }
 .scores-panel h4 { font-size:0.85em; color:var(--c-amber); margin-bottom:8px; text-transform:uppercase; letter-spacing:2px; }
 .scores-panel .sr {
-  padding:6px 8px; border-bottom:1px solid var(--border);
-  font-size:0.85em;
+  padding:6px 8px; border-bottom:1px solid var(--border); font-size:0.85em;
 }
-.scores-panel .sr .sr-top { display:flex; justify-content:space-between; margin-bottom:2px; }
+.scores-panel .sr .sr-top { display:flex; justify-content:space-between; margin-bottom:2px; word-break:break-all; }
 .scores-panel .sr .sr-ssid { color:var(--c-white); font-weight:bold; }
-.scores-panel .sr .sr-pts { color:var(--c-cyan); }
+.scores-panel .sr .sr-pts { color:var(--c-cyan); flex-shrink:0; }
 .scores-panel .sr .sr-info { font-size:0.7em; color:var(--c-dim); }
 
 /* ===== CARDS ===== */
@@ -202,22 +206,31 @@ body.scanlines::after {
 
 /* ===== STATUS BADGE (header only) ===== */
 
-/* ===== NAV BAR ===== */
-#nav {
-  position:fixed; bottom:0; left:0; right:0; height:var(--nav-h); z-index:200;
-  background:#000; border-top:1px solid var(--c-green);
-  display:flex; gap:0;
+/* ===== SIDEBAR NAV ===== */
+#sidebar {
+  width:var(--sidebar-w); background:#000; border-right:1px solid var(--c-green);
+  display:flex; flex-direction:column; flex-shrink:0; overflow-y:auto; overflow-x:hidden;
+  z-index:100;
 }
-#nav .nav-item {
-  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
-  color:var(--c-green); cursor:pointer; font-size:0.7em; font-weight:bold;
+#sidebar .nav-item {
+  display:flex; align-items:center; gap:10px; padding:14px 16px;
+  color:var(--c-green); cursor:pointer; font-size:0.9em; font-weight:bold;
   text-transform:uppercase; letter-spacing:1px; opacity:0.5; transition:0.2s;
-  border-top:3px solid transparent; gap:2px;
+  border-left:3px solid transparent;
 }
-#nav .nav-item .ni { font-size:1.8em; font-style:normal; }
-#nav .nav-item.active { opacity:1; border-top-color:var(--c-green); background:rgba(0,255,65,0.05); }
-#nav.swap { direction:rtl; }
-#nav.swap .nav-item { direction:ltr; }
+#sidebar .nav-item .ni { font-size:1.6em; font-style:normal; width:28px; text-align:center; }
+#sidebar .nav-item.active { opacity:1; border-left-color:var(--c-green); background:rgba(0,255,65,0.05); }
+#sidebar .nav-item:hover { opacity:0.8; background:rgba(0,255,65,0.03); }
+#sidebar .sidebar-spacer { flex:1; min-height:8px; }
+#sidebar .sidebar-pet {
+  padding:8px 10px; text-align:center; border-top:1px solid var(--border);
+}
+#sidebar .sidebar-pet .face { font-size:1.8em; color:var(--c-magenta); line-height:1.2; }
+#sidebar .sidebar-pet .name { font-size:0.7em; color:var(--c-magenta); font-weight:bold; letter-spacing:2px; }
+#sidebar .sidebar-pet .quote { font-size:0.6em; color:var(--c-dim); font-style:italic; margin-top:3px; }
+#sidebar .sidebar-pet .bridge { font-size:0.55em; color:var(--c-cyan); margin-top:2px; display:none; }
+#sidebar .sidebar-btn { padding:6px 8px; }
+#sidebar .sidebar-btn .btn { font-size:14px; padding:12px; min-height:40px; }
 
 /* ===== SETTINGS ===== */
 .settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
@@ -255,25 +268,24 @@ input[type=checkbox] { transform:scale(1.4); accent-color:var(--c-green); }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width:1279px) {
-  .dash-grid { grid-template-columns:22% 1fr; }
-  .dash-right { display:none; }
-  .dash-grid.show-right .dash-right { display:flex; position:absolute; right:8px; top:8px; bottom:8px; width:220px; z-index:50; }
+  :root { --sidebar-w:160px; --right-w:180px; }
 }
 @media (max-width:1023px) {
-  .dash-grid { grid-template-columns:1fr; grid-template-rows:auto 1fr; }
-  .dash-left { flex-direction:row; flex-wrap:wrap; overflow-y:visible; }
-  .dash-left .btn.huge { font-size:18px; padding:14px; min-height:48px; flex:1; }
-  .dash-left .pet-card, .dash-left .spec-panel { display:none; }
+  :root { --sidebar-w:140px; --right-w:160px; }
   .settings-grid { grid-template-columns:1fr; }
   .file-item { grid-template-columns:1fr; }
 }
 @media (max-width:799px) {
-  :root { --header-h:36px; --nav-h:56px; }
+  :root { --header-h:36px; --sidebar-w:50px; --right-w:0px; }
+  #sidebar .nav-item span { display:none; }
+  #sidebar .nav-item { justify-content:center; padding:12px 6px; }
+  #sidebar .sidebar-pet, #sidebar .sidebar-btn, #sidebar #sidebarSpec { display:none; }
+  .dash-right { display:none; }
   #header { font-size:10px; gap:4px; }
   #header .metric { padding:2px 4px; }
-  .dash-left .btn.huge { font-size:16px; padding:10px; }
-  #nav .nav-item { font-size:0.6em; }
-  #nav .nav-item .ni { font-size:1.5em; }
+  #header .metric .val, #header .metric .unit { font-size:12px; }
+  #header .metric .icon { font-size:13px; }
+  #header .title { font-size:12px; letter-spacing:1px; }
 }
 
 /* ===== ANIMATIONS ===== */
@@ -304,184 +316,138 @@ input[type=checkbox]:checked::after { left:22px; background:#000; }
   <span class="status-dot off" id="hdr_dot">● STOPPED</span>
 </div>
 
-<!-- ===== MAIN CONTENT ===== -->
+<!-- ===== MAIN LAYOUT: sidebar + content ===== -->
 <div id="main">
 
-  <!-- DASHBOARD -->
-  <div class="view active" id="view-dashboard">
-    <div class="dash-grid" id="dashGrid">
-      <div class="dash-left">
-        <div class="pet-card">
-          <div class="face" id="petFace">(◕‿‿◕)</div>
-          <div class="name">Wardriv3r</div>
-          <div class="quote" id="petQuote">ZzzzZZzzzzZzzz</div>
-          <div class="bridge" id="petBridge">🐾 Pwnagotchi linked</div>
-        </div>
-        <button class="btn huge" id="btnToggle" onclick="toggleWardriving()">▶ START</button>
-        <div class="spec-panel">
-          <h4>📶 Spectrum</h4>
-          <div id="specList"></div>
-        </div>
-      </div>
-      <div class="dash-center">
-        <div id="map"></div>
-        <div class="map-overlay">
-          <label title="Switch between online OpenStreetMap and offline tiles"><input type="checkbox" id="chkOnlineTiles" onchange="toggleTiles()"> 🌐 Online Map</label>
-          <label title="Show WiFi signal heatmap overlay"><input type="checkbox" id="chkHeatmap" onchange="toggleHeatmap()"> 🔥 Heatmap</label>
-          <label title="Use your device GPS for live positioning"><input type="checkbox" id="chkBrowserGPS" onchange="toggleBrowserGPS()"> 📡 Phone GPS</label>
-          <button class="btn small cyan" onclick="startReplay()" style="width:100%;margin-top:4px;">▶ Replay Route</button>
-        </div>
-      </div>
-      <div class="dash-right">
-        <div class="scores-panel">
-          <h4>🏆 Top Targets</h4>
-          <div id="scoresList"><span style="color:var(--c-dim)">Waiting for targets...</span></div>
-        </div>
-      </div>
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="nav-item active" onclick="switchTab('dashboard',this)"><i class="ni">🚗</i>Dash</div>
+    <div class="nav-item" onclick="switchTab('captures',this)"><i class="ni">📁</i>Files</div>
+    <div class="nav-item" onclick="switchTab('console',this)"><i class="ni">🖥️</i>Console</div>
+    <div class="nav-item" onclick="switchTab('settings',this)"><i class="ni">⚙️</i>Settings</div>
+    <div class="nav-item" onclick="switchTab('history',this)"><i class="ni">📊</i>Stats</div>
+    <div class="sidebar-spacer"></div>
+    <div class="sidebar-pet">
+      <div class="face" id="petFace">(◕‿‿◕)</div>
+      <div class="name">Wardriv3r</div>
+      <div class="quote" id="petQuote">Zzzz...</div>
+      <div class="bridge" id="petBridge">🐾 Linked</div>
+    </div>
+    <div class="sidebar-btn"><button class="btn huge" id="btnToggle" onclick="toggleWardriving()">▶ START</button></div>
+    <div id="sidebarSpec" style="padding:6px 8px;font-size:0.75em;color:var(--c-cyan);border-top:1px solid var(--border);overflow-y:auto;max-height:200px;">
+      <div style="font-weight:bold;margin-bottom:4px;">📶 Spectrum</div>
+      <div id="specList"></div>
     </div>
   </div>
 
-  <!-- CAPTURES -->
-  <div class="view" id="view-captures" style="padding:6px; overflow-y:auto;">
-    <div class="card" style="margin-bottom:8px;">
-      <h3 style="color:var(--c-cyan)">📦 Capture Manager</h3>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
-        <button class="btn small" onclick="loadFiles()">🔄 Refresh</button>
-        <button class="btn small cyan" onclick="window.open('/cgi-bin/wardriving_api?action=download_all','_blank')">📥 .tar.gz</button>
-        <button class="btn small amber" onclick="window.open('/cgi-bin/wardriving_api?action=export_gpx','_blank')">🗺️ GPX</button>
-        <button class="btn small magenta" onclick="window.open('/cgi-bin/wardriving_api?action=export_kml','_blank')">🌍 KML</button>
-        <button class="btn small" onclick="window.open('/cgi-bin/wardriving_api?action=export_hashcat','_blank')">🔥 Hashcat</button>
-      </div>
-      <div style="border:1px dashed var(--c-green);padding:10px;border-radius:8px;margin-bottom:10px;">
-        <p style="font-size:0.8em;color:var(--c-green);margin:0 0 6px 0;">Upload hashcat.potfile to highlight cracked networks on map:</p>
-        <input type="file" id="potfileInput" style="margin-bottom:6px;">
-        <button class="btn small" onclick="uploadPotfile()">📤 Upload Potfile</button>
-        <div id="potfileStatus" style="margin-top:6px;font-size:0.8em;"></div>
-      </div>
-      <div class="setting-row" style="justify-content:flex-start;gap:10px;">
-        <span style="color:var(--c-cyan);">Keep RAW .pcapng</span>
-        <input type="checkbox" id="chkKeepPcap" onchange="togglePcap()">
+  <!-- CONTENT AREA -->
+  <div id="content-area">
+
+    <!-- DASHBOARD -->
+    <div class="view active" id="view-dashboard" style="display:flex;width:100%;height:100%;">
+      <div class="dash-grid">
+        <div class="dash-center">
+          <div id="map"></div>
+          <div class="map-overlay">
+            <label title="Switch between online OpenStreetMap and offline tiles"><input type="checkbox" id="chkOnlineTiles" onchange="toggleTiles()"> 🌐 Online Map</label>
+            <label title="Show WiFi signal heatmap overlay"><input type="checkbox" id="chkHeatmap" onchange="toggleHeatmap()"> 🔥 Heatmap</label>
+            <label title="Use your device GPS for live positioning"><input type="checkbox" id="chkBrowserGPS" onchange="toggleBrowserGPS()"> 📡 Phone GPS</label>
+            <button class="btn small cyan" onclick="startReplay()" style="width:100%;margin-top:4px;">▶ Replay Route</button>
+          </div>
+        </div>
+        <div class="dash-right">
+          <div class="scores-panel">
+            <h4>🏆 Top Targets</h4>
+            <div id="scoresList"><span style="color:var(--c-dim)">Waiting for targets...</span></div>
+          </div>
+        </div>
       </div>
     </div>
-    <div id="fileList"><span style="color:var(--c-dim)">Loading...</span></div>
-  </div>
 
-  <!-- CONSOLE -->
-  <div class="view" id="view-console" style="padding:4px;">
-    <div class="log-box" id="logBox">Waiting for data...</div>
-  </div>
-
-  <!-- SETTINGS (merged: old settings + filter) -->
-  <div class="view" id="view-settings" style="padding:6px; overflow-y:auto;">
-    <div class="settings-grid">
-
-      <div class="card">
-        <h3 style="color:var(--c-magenta)">🌙 Display</h3>
-        <div class="setting-row"><span>Night Mode</span><input type="checkbox" id="chkNight" onchange="toggleNightMode()"></div>
-        <div class="setting-row"><span style="color:var(--c-cyan)">High Accuracy GPS</span><input type="checkbox" id="chkHighGPS" onchange="toggleHighAccuracyGPS()"></div>
-        <div class="setting-row"><span style="color:var(--c-magenta)">TTS Audio Alerts</span><input type="checkbox" id="chkAudio" onchange="toggleAudio()"></div>
-        <button class="btn small magenta" onclick="testAudio()">🔊 Test Speech</button>
-        <div class="setting-row" style="margin-top:10px;">
-          <span>🚗 Driver Side</span>
-          <select id="selDriverSide" onchange="setDriverSide()" style="width:auto;">
-            <option value="left">Left (LHD)</option>
-            <option value="right">Right (RHD)</option>
-          </select>
+    <!-- CAPTURES -->
+    <div class="view" id="view-captures" style="padding:8px;overflow-y:auto;width:100%;">
+      <div class="card" style="margin-bottom:8px;">
+        <h3 style="color:var(--c-cyan)">📦 Capture Manager</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+          <button class="btn small" onclick="loadFiles()">🔄 Refresh</button>
+          <button class="btn small cyan" onclick="window.open('/cgi-bin/wardriving_api?action=download_all','_blank')">📥 .tar.gz</button>
+          <button class="btn small amber" onclick="window.open('/cgi-bin/wardriving_api?action=export_gpx','_blank')">🗺️ GPX</button>
+          <button class="btn small magenta" onclick="window.open('/cgi-bin/wardriving_api?action=export_kml','_blank')">🌍 KML</button>
+          <button class="btn small" onclick="window.open('/cgi-bin/wardriving_api?action=export_hashcat','_blank')">🔥 Hashcat</button>
+        </div>
+        <div style="border:1px dashed var(--c-green);padding:10px;border-radius:8px;margin-bottom:10px;">
+          <p style="font-size:0.8em;color:var(--c-green);margin:0 0 6px 0;">Upload hashcat.potfile to highlight cracked networks on map:</p>
+          <input type="file" id="potfileInput" style="margin-bottom:6px;">
+          <button class="btn small" onclick="uploadPotfile()">📤 Upload Potfile</button>
+          <div id="potfileStatus" style="margin-top:6px;font-size:0.8em;"></div>
+        </div>
+        <div class="setting-row" style="justify-content:flex-start;gap:10px;">
+          <span style="color:var(--c-cyan);">Keep RAW .pcapng</span>
+          <input type="checkbox" id="chkKeepPcap" onchange="togglePcap()">
         </div>
       </div>
-
-      <div class="card">
-        <h3 style="color:var(--c-green)">⚙️ Hardware</h3>
-        <label style="font-size:0.8em;color:var(--c-dim);">Status LED</label>
-        <select id="selLED" style="margin-bottom:8px;"></select>
-        <label style="font-size:0.8em;color:var(--c-dim);">Physical Button</label>
-        <select id="selBtn" style="margin-bottom:8px;">
-          <option value="wps">WPS Button</option>
-          <option value="wifi">WiFi Button</option>
-        </select>
-        <label style="font-size:0.8em;color:var(--c-dim);">Operation Mode</label>
-        <select id="selMode" style="margin-bottom:8px;">
-          <option value="active">Active (Full Injection)</option>
-          <option value="passive">Passive (Silent Survey)</option>
-          <option value="smart">Smart (Targeted Only)</option>
-        </select>
-        <button class="btn small" onclick="saveHW()">💾 Save Hardware</button>
-      </div>
-
-      <div class="card">
-        <h3 style="color:var(--c-amber)">📡 WiGLE</h3>
-        <input type="password" id="wigleToken" placeholder="Paste Base64 API Token..." style="margin-bottom:8px;">
-        <div style="display:flex;gap:6px;">
-          <button class="btn small amber" onclick="saveWigle()">💾 Save</button>
-          <button class="btn small" style="background:var(--c-amber);color:#000;" onclick="uploadWigle()">📤 Upload</button>
-        </div>
-        <div id="wigleStatus" style="margin-top:8px;font-size:0.8em;color:var(--c-amber);"></div>
-      </div>
-
-      <div class="card">
-        <h3 style="color:var(--c-cyan)">🗺️ Map Tiles</h3>
-        <div style="display:flex;gap:6px;margin-bottom:8px;">
-          <input type="number" id="dlZoomMin" value="12" placeholder="Min Z" style="width:60px;">
-          <input type="number" id="dlZoomMax" value="16" placeholder="Max Z" style="width:60px;">
-        </div>
-        <button class="btn small cyan" onclick="downloadBBox()">⬇️ Download Viewport</button>
-        <div id="bboxStatus" style="margin-top:6px;font-size:0.8em;color:var(--c-cyan);"></div>
-        <hr style="border-color:var(--border);margin:10px 0;">
-        <input type="file" id="tilesFile" accept=".tar.gz,.gz" style="margin-bottom:6px;">
-        <button class="btn small dim" onclick="uploadTiles()">📤 Install from file</button>
-        <div id="uploadStatus" style="margin-top:6px;font-size:0.8em;"></div>
-      </div>
-
-      <div class="card">
-        <h3 style="color:var(--c-red)">🛡️ Excluded SSIDs</h3>
-        <div style="display:flex;gap:6px;margin-bottom:8px;">
-          <input type="text" id="newExclusion" placeholder="SSID to hide..." style="flex:1;">
-          <button class="btn small" onclick="addExclusion()">+ Add</button>
-        </div>
-        <div id="exclusionsList" style="max-height:200px;overflow-y:auto;"></div>
-      </div>
-
-      <div class="card">
-        <h3 style="color:var(--c-red)">🎯 Target Alerts</h3>
-        <div style="display:flex;gap:6px;margin-bottom:8px;">
-          <input type="text" id="newTarget" placeholder="e.g. 00:11:22" style="flex:1;text-transform:uppercase;">
-          <button class="btn small" style="border-color:var(--c-red);color:var(--c-red);" onclick="addTarget()">+ Add</button>
-        </div>
-        <div id="targetsList" style="max-height:200px;overflow-y:auto;"></div>
-      </div>
-
+      <div id="fileList"><span style="color:var(--c-dim)">Loading...</span></div>
     </div>
-  </div>
 
-  <!-- HISTORY -->
-  <div class="view" id="view-history" style="padding:6px; overflow-y:auto;">
-    <div class="card" style="margin-bottom:8px;">
-      <h3 style="color:var(--c-cyan)">📊 Lifetime Statistics</h3>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;">
-        <div class="setting-row" style="flex-direction:column;align-items:center;"><span>Total Nets</span><span class="val" id="stHistTotal" style="font-size:1.3em;color:var(--c-white);">0</span></div>
-        <div class="setting-row" style="flex-direction:column;align-items:center;"><span>WPA3/SAE</span><span class="val" id="stHistWpa3" style="font-size:1.3em;color:var(--c-white);">0</span></div>
-        <div class="setting-row" style="flex-direction:column;align-items:center;"><span>Handshakes</span><span class="val" id="stHistHs" style="font-size:1.3em;color:var(--c-white);">0</span></div>
-        <div class="setting-row" style="flex-direction:column;align-items:center;"><span>Days Active</span><span class="val" id="stHistDays" style="font-size:1.3em;color:var(--c-white);">0</span></div>
+    <!-- CONSOLE -->
+    <div class="view" id="view-console" style="padding:4px;width:100%;height:100%;">
+      <div class="log-box" id="logBox">Waiting for data...</div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="view" id="view-settings" style="padding:8px;overflow-y:auto;width:100%;">
+      <div class="settings-grid">
+        <div class="card"><h3 style="color:var(--c-magenta)">🌙 Display</h3>
+          <div class="setting-row"><span>Night Mode</span><input type="checkbox" id="chkNight" onchange="toggleNightMode()"></div>
+          <div class="setting-row"><span style="color:var(--c-cyan)">High Accuracy GPS</span><input type="checkbox" id="chkHighGPS" onchange="toggleHighAccuracyGPS()"></div>
+          <div class="setting-row"><span style="color:var(--c-magenta)">TTS Audio Alerts</span><input type="checkbox" id="chkAudio" onchange="toggleAudio()"></div>
+          <button class="btn small magenta" onclick="testAudio()">🔊 Test Speech</button>
+          <div class="setting-row" style="margin-top:10px;"><span>🚗 Driver Side</span><select id="selDriverSide" onchange="setDriverSide()" style="width:auto;"><option value="left">Left (LHD)</option><option value="right">Right (RHD)</option></select></div>
+        </div>
+        <div class="card"><h3 style="color:var(--c-green)">⚙️ Hardware</h3>
+          <label style="font-size:0.8em;color:var(--c-dim);">Status LED</label><select id="selLED" style="margin-bottom:8px;"></select>
+          <label style="font-size:0.8em;color:var(--c-dim);">Physical Button</label><select id="selBtn" style="margin-bottom:8px;"><option value="wps">WPS Button</option><option value="wifi">WiFi Button</option></select>
+          <label style="font-size:0.8em;color:var(--c-dim);">Operation Mode</label><select id="selMode" style="margin-bottom:8px;"><option value="active">Active (Full Injection)</option><option value="passive">Passive (Silent Survey)</option><option value="smart">Smart (Targeted Only)</option></select>
+          <button class="btn small" onclick="saveHW()">💾 Save Hardware</button>
+        </div>
+        <div class="card"><h3 style="color:var(--c-amber)">📡 WiGLE</h3>
+          <input type="password" id="wigleToken" placeholder="Paste Base64 API Token..." style="margin-bottom:8px;">
+          <div style="display:flex;gap:6px;"><button class="btn small amber" onclick="saveWigle()">💾 Save</button><button class="btn small" style="background:var(--c-amber);color:#000;" onclick="uploadWigle()">📤 Upload</button></div>
+          <div id="wigleStatus" style="margin-top:8px;font-size:0.8em;color:var(--c-amber);"></div>
+        </div>
+        <div class="card"><h3 style="color:var(--c-cyan)">🗺️ Map Tiles</h3>
+          <div style="display:flex;gap:6px;margin-bottom:8px;"><input type="number" id="dlZoomMin" value="12" style="width:60px;"><input type="number" id="dlZoomMax" value="16" style="width:60px;"></div>
+          <button class="btn small cyan" onclick="downloadBBox()">⬇️ Download Viewport</button><div id="bboxStatus" style="margin-top:6px;font-size:0.8em;color:var(--c-cyan);"></div>
+          <hr style="border-color:var(--border);margin:10px 0;"><input type="file" id="tilesFile" accept=".tar.gz,.gz" style="margin-bottom:6px;">
+          <button class="btn small dim" onclick="uploadTiles()">📤 Install from file</button><div id="uploadStatus" style="margin-top:6px;font-size:0.8em;"></div>
+        </div>
+        <div class="card"><h3 style="color:var(--c-red)">🛡️ Excluded SSIDs</h3>
+          <div style="display:flex;gap:6px;margin-bottom:8px;"><input type="text" id="newExclusion" placeholder="SSID to hide..." style="flex:1;"><button class="btn small" onclick="addExclusion()">+ Add</button></div>
+          <div id="exclusionsList" style="max-height:200px;overflow-y:auto;"></div>
+        </div>
+        <div class="card"><h3 style="color:var(--c-red)">🎯 Target Alerts</h3>
+          <div style="display:flex;gap:6px;margin-bottom:8px;"><input type="text" id="newTarget" placeholder="e.g. 00:11:22" style="flex:1;text-transform:uppercase;"><button class="btn small" style="border-color:var(--c-red);color:var(--c-red);" onclick="addTarget()">+ Add</button></div>
+          <div id="targetsList" style="max-height:200px;overflow-y:auto;"></div>
+        </div>
       </div>
-      <h4 style="font-size:0.8em;color:var(--c-dim);margin-bottom:8px;">Recent Sessions</h4>
-      <div id="historyList"><span style="color:var(--c-dim)">Loading...</span></div>
     </div>
-    <div class="card">
-      <h3 style="color:var(--c-magenta)">🐾 Pwnagotchi Bridge</h3>
-      <div id="pwnagotchiStatus"><span style="color:var(--c-dim)">No pwnagotchi detected</span></div>
+
+    <!-- HISTORY -->
+    <div class="view" id="view-history" style="padding:8px;overflow-y:auto;width:100%;">
+      <div class="card" style="margin-bottom:8px;"><h3 style="color:var(--c-cyan)">📊 Lifetime Statistics</h3>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;">
+          <div class="setting-row" style="flex-direction:column;align-items:center;"><span>Total Nets</span><span class="val" id="stHistTotal" style="font-size:1.3em;color:var(--c-white);">0</span></div>
+          <div class="setting-row" style="flex-direction:column;align-items:center;"><span>WPA3/SAE</span><span class="val" id="stHistWpa3" style="font-size:1.3em;color:var(--c-white);">0</span></div>
+          <div class="setting-row" style="flex-direction:column;align-items:center;"><span>Handshakes</span><span class="val" id="stHistHs" style="font-size:1.3em;color:var(--c-white);">0</span></div>
+          <div class="setting-row" style="flex-direction:column;align-items:center;"><span>Days Active</span><span class="val" id="stHistDays" style="font-size:1.3em;color:var(--c-white);">0</span></div>
+        </div>
+        <h4 style="font-size:0.8em;color:var(--c-dim);margin-bottom:8px;">Recent Sessions</h4><div id="historyList"><span style="color:var(--c-dim)">Loading...</span></div>
+      </div>
+      <div class="card"><h3 style="color:var(--c-magenta)">🐾 Pwnagotchi Bridge</h3><div id="pwnagotchiStatus"><span style="color:var(--c-dim)">No pwnagotchi detected</span></div></div>
     </div>
-  </div>
 
-</div>
-
-<!-- ===== NAVIGATION ===== -->
-<div id="nav">
-  <div class="nav-item active" onclick="switchTab('dashboard',this)"><i class="ni">🚗</i>Dash</div>
-  <div class="nav-item" onclick="switchTab('captures',this)"><i class="ni">📁</i>Files</div>
-  <div class="nav-item" onclick="switchTab('console',this)"><i class="ni">🖥️</i>Console</div>
-  <div class="nav-item" onclick="switchTab('settings',this)"><i class="ni">⚙️</i>Settings</div>
-  <div class="nav-item" onclick="switchTab('history',this)"><i class="ni">📊</i>Stats</div>
-</div>
+  </div><!-- /content-area -->
+</div><!-- /main -->
 
 <script>
 // API_TOKEN_PLACEHOLDER
@@ -537,8 +503,8 @@ fetch('/wardriving/oui.json').then(r=>r.json()).then(d=>{OUI_DB=d;}).catch(()=>{
 // ===== TABS =====
 function switchTab(id,el){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(v=>v.classList.remove('active'));
-  let view=document.getElementById('view-'+id); if(view)view.classList.add('active');
+  document.querySelectorAll('#sidebar .nav-item').forEach(v=>v.classList.remove('active'));
+  let view=document.getElementById('view-'+id); if(view){view.classList.add('active');view.style.display='flex';}
   if(el)el.classList.add('active');
   if(id==='dashboard')setTimeout(()=>{if(map)map.invalidateSize();},200);
   if(id==='history')loadHistory();
@@ -551,9 +517,9 @@ function setDriverSide(){
   applyDriverSide(side);
 }
 function applyDriverSide(side){
-  let grid=document.getElementById('dashGrid'),nav=document.getElementById('nav');
-  if(side==='right'){grid.classList.add('swap');nav.classList.add('swap');}
-  else {grid.classList.remove('swap');nav.classList.remove('swap');}
+  let sb=document.getElementById('sidebar');
+  if(side==='right'){sb.style.order='2';document.getElementById('content-area').style.order='1';}
+  else {sb.style.order='1';document.getElementById('content-area').style.order='2';}
 }
 (function(){
   let side=localStorage.getItem('driverSide')||'left';

@@ -62,6 +62,11 @@ The automated installer will automatically detect your package manager (`apk` fo
 In the "Settings" tab of the web application, you can upload a `.tar.gz` file containing a standard `Z/X/Y.png` tile folder (generated via tools like Mobile Atlas Creator). This gives you a rich street map on your dashboard without needing mobile data.
 
 
+## 🐾 Pwnagotchi Bridge & Virtual Pet
+As an homage to the legendary [evilsocket/pwnagotchi](https://github.com/evilsocket/pwnagotchi) project, the dashboard features its very own JavaScript-based virtual pet.
+- **Dynamic Mood Engine**: The pet reacts to its environment. It gets sleepy when the capture service is paused, sad if your USB drive is full, lonely if GPS is lost, and shifts through states of excitement (Happy, Intense, Excited) as it captures continuous bursts of handshakes in real-time.
+- **Pwnagotchi Sync (The Bridge)**: If you happen to carry a real Pwnagotchi with you in the car, you can bridge it to the router! The dashboard will monitor your physical Pwnagotchi's stats via its REST API, and the router can act as a centralized "mothership" to merge `.pcap` files automatically and extract handshakes into your main USB database.
+
 ## 🛑 Known Quirks & Strange Behaviors
 When operating the router, you might notice the following behaviors. These are entirely normal and part of how the software handles heavy processing on low-power hardware:
 

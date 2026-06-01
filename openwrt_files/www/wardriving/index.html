@@ -273,6 +273,15 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
           <label style="font-size:0.8em;color:var(--c-dim)">Operation Mode</label><select id="selMode" style="margin-bottom:8px"><option value="active">Active (Full Injection)</option><option value="passive">Passive (Silent Survey)</option><option value="smart">Smart (Targeted Only)</option></select>
           <button class="btn small" onclick="saveHW()">💾 Save Hardware</button>
         </div>
+        
+        <div class="card"><h3 style="color:var(--c-magenta)">🧠 Processing</h3>
+          <label style="font-size:0.8em;color:var(--c-dim)">Processing Location</label>
+          <select id="selProcessing" style="margin-bottom:8px" onchange="toggleRemoteServerUrl()"><option value="0">Local (Router CPU)</option><option value="1">Remote (GPU Server via HTTP)</option></select>
+          <div id="remoteUrlContainer" style="display:none;">
+            <label style="font-size:0.8em;color:var(--c-dim)">Server URL</label><input type="text" id="remoteUrl" placeholder="http://10.0.0.1:5000/upload" style="margin-bottom:8px">
+          </div>
+          <button class="btn small magenta" onclick="saveProcessing()">💾 Save</button>
+        </div>
         <div class="card"><h3 style="color:var(--c-amber)">📡 WiGLE</h3>
           <input type="password" id="wigleToken" placeholder="Paste Base64 API Token..." style="margin-bottom:8px">
           <div style="display:flex;gap:6px"><button class="btn small amber" onclick="saveWigle()">💾 Save</button><button class="btn small" style="background:var(--c-amber);color:#000" onclick="uploadWigle()">📤 Upload</button></div>
@@ -493,7 +502,15 @@ function uploadWigle(){document.getElementById('wigleStatus').innerText='Uploadi
 function downloadBBox(){if(!map)return;let b=map.getBounds(),zMin=document.getElementById('dlZoomMin').value||12,zMax=document.getElementById('dlZoomMax').value||16;let n=b.getNorth(),s=b.getSouth(),e=b.getEast(),w=b.getWest();document.getElementById('bboxStatus').innerText='Starting...';fetch('/cgi-bin/wardriving_api?action=download_bbox&n='+n+'&s='+s+'&e='+e+'&w='+w+'&z1='+zMin+'&z2='+zMax).then(r=>r.json()).then(d=>{if(d.status==='started'){document.getElementById('bboxStatus').innerText='Downloading...';if(dlTimer)clearInterval(dlTimer);dlTimer=setInterval(()=>{fetch('/cgi-bin/wardriving_api?action=download_status').then(rr=>rr.json()).then(dd=>{if(dd.status==='DONE'){document.getElementById('bboxStatus').innerText='✓ Done!';clearInterval(dlTimer);}});},3000);}}).catch(()=>{document.getElementById('bboxStatus').innerText='Error';});}
 function uploadTiles(){let f=document.getElementById('tilesFile').files[0];if(!f)return;document.getElementById('uploadStatus').innerText='Uploading...';fetch('/cgi-bin/wardriving_api?action=upload_tiles',{method:'POST',body:f}).then(r=>r.json()).then(d=>{document.getElementById('uploadStatus').innerText=d.status==='ok'?'✓ Installed!':'Error';setTimeout(()=>{if(map)map.invalidateSize();},1000);}).catch(()=>{document.getElementById('uploadStatus').innerText='Error';});}
 
+
+// PROCESSING SETTINGS
+function loadProcessing(){fetch('/cgi-bin/wardriving_api?action=get_processing').then(r=>r.json()).then(d=>{if(d.enabled!==undefined){document.getElementById('selProcessing').value=d.enabled;document.getElementById('remoteUrl').value=d.url||'';toggleRemoteServerUrl();}}).catch(e=>{});}
+function toggleRemoteServerUrl(){document.getElementById('remoteUrlContainer').style.display=document.getElementById('selProcessing').value==='1'?'block':'none';}
+function saveProcessing(){let en=document.getElementById('selProcessing').value,url=encodeURIComponent(document.getElementById('remoteUrl').value);fetch('/cgi-bin/wardriving_api?action=set_processing&en='+en+'&url='+url).then(r=>r.json()).then(d=>{if(d.status==='saved')alert('Processing config saved!');});}
+loadProcessing();
+
 // EXCLUSIONS & TARGETS
+
 function loadExclusions(){fetch('/cgi-bin/wardriving_api?action=get_exclusions').then(r=>r.json()).then(d=>{excludedSSIDs=d||[];renderExclusions();});}
 function renderExclusions(){let c=document.getElementById('exclusionsList');if(!c)return;c.innerHTML='';if(!excludedSSIDs.length){c.innerHTML='<span style="color:var(--c-dim)">None</span>';return;}excludedSSIDs.forEach(s=>{let d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:8px;border:1px solid var(--border);margin-bottom:4px;border-radius:6px';d.innerHTML='<span>'+s.replace(/</g,'&lt;')+'</span><button class="btn small" style="border-color:var(--c-red);color:var(--c-red);min-width:60px;min-height:30px" onclick="removeExclusion(\''+encodeURIComponent(s)+'\')">✕</button>';c.appendChild(d);});}
 function addExclusion(){let v=document.getElementById('newExclusion').value.trim();if(!v)return;fetch('/cgi-bin/wardriving_api?action=add_exclusion&ssid='+encodeURIComponent(v)).then(()=>{document.getElementById('newExclusion').value='';loadExclusions();});}

@@ -5,7 +5,7 @@ TOKEN=$(echo "$QUERY_STRING" | grep -o "token=[^&]*" | cut -d= -f2)
 
 # Actions that mutate state or expose sensitive data
 case "$ACTION" in
-    start|stop|delete_file|set_hw|set_pcap_retention|save_wigle_token|wigle_upload|upload_tiles|upload_potfile|pwnagotchi_sync|add_target|remove_target|add_exclusion|remove_exclusion|download_all|download_bbox)
+    start|stop|delete_file|set_hw|set_processing|set_pcap_retention|save_wigle_token|wigle_upload|upload_tiles|upload_potfile|pwnagotchi_sync|add_target|remove_target|add_exclusion|remove_exclusion|download_all|download_bbox)
         if [ ! -f /etc/wardriving_api_token ] || [ "$TOKEN" != "$(cat /etc/wardriving_api_token)" ]; then
             echo "Content-Type: application/json"
             echo ""
@@ -501,6 +501,19 @@ elif [ "$ACTION" = "get_hw" ]; then
     echo "{\"leds\": $LEDS, \"current_led\": \"$CUR_LED\", \"current_button\": \"$CUR_BTN\", \"mode\": \"$CUR_MODE\", \"keep_pcap\": \"$KEEP\"}"
 
 
+
+elif [ "$ACTION" = "set_processing" ]; then
+    EN=$(echo "$QUERY_STRING" | grep -o "en=[^&]*" | cut -d= -f2)
+    S_URL=$(echo "$QUERY_STRING" | grep -o "url=[^&]*" | cut -d= -f2 | sed 's/%3A/:/g; s/%2F/\//g')
+    echo "$EN" > /etc/wardriving_remote_enabled
+    echo "$S_URL" > /etc/wardriving_remote_url
+    echo '{"status": "saved"}'
+
+elif [ "$ACTION" = "get_processing" ]; then
+    EN="0"; S_URL=""
+    [ -f /etc/wardriving_remote_enabled ] && EN=$(cat /etc/wardriving_remote_enabled)
+    [ -f /etc/wardriving_remote_url ] && S_URL=$(cat /etc/wardriving_remote_url)
+    echo "{\"enabled\": \"$EN\", \"url\": \"$S_URL\"}"
 
 elif [ "$ACTION" = "set_pcap_retention" ]; then
     KEEP=$(echo "$QUERY_STRING" | grep -o "keep=[^&]*" | cut -d= -f2)

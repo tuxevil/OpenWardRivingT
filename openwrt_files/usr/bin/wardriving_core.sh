@@ -88,44 +88,70 @@ while true; do
     hcxdumptool -i wlan0mon -w "$FILENAME" --nmea_dev=/tmp/vGPS --nmea_pcapng --nmea_out="$NMEAFILE" -F -t 3 --tot=5 $OPTS
     
     if [ -f "$FILENAME" ]; then
-        echo "[*] Converting $FILENAME to $HC2200FILE"
-        nice -n 10 hcxpcapngtool -o "$HC2200FILE" -E "$TMP_ESSID" --csv="/tmp/csv_${TIMESTAMP}.txt" "$FILENAME" > /dev/null 2>&1
+        REMOTE_ENABLED="0"
+        [ -f /etc/wardriving_remote_enabled ] && REMOTE_ENABLED=$(cat /etc/wardriving_remote_enabled)
+        REMOTE_URL=""
+        [ -f /etc/wardriving_remote_url ] && REMOTE_URL=$(cat /etc/wardriving_remote_url)
         
-        # SQLite Integration
-        if command -v sqlite3 >/dev/null 2>&1 && [ -s "/tmp/csv_${TIMESTAMP}.txt" ]; then
-            sqlite3 /mnt/wardriving/wardriving.db "CREATE TABLE IF NOT EXISTS networks (mac TEXT PRIMARY KEY, ssid TEXT, enc TEXT, channel INTEGER, lat REAL, lon REAL, first_seen DATETIME, last_seen DATETIME, rssi INTEGER);"
-            sqlite3 /mnt/wardriving/wardriving.db "PRAGMA journal_mode=WAL; CREATE INDEX IF NOT EXISTS idx_last_seen ON networks(last_seen);" > /dev/null 2>&1
-            
-            awk -F'\t' '{
-                mac=$2; ssid=$3; enc=$4; chan=$8; rssi=$9; gpsd=$11
-                gsub(/\047/, "\047\047", ssid)
-                lat="NULL"; lon="NULL"
-                split(gpsd, g, " ")
-                if(g[1] != "") lat=g[1]; if(g[2] != "") lon=g[2]
-                printf "INSERT INTO networks (mac, ssid, enc, channel, lat, lon, first_seen, last_seen, rssi) VALUES (\047%s\047, \047%s\047, \047%s\047, %d, %s, %s, \047%s\047, \047%s\047, %d) ON CONFLICT(mac) DO UPDATE SET last_seen=\047%s\047, rssi=EXCLUDED.rssi;\n", mac, ssid, enc, chan, lat, lon, $1, $1, rssi, $1
-            }' "/tmp/csv_${TIMESTAMP}.txt" > "/tmp/sql_${TIMESTAMP}.sql"
-            
-            nice -n 10 sqlite3 /mnt/wardriving/wardriving.db < "/tmp/sql_${TIMESTAMP}.sql"
-            rm -f "/tmp/csv_${TIMESTAMP}.txt" "/tmp/sql_${TIMESTAMP}.sql"
+        PROCESSED_REMOTE=0
+        if [ "$REMOTE_ENABLED" = "1" ] && [ -n "$REMOTE_URL" ]; then
+            echo "[*] Sending $FILENAME to remote server ($REMOTE_URL) ..."
+            HTTP_CODE=$(curl -s -o "/tmp/respuesta_server.sql" -w "%{http_code}" -X POST -F "pcap=@$FILENAME" "$REMOTE_URL" --connect-timeout 10)
+            if [ "$HTTP_CODE" = "200" ]; then
+                echo "[+] Remote server processed capture successfully."
+                PROCESSED_REMOTE=1
+                
+                # Inyectar SQL si el servidor devolvio algo util
+                if [ -s "/tmp/respuesta_server.sql" ]; then
+                    sqlite3 /mnt/wardriving/wardriving.db "CREATE TABLE IF NOT EXISTS networks (mac TEXT PRIMARY KEY, ssid TEXT, enc TEXT, channel INTEGER, lat REAL, lon REAL, first_seen DATETIME, last_seen DATETIME, rssi INTEGER);"
+                    sqlite3 /mnt/wardriving/wardriving.db "PRAGMA journal_mode=WAL; CREATE INDEX IF NOT EXISTS idx_last_seen ON networks(last_seen);" > /dev/null 2>&1
+                    sqlite3 /mnt/wardriving/wardriving.db < "/tmp/respuesta_server.sql"
+                fi
+                rm -f "/tmp/respuesta_server.sql"
+            else
+                echo "[-] Remote server failed (Code: $HTTP_CODE). Falling back to local processing..."
+            fi
         fi
 
-        
-        # Si la conversión generó un hash
-        if [ -s "$HC2200FILE" ]; then
-            blink_led
-            # Fusionar hashes para sincronización
-            cat "$HC2200FILE" >> /mnt/wardriving/master.hc2200
-            nice -n 10 sort -u /mnt/wardriving/master.hc2200 -o /mnt/wardriving/master.hc2200
-        fi
-        
-        # Limpiar el hc2200 individual (si estaba vacio se borra, si tenia hashes ya estan en el master)
-        rm -f "$HC2200FILE"
-        
-        # Guardar diccionario de ESSID descubiertos
-        if [ -s "$TMP_ESSID" ]; then
-            cat "$TMP_ESSID" >> /mnt/wardriving/master_essid.txt
-            sort -u /mnt/wardriving/master_essid.txt -o /mnt/wardriving/master_essid.txt
-            rm -f "$TMP_ESSID"
+        if [ "$PROCESSED_REMOTE" = "0" ]; then
+            echo "[*] Converting $FILENAME to $HC2200FILE"
+            nice -n 10 hcxpcapngtool -o "$HC2200FILE" -E "$TMP_ESSID" --csv="/tmp/csv_${TIMESTAMP}.txt" "$FILENAME" > /dev/null 2>&1
+            
+            # SQLite Integration
+            if command -v sqlite3 >/dev/null 2>&1 && [ -s "/tmp/csv_${TIMESTAMP}.txt" ]; then
+                sqlite3 /mnt/wardriving/wardriving.db "CREATE TABLE IF NOT EXISTS networks (mac TEXT PRIMARY KEY, ssid TEXT, enc TEXT, channel INTEGER, lat REAL, lon REAL, first_seen DATETIME, last_seen DATETIME, rssi INTEGER);"
+                sqlite3 /mnt/wardriving/wardriving.db "PRAGMA journal_mode=WAL; CREATE INDEX IF NOT EXISTS idx_last_seen ON networks(last_seen);" > /dev/null 2>&1
+                
+                awk -F'\t' '{
+                    mac=$2; ssid=$3; enc=$4; chan=$8; rssi=$9; gpsd=$11
+                    gsub(/\047/, "\047\047", ssid)
+                    lat="NULL"; lon="NULL"
+                    split(gpsd, g, " ")
+                    if(g[1] != "") lat=g[1]; if(g[2] != "") lon=g[2]
+                    printf "INSERT INTO networks (mac, ssid, enc, channel, lat, lon, first_seen, last_seen, rssi) VALUES (\047%s\047, \047%s\047, \047%s\047, %d, %s, %s, \047%s\047, \047%s\047, %d) ON CONFLICT(mac) DO UPDATE SET last_seen=\047%s\047, rssi=EXCLUDED.rssi;\n", mac, ssid, enc, chan, lat, lon, $1, $1, rssi, $1
+                }' "/tmp/csv_${TIMESTAMP}.txt" > "/tmp/sql_${TIMESTAMP}.sql"
+                
+                nice -n 10 sqlite3 /mnt/wardriving/wardriving.db < "/tmp/sql_${TIMESTAMP}.sql"
+                rm -f "/tmp/csv_${TIMESTAMP}.txt" "/tmp/sql_${TIMESTAMP}.sql"
+            fi
+            
+            # Si la conversión generó un hash
+            if [ -s "$HC2200FILE" ]; then
+                blink_led
+                # Fusionar hashes para sincronización
+                cat "$HC2200FILE" >> /mnt/wardriving/master.hc2200
+                nice -n 10 sort -u /mnt/wardriving/master.hc2200 -o /mnt/wardriving/master.hc2200
+            fi
+            
+            # Limpiar el hc2200 individual (si estaba vacio se borra, si tenia hashes ya estan en el master)
+            rm -f "$HC2200FILE"
+            
+            # Guardar diccionario de ESSID descubiertos
+            if [ -s "$TMP_ESSID" ]; then
+                cat "$TMP_ESSID" >> /mnt/wardriving/master_essid.txt
+                sort -u /mnt/wardriving/master_essid.txt -o /mnt/wardriving/master_essid.txt
+                rm -f "$TMP_ESSID"
+            fi
         fi
         
         # Retencion configurable del pcapng

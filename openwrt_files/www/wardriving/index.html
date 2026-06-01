@@ -84,8 +84,7 @@ body.scanlines::after {
 /* ===== MAIN CONTENT AREA ===== */
 #main {
   position:fixed; top:var(--header-h); bottom:var(--nav-h);
-  left:0; right:0; overflow-y:auto; overflow-x:hidden;
-  padding:6px; scroll-behavior:smooth;
+  left:0; right:0; overflow:hidden; padding:6px;
 }
 
 /* ===== VIEWS ===== */
@@ -95,12 +94,12 @@ body.scanlines::after {
 /* ===== DASHBOARD ===== */
 .dash-grid {
   display:grid; grid-template-columns:20% 60% 20%;
-  grid-template-rows:1fr; gap:8px; height:100%;
+  grid-template-rows:1fr; gap:8px; height:100%; width:100%; overflow:hidden;
 }
 .dash-grid.swap { direction:rtl; }
 .dash-grid.swap > * { direction:ltr; }
 .dash-left, .dash-right {
-  display:flex; flex-direction:column; gap:6px; overflow-y:auto; height:100%;
+  display:flex; flex-direction:column; gap:6px; overflow-y:auto; overflow-x:hidden; height:100%; min-width:0;
 }
 .dash-center {
   background:#000; border:1px solid var(--c-green); border-radius:var(--radius);
@@ -154,8 +153,9 @@ body.scanlines::after {
 /* Scores in right column - full height, larger text */
 .scores-panel {
   background:var(--bg-card); border:1px solid var(--c-amber);
-  border-radius:var(--radius); padding:8px; overflow-y:auto; height:100%;
+  border-radius:var(--radius); padding:8px; overflow-y:auto; overflow-x:hidden; height:100%;
   box-shadow: var(--glow-sm) rgba(255,176,0,0.1);
+  word-break:break-all;
 }
 .scores-panel h4 { font-size:0.85em; color:var(--c-amber); margin-bottom:8px; text-transform:uppercase; letter-spacing:2px; }
 .scores-panel .sr {

@@ -64,7 +64,7 @@ body.scanlines::after {
 }
 #header .metric .icon { font-size:17px; }
 #header .metric .val { font-weight:bold; color:var(--c-white); font-size:17px; }
-#header .metric .unit { font-size:10px; color:var(--c-dim); }
+#header .metric .unit { font-size:12px; color:var(--c-dim); }
 #header .metric.warn .val { color:var(--c-amber); }
 #header .metric.crit .val { color:var(--c-red); animation:pulse 1s infinite; }
 #header .spacer { flex:1; }
@@ -74,11 +74,11 @@ body.scanlines::after {
   text-shadow: var(--glow-sm) var(--c-green);
 }
 #header .status-dot {
-  width:12px; height:12px; border-radius:50%; flex-shrink:0;
-  box-shadow: var(--glow-sm) currentColor;
+  font-size:12px; font-weight:bold; padding:4px 10px; border-radius:6px;
+  flex-shrink:0; letter-spacing:1px; text-transform:uppercase;
 }
-#header .status-dot.on { background:var(--c-green); color:var(--c-green); }
-#header .status-dot.off { background:var(--c-red); color:var(--c-red); }
+#header .status-dot.on { color:var(--c-green); border:1px solid var(--c-green); box-shadow:var(--glow-sm) var(--c-green); animation:pulse 2s infinite; }
+#header .status-dot.off { color:var(--c-red); border:1px solid var(--c-red); }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
 /* ===== MAIN CONTENT AREA ===== */
@@ -100,7 +100,7 @@ body.scanlines::after {
 .dash-grid.swap { direction:rtl; }
 .dash-grid.swap > * { direction:ltr; }
 .dash-left, .dash-right {
-  display:flex; flex-direction:column; gap:6px; overflow-y:auto;
+  display:flex; flex-direction:column; gap:6px; overflow-y:auto; height:100%;
 }
 .dash-center {
   background:#000; border:1px solid var(--c-green); border-radius:var(--radius);
@@ -142,13 +142,13 @@ body.scanlines::after {
 .spec-panel h4 { font-size:0.85em; color:var(--c-cyan); margin-bottom:6px; text-transform:uppercase; letter-spacing:2px; }
 .spec-panel .ch-row {
   display:flex; justify-content:space-between; align-items:center;
-  font-size:0.9em; padding:5px 6px; border-bottom:1px solid var(--border);
+  font-size:0.95em; padding:6px 6px; border-bottom:1px solid var(--border);
   cursor:pointer;
 }
 .spec-panel .ch-row:hover { background:rgba(0,255,255,0.05); }
 .spec-panel .ch-row .ch-n { color:var(--c-green); font-weight:bold; }
-.spec-panel .ch-row .ch-c { color:var(--c-white); background:rgba(0,255,255,0.1); padding:2px 8px; border-radius:10px; font-size:0.85em; }
-.spec-panel .ch-detail { display:none; padding:2px 8px 6px 16px; font-size:0.8em; color:var(--c-dim); }
+.spec-panel .ch-row .ch-c { color:var(--c-white); background:rgba(0,255,255,0.1); padding:3px 10px; border-radius:10px; font-size:0.9em; }
+.spec-panel .ch-detail { display:none; padding:3px 8px 8px 16px; font-size:0.85em; color:var(--c-dim); }
 .spec-panel .ch-detail.open { display:block; }
 
 /* Scores in right column - full height, larger text */
@@ -310,7 +310,7 @@ input[type=checkbox]:checked::after { left:22px; background:#000; }
   <div class="metric" id="hdr_usb"><span class="icon">💾</span><span class="val">--</span></div>
   <div class="metric" id="hdr_cpu"><span class="icon">🧠</span><span class="val">--</span></div>
   <div class="metric" id="hdr_ram"><span class="icon">📊</span><span class="val">--</span></div>
-  <span class="status-dot off" id="hdr_dot" title="STOPPED"></span>
+  <span class="status-dot off" id="hdr_dot">● STOPPED</span>
 </div>
 
 <!-- ===== MAIN CONTENT ===== -->
@@ -586,11 +586,11 @@ function updateStatus(){
     if(isRunning){
       btn.innerHTML='⏹ STOP'; btn.className='btn huge stop';
       badge.className='status-badge on'; badge.innerText='● CAPTURING';
-      dot.className='status-dot on';
+      dot.className='status-dot on'; dot.innerText='● LIVE';
     } else {
       btn.innerHTML='▶ START'; btn.className='btn huge';
       badge.className='status-badge off'; badge.innerText='● STOPPED';
-      dot.className='status-dot off';
+      dot.className='status-dot off'; dot.innerText='● STOPPED';
     }
     // Header metrics
     document.getElementById('hdr_gps').querySelector('.val').innerText=(d.sats||'0');

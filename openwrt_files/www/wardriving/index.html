@@ -30,7 +30,7 @@
   --glow-md:  0 0 14px;
   --font:     "Courier New", Courier, monospace;
   --nav-h:    64px;
-  --header-h: 42px;
+  --header-h: 52px;
 }
 * { box-sizing:border-box; margin:0; padding:0; }
 html, body { height:100%; overflow:hidden; }
@@ -53,21 +53,28 @@ body.scanlines::after {
 /* ===== HEADER ===== */
 #header {
   position:fixed; top:0; left:0; right:0; height:var(--header-h); z-index:200;
-  background: #000; border-bottom:1px solid var(--c-green);
-  display:flex; align-items:center; padding:0 8px; gap:6px;
-  font-size:12px; overflow-x:auto; white-space:nowrap;
+  background:#000; border-bottom:2px solid var(--c-green);
+  display:flex; align-items:center; padding:0 10px; gap:8px;
+  font-size:13px; overflow:hidden;
+  box-shadow: 0 2px 12px rgba(0,255,65,0.1);
 }
 #header .metric {
-  display:flex; align-items:center; gap:4px; padding:4px 8px;
+  display:flex; align-items:center; gap:5px; padding:5px 10px;
   border-radius:6px; border:1px solid var(--border); flex-shrink:0;
 }
-#header .metric .icon { font-size:14px; }
-#header .metric .val { font-weight:bold; color:var(--c-white); }
+#header .metric .icon { font-size:15px; }
+#header .metric .val { font-weight:bold; color:var(--c-white); font-size:15px; }
+#header .metric .unit { font-size:10px; color:var(--c-dim); }
 #header .metric.warn .val { color:var(--c-amber); }
 #header .metric.crit .val { color:var(--c-red); animation:pulse 1s infinite; }
 #header .spacer { flex:1; }
+#header .title {
+  font-size:16px; font-weight:bold; letter-spacing:3px; color:var(--c-green);
+  text-transform:uppercase; flex-shrink:0;
+  text-shadow: var(--glow-sm) var(--c-green);
+}
 #header .status-dot {
-  width:10px; height:10px; border-radius:50%; flex-shrink:0;
+  width:12px; height:12px; border-radius:50%; flex-shrink:0;
   box-shadow: var(--glow-sm) currentColor;
 }
 #header .status-dot.on { background:var(--c-green); color:var(--c-green); }
@@ -87,8 +94,8 @@ body.scanlines::after {
 
 /* ===== DASHBOARD ===== */
 .dash-grid {
-  display:grid; grid-template-columns:180px 1fr 200px;
-  grid-template-rows:1fr; gap:6px; height:100%;
+  display:grid; grid-template-columns:20% 60% 20%;
+  grid-template-rows:1fr; gap:8px; height:100%;
 }
 .dash-grid.swap { direction:rtl; }
 .dash-grid.swap > * { direction:ltr; }
@@ -106,8 +113,12 @@ body.scanlines::after {
 .leaflet-container { font-family:var(--font); background:#111; }
 .map-overlay {
   position:absolute; bottom:8px; right:8px; z-index:1000;
-  display:flex; flex-direction:column; gap:4px;
-  background:rgba(0,0,0,0.8); padding:6px; border-radius:8px; border:1px solid var(--border);
+  display:flex; flex-direction:column; gap:6px;
+  background:rgba(0,0,0,0.85); padding:8px; border-radius:8px; border:1px solid var(--border);
+}
+.map-overlay label {
+  font-size:0.75em; display:flex; align-items:center; gap:6px;
+  color:var(--c-white); cursor:pointer; padding:2px 0;
 }
 
 /* Pet */
@@ -121,28 +132,39 @@ body.scanlines::after {
 .pet-card .quote { font-size:0.65em; color:var(--c-dim); font-style:italic; margin-top:4px; }
 .pet-card .bridge { font-size:0.6em; color:var(--c-cyan); margin-top:2px; display:none; }
 
-/* Spectrum mini */
-.spec-mini {
+/* Spectrum in left column */
+.spec-panel {
   background:var(--bg-card); border:1px solid var(--c-cyan);
-  border-radius:var(--radius); padding:6px; overflow-y:auto; max-height:200px;
+  border-radius:var(--radius); padding:8px; flex:1; overflow-y:auto;
+  box-shadow: var(--glow-sm) rgba(0,255,255,0.1);
 }
-.spec-mini h4 { font-size:0.75em; color:var(--c-cyan); margin-bottom:4px; text-transform:uppercase; letter-spacing:1px; }
-.spec-mini .ch-row { display:flex; justify-content:space-between; font-size:0.7em; padding:1px 0; border-bottom:1px solid var(--border); }
-.spec-mini .ch-row .ch-n { color:var(--c-green); }
-.spec-mini .ch-row .ch-c { color:var(--c-white); }
+.spec-panel h4 { font-size:0.85em; color:var(--c-cyan); margin-bottom:6px; text-transform:uppercase; letter-spacing:2px; }
+.spec-panel .ch-row {
+  display:flex; justify-content:space-between; align-items:center;
+  font-size:0.85em; padding:4px 6px; border-bottom:1px solid var(--border);
+  cursor:pointer;
+}
+.spec-panel .ch-row:hover { background:rgba(0,255,255,0.05); }
+.spec-panel .ch-row .ch-n { color:var(--c-green); font-weight:bold; }
+.spec-panel .ch-row .ch-c { color:var(--c-white); background:rgba(0,255,255,0.1); padding:2px 8px; border-radius:10px; font-size:0.8em; }
+.spec-panel .ch-detail { display:none; padding:2px 8px 6px 16px; font-size:0.75em; color:var(--c-dim); }
+.spec-panel .ch-detail.open { display:block; }
 
-/* Scored targets mini */
-.scores-mini {
+/* Scores in right column - full height, larger text */
+.scores-panel {
   background:var(--bg-card); border:1px solid var(--c-amber);
-  border-radius:var(--radius); padding:6px; overflow-y:auto; flex:1;
+  border-radius:var(--radius); padding:8px; overflow-y:auto; height:100%;
+  box-shadow: var(--glow-sm) rgba(255,176,0,0.1);
 }
-.scores-mini h4 { font-size:0.75em; color:var(--c-amber); margin-bottom:4px; text-transform:uppercase; letter-spacing:1px; }
-.scores-mini .sr {
-  display:flex; justify-content:space-between; font-size:0.7em;
-  padding:3px 4px; border-bottom:1px solid var(--border);
+.scores-panel h4 { font-size:0.85em; color:var(--c-amber); margin-bottom:8px; text-transform:uppercase; letter-spacing:2px; }
+.scores-panel .sr {
+  padding:6px 8px; border-bottom:1px solid var(--border);
+  font-size:0.85em;
 }
-.scores-mini .sr .sr-ssid { color:var(--c-white); max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.scores-mini .sr .sr-pts { color:var(--c-cyan); flex-shrink:0; }
+.scores-panel .sr .sr-top { display:flex; justify-content:space-between; margin-bottom:2px; }
+.scores-panel .sr .sr-ssid { color:var(--c-white); font-weight:bold; }
+.scores-panel .sr .sr-pts { color:var(--c-cyan); }
+.scores-panel .sr .sr-info { font-size:0.7em; color:var(--c-dim); }
 
 /* ===== CARDS ===== */
 .card {
@@ -241,14 +263,15 @@ input[type=checkbox] { transform:scale(1.4); accent-color:var(--c-green); }
 
 /* ===== RESPONSIVE ===== */
 @media (max-width:1279px) {
-  .dash-grid { grid-template-columns:170px 1fr; }
+  .dash-grid { grid-template-columns:22% 1fr; }
   .dash-right { display:none; }
-  .dash-grid.show-right .dash-right { display:flex; position:absolute; right:6px; top:6px; bottom:6px; width:200px; z-index:50; }
+  .dash-grid.show-right .dash-right { display:flex; position:absolute; right:8px; top:8px; bottom:8px; width:220px; z-index:50; }
 }
 @media (max-width:1023px) {
   .dash-grid { grid-template-columns:1fr; grid-template-rows:auto 1fr; }
   .dash-left { flex-direction:row; flex-wrap:wrap; overflow-y:visible; }
   .dash-left .btn.huge { font-size:18px; padding:14px; min-height:48px; flex:1; }
+  .dash-left .pet-card, .dash-left .spec-panel { display:none; }
   .settings-grid { grid-template-columns:1fr; }
   .file-item { grid-template-columns:1fr; }
 }
@@ -277,13 +300,14 @@ input[type=checkbox]:checked::after { left:22px; background:#000; }
 <!-- ===== HEADER ===== -->
 <div id="header">
   <div class="metric" id="hdr_gps"><span class="icon">🛰️</span><span class="val">--</span></div>
-  <div class="metric" id="hdr_speed"><span class="icon">🚗</span><span class="val">0</span><span style="font-size:0.7em;color:var(--c-dim)">km/h</span></div>
+  <div class="metric" id="hdr_speed"><span class="icon">🚗</span><span class="val">0</span><span class="unit">km/h</span></div>
   <div class="metric" id="hdr_deauths"><span class="icon">⚡</span><span class="val">0</span></div>
   <div class="metric" id="hdr_hs"><span class="icon">🔑</span><span class="val">0</span></div>
   <div class="metric" id="hdr_usb"><span class="icon">💾</span><span class="val">--</span></div>
   <span class="spacer"></span>
+  <span class="title">OpenWardRivingT</span>
+  <span class="spacer"></span>
   <span class="status-dot off" id="hdr_dot" title="STOPPED"></span>
-  <span style="font-size:0.7em;color:var(--c-dim);margin-right:4px;" id="hdr_time">--:--</span>
 </div>
 
 <!-- ===== MAIN CONTENT ===== -->
@@ -301,25 +325,25 @@ input[type=checkbox]:checked::after { left:22px; background:#000; }
           <div class="quote" id="petQuote">ZzzzZZzzzzZzzz</div>
           <div class="bridge" id="petBridge">🐾 Pwnagotchi linked</div>
         </div>
+        <div class="spec-panel">
+          <h4>📶 Spectrum</h4>
+          <div id="specList"></div>
+        </div>
       </div>
       <div class="dash-center">
         <div id="map"></div>
         <div class="map-overlay">
-          <label style="font-size:0.7em;display:flex;align-items:center;gap:4px;color:var(--c-white);cursor:pointer">
-            <input type="checkbox" id="chkOnlineTiles" onchange="toggleTiles()"> Map
-          </label>
-          <label style="font-size:0.7em;display:flex;align-items:center;gap:4px;color:var(--c-magenta);cursor:pointer">
-            <input type="checkbox" id="chkHeatmap" onchange="toggleHeatmap()"> 🔥 Heat
-          </label>
-          <label style="font-size:0.7em;display:flex;align-items:center;gap:4px;color:var(--c-cyan);cursor:pointer">
-            <input type="checkbox" id="chkBrowserGPS" onchange="toggleBrowserGPS()"> 📡 GPS
-          </label>
-          <button class="btn small cyan" onclick="startReplay()" style="font-size:0.7em;">▶ Replay</button>
+          <label><input type="checkbox" id="chkOnlineTiles" onchange="toggleTiles()"> Online Map</label>
+          <label><input type="checkbox" id="chkHeatmap" onchange="toggleHeatmap()"> 🔥 Heatmap</label>
+          <label><input type="checkbox" id="chkBrowserGPS" onchange="toggleBrowserGPS()"> 📡 GPS</label>
+          <button class="btn small cyan" onclick="startReplay()" style="width:100%;margin-top:2px;">▶ Replay</button>
         </div>
       </div>
       <div class="dash-right">
-        <div class="spec-mini"><h4>📶 Spectrum</h4><div id="specList"></div></div>
-        <div class="scores-mini"><h4>🏆 Targets</h4><div id="scoresList"><span style="color:var(--c-dim)">Waiting...</span></div></div>
+        <div class="scores-panel">
+          <h4>🏆 Top Targets</h4>
+          <div id="scoresList"><span style="color:var(--c-dim)">Waiting for targets...</span></div>
+        </div>
       </div>
     </div>
   </div>
@@ -576,7 +600,6 @@ function updateStatus(){
     let usbEl=document.getElementById('hdr_usb');
     usbEl.querySelector('.val').innerText=(d.usb_pct||'?')+'%';
     usbEl.className='metric'+(parseInt(d.usb_pct)>90?' crit':(parseInt(d.usb_pct)>75?' warn':''));
-    document.getElementById('hdr_time').innerText=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
 
     // Browser GPS stats
     if(!browserGpsActive){
@@ -597,16 +620,19 @@ function updateStatus(){
     // Log box
     if(d.logs){let lb=document.getElementById('logBox');lb.innerText=d.logs.replace(/\\n/g,'\n'); if(lb.scrollHeight-lb.scrollTop<lb.clientHeight+100)lb.scrollTop=lb.scrollHeight;}
 
-    // Spectrum mini
+    // Spectrum with expandable channels
     if(d.channels_data && Array.isArray(d.channels_data)){
       let filtered=d.channels_data.filter(i=>!excludedSSIDs.includes(i.s));
       let chMap={}; filtered.forEach(i=>{if(!chMap[i.c])chMap[i.c]=[];chMap[i.c].push(i.s);});
       let specHtml='',channels=[1,2,3,4,5,6,7,8,9,10,11];
-      channels.forEach(c=>{let cnt=(chMap[c]||[]).length;specHtml+='<div class="ch-row"><span class="ch-n">CH '+c+'</span><span class="ch-c">'+cnt+'</span></div>';});
+      channels.forEach(c=>{let ssids=(chMap[c]||[]);
+        specHtml+='<div class="ch-row" onclick="this.nextElementSibling.classList.toggle(\'open\')"><span class="ch-n">CH '+c+'</span><span class="ch-c">'+ssids.length+'</span></div>';
+        specHtml+='<div class="ch-detail">'+(ssids.length?ssids.map(s=>'<div>'+s.replace(/</g,'&lt;')+'</div>').join(''):'<span style="color:var(--c-dim)">empty</span>')+'</div>';
+      });
       document.getElementById('specList').innerHTML=specHtml;
     }
 
-    // Scores mini
+    // Scores - larger display
     updateScores();
   });
 }
@@ -614,10 +640,12 @@ function updateStatus(){
 function updateScores(){
   if(!isRunning)return;
   fetch('/cgi-bin/wardriving_api?action=scored_networks').then(r=>r.json()).then(data=>{
-    let html=''; if(!data||!data.length){document.getElementById('scoresList').innerHTML='<span style="color:var(--c-dim)">No targets</span>';return;}
-    data.slice(0,8).forEach(n=>{
+    let html=''; if(!data||!data.length){document.getElementById('scoresList').innerHTML='<span style="color:var(--c-dim)">No targets in range</span>';return;}
+    data.slice(0,12).forEach(n=>{
       let vendor=OUI_DB[(n.mac||'').replace(/:/g,'').substring(0,6).toUpperCase()]||'';
-      html+='<div class="sr"><span class="sr-ssid">'+(n.ssid||'??')+'</span><span class="sr-pts">'+(100+parseInt(n.rssi||-100))+'</span></div>';
+      let score=100+parseInt(n.rssi||-100);let color=score>100?'var(--c-green)':(score>60?'var(--c-amber)':'var(--c-dim)');
+      html+='<div class="sr"><div class="sr-top"><span class="sr-ssid">'+(n.ssid||'??')+'</span><span class="sr-pts" style="color:'+color+'">'+score+' pts</span></div>';
+      html+='<div class="sr-info">'+(n.enc||'?')+' | RSSI: '+(n.rssi||'?')+' | '+(n.has_hs?'🔑 PMKID':'')+(vendor?' | '+vendor:'')+'</div></div>';
     });
     document.getElementById('scoresList').innerHTML=html||'<span style="color:var(--c-dim)">No targets</span>';
   }).catch(()=>{});

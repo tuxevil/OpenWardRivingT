@@ -19,7 +19,7 @@
   --bg-card:  #161616; --border:  #252525; --radius:  10px;
   --glow-sm:  0 0 6px; --glow-md: 0 0 14px;
   --font: "Courier New", Courier, monospace;
-  --header-h:52px; --icon-nav-w:52px; --left-w:190px; --right-w:220px;
+  --header-h:52px; --icon-nav-w:56px; --left-w:220px; --right-w:250px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
@@ -45,7 +45,7 @@ body{background:var(--bg-deep);color:var(--c-green);font-family:var(--font);font
 
 /* ICON NAV */
 #icon-nav{width:var(--icon-nav-w);background:#000;border-right:1px solid var(--c-green);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;z-index:100}
-#icon-nav .nav-icon{display:flex;align-items:center;justify-content:center;padding:18px 0;margin:4px 6px;cursor:pointer;opacity:0.45;transition:0.2s;border-left:3px solid transparent;font-size:2em;border-radius:6px}
+#icon-nav .nav-icon{display:flex;align-items:center;justify-content:center;padding:20px 0;margin:6px 8px;cursor:pointer;opacity:0.45;transition:0.2s;border-left:3px solid transparent;font-size:2.2em;border-radius:8px}
 #icon-nav .nav-icon.active{opacity:1;border-left-color:var(--c-green);background:rgba(0,255,65,0.06)}
 #icon-nav .nav-icon:hover{opacity:0.8}
 
@@ -127,7 +127,7 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
 .view.active{animation:fadeIn 0.2s}
 
 /* RESPONSIVE */
-@media(max-width:1279px){:root{--left-w:170px;--right-w:190px}}
+@media(max-width:1279px){:root{--left-w:180px;--right-w:200px}}
 @media(max-width:1023px){:root{--left-w:0px;--right-w:0px}#left-panel,.dash-right{display:none}.settings-grid{grid-template-columns:1fr}.file-item{grid-template-columns:1fr}}
 @media(max-width:799px){:root{--header-h:40px;--icon-nav-w:44px}#header{font-size:10px;gap:4px}#header .metric{padding:3px 5px}#header .metric .val,#header .metric .unit{font-size:13px}#header .metric .icon{font-size:14px}#header .title{font-size:12px;letter-spacing:1px}#icon-nav .nav-icon{font-size:1.5em;padding:12px 0}}
 </style>

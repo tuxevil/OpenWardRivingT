@@ -347,6 +347,7 @@ function parseNMEAWPL(l){if(!l||!l.startsWith('$GPWPL'))return null;let p=l.spli
 
 // INIT MAP
 function initMap(){
+  loadCrackedNetworks();
   map=L.map('map',{zoomControl:false}).setView([0,0],2);
   L.control.zoom({position:'topright'}).addTo(map);
   onlineLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OSM'});
@@ -540,7 +541,7 @@ function evalMoodDOM(){let hs=parseInt(document.getElementById('hdr_hs').querySe
 updatePet();setInterval(updatePet,15000);setInterval(evalMoodDOM,5000);
 
 // POLL INTERVALS
-setInterval(updateStatus,5000);setInterval(updateMap,10000);
+setInterval(updateStatus,5000);setInterval(updateMap,10000);setInterval(loadCrackedNetworks,15000);
 updateStatus();loadFiles();loadHW();
 if(localStorage.getItem('browserGpsActive')==='true'){document.getElementById('chkBrowserGPS').checked=true;toggleBrowserGPS();}
 </script>

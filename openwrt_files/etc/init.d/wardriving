@@ -63,7 +63,7 @@ stop() {
     done
     
     # Only kill the vGPS socat (listening on 2947)
-    for pid in $(pgrep -f "socat.*2947" 2>/dev/null); do
+    for pid in $(pgrep -f "socat.*vGPS" 2>/dev/null); do
         kill -15 "$pid" 2>/dev/null
     done
     

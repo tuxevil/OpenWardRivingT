@@ -155,7 +155,23 @@ if [ "$ACTION" = "status" ]; then
             SPEED=$(echo "$RMC" | cut -d, -f8)
         fi
     fi
-    GPS_STAT=$(netstat -an | grep 2947 | grep ESTABLISHED >/dev/null && echo "CONNECTED" || echo "WAITING")
+    GPS_STAT="WAITING"
+    if [ -f /tmp/vGPS_last ]; then
+        LAST_MOD=$(date -r /tmp/vGPS_last +%s 2>/dev/null || echo 0)
+        NOW=$(date +%s)
+        if [ "$((NOW - LAST_MOD))" -lt 15 ]; then
+            GPS_STAT="CONNECTED"
+            _GGA=$(grep "^\$G[PN]GGA" /tmp/vGPS_last | tail -n 1)
+            if [ -n "$_GGA" ]; then
+                FIX=$(echo "$_GGA" | cut -d, -f7)
+                SATS=$(echo "$_GGA" | cut -d, -f8)
+            fi
+            _RMC=$(grep "^\$[A-Z]\{2\}RMC" /tmp/vGPS_last | tail -n 1)
+            if [ -n "$_RMC" ]; then
+                SPEED=$(echo "$_RMC" | cut -d, -f8)
+            fi
+        fi
+    fi
     
     CLEAN_LOG=$(tail -n 1000 /tmp/wardriving_status.log 2>/dev/null | awk '/^[ \t]*[0-9]+ [0-9]{2}:[0-9]{2}:[0-9]{2}/ {chan=$1; time=$2; essid=$NF; if(length(essid)>2 && essid!~/:/ && essid !~ /^[0-9a-fA-F]{12}$/ && !seen[essid]++) print "[" time "] [CH " chan "] " essid}' | tail -n 50)
     if [ -z "$CLEAN_LOG" ]; then
@@ -193,7 +209,8 @@ elif [ "$ACTION" = "gps_push" ]; then
         # Basic NMEA validation: must start with $ and contain checksum
         case "$NMEA_DATA" in
             \$G*\**)
-                echo "$NMEA_DATA" | socat - TCP4:127.0.0.1:2947 2>/dev/null
+                if [ -p /tmp/vGPS_fifo ]; then printf "%s\n" "$NMEA_DATA" >> /tmp/vGPS_fifo; fi
+                printf "%s\n" "$NMEA_DATA" > /tmp/vGPS_last
                 ;;
             *)
                 echo '{"status": "error", "reason": "invalid NMEA format"}'

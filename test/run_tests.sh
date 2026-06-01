@@ -26,8 +26,9 @@ cleanup() {
 assert_json() {
     local desc="$1"
     local output="$2"
+    local body
     # Strip HTTP headers (everything before first blank line)
-    local body=$(echo "$output" | sed '1,/^$/d')
+    body=$(printf "%s" "$output" | sed '1,/^$/d')
     if echo "$body" | python3 -m json.tool >/dev/null 2>&1; then
         PASS=$((PASS + 1))
         echo "  ✓ $desc"
@@ -42,7 +43,8 @@ assert_contains() {
     local desc="$1"
     local output="$2"
     local pattern="$3"
-    local body=$(echo "$output" | sed '1,/^$/d')
+    local body
+    body=$(printf "%s" "$output" | sed '1,/^$/d')
     if echo "$body" | grep -qF "$pattern"; then
         PASS=$((PASS + 1))
         echo "  ✓ $desc"
@@ -67,6 +69,7 @@ assert_status() {
 
 # ===== TESTS =====
 setup
+export WARDRIVING_TOKEN_FILE=/tmp/test_wardriving_token
 
 echo ""
 echo "=== CGI Tests ==="
@@ -94,36 +97,63 @@ echo "  Test: action=start (wrong token)"
 OUT=$(QUERY_STRING="action=start&token=wrong" sh "$CGI" 2>/dev/null)
 assert_contains "wrong token rejected" "$OUT" "unauthorized"
 
+echo "  Test: action=export_hashcat (no token)"
+OUT=$(QUERY_STRING="action=export_hashcat" sh "$CGI" 2>/dev/null)
+assert_json "sensitive export without token returns JSON" "$OUT"
+assert_contains "sensitive export requires token" "$OUT" "unauthorized"
+
 # Test 5: Export GPX
 echo "  Test: action=export_gpx"
-OUT=$(QUERY_STRING="action=export_gpx" sh "$CGI" 2>/dev/null)
+OUT=$(QUERY_STRING="action=export_gpx&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_contains "export_gpx returns XML" "$OUT" "<?xml"
 
 # Test 6: Export KML  
 echo "  Test: action=export_kml"
-OUT=$(QUERY_STRING="action=export_kml" sh "$CGI" 2>/dev/null)
+OUT=$(QUERY_STRING="action=export_kml&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_contains "export_kml returns XML" "$OUT" "<?xml"
 
 # Test 7: Heatmap data
 echo "  Test: action=heatmap_data"
-OUT=$(QUERY_STRING="action=heatmap_data" sh "$CGI" 2>/dev/null)
+OUT=$(QUERY_STRING="action=heatmap_data&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_json "heatmap returns JSON array" "$OUT"
 
 # Test 8: Scored networks
 echo "  Test: action=scored_networks"
-OUT=$(QUERY_STRING="action=scored_networks" sh "$CGI" 2>/dev/null)
+OUT=$(QUERY_STRING="action=scored_networks&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_json "scored returns JSON array" "$OUT"
 
 # Test 9: History
 echo "  Test: action=history"
-OUT=$(QUERY_STRING="action=history" sh "$CGI" 2>/dev/null)
+OUT=$(QUERY_STRING="action=history&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_json "history returns JSON" "$OUT"
 
 # Test 10: Get hardware
 echo "  Test: action=get_hw"
-OUT=$(QUERY_STRING="action=get_hw" sh "$CGI" 2>/dev/null)
+OUT=$(QUERY_STRING="action=get_hw&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_json "get_hw returns JSON" "$OUT"
 assert_contains "get_hw has leds" "$OUT" "leds"
+
+echo ""
+echo "=== Upload Guard Tests ==="
+
+echo "  Test: upload_potfile rejects GET"
+OUT=$(REQUEST_METHOD="GET" QUERY_STRING="action=upload_potfile&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_contains "upload_potfile requires POST" "$OUT" "POST required"
+
+echo "  Test: upload_potfile rejects oversized payload"
+OUT=$(REQUEST_METHOD="POST" CONTENT_LENGTH="1048577" QUERY_STRING="action=upload_potfile&token=$TOKEN" sh "$CGI" 2>/dev/null < /dev/null)
+assert_contains "upload_potfile size guard" "$OUT" "too large"
+
+echo "  Test: upload_tiles rejects invalid archive"
+OUT=$(printf 'not a tar' | REQUEST_METHOD="POST" CONTENT_LENGTH="9" QUERY_STRING="action=upload_tiles&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_contains "upload_tiles invalid tar guard" "$OUT" "invalid tile archive"
+
+echo "  Test: frontend has escaping helper"
+if grep -q "function esc" openwrt_files/www/wardriving/index.html && grep -q "esc(n.ssid" openwrt_files/www/wardriving/index.html; then
+    PASS=$((PASS + 1)); echo "  ✓ frontend escaping helper present"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ frontend escaping helper missing"
+fi
 
 echo ""
 echo "=== NMEA Parser Tests ==="

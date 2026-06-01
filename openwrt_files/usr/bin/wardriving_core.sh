@@ -3,7 +3,9 @@
 # ===== SIGNAL TRAP FOR CLEAN SHUTDOWN =====
 cleanup() {
     echo "[!] Caught signal - cleaning up..."
-    kill -15 $(jobs -p) 2>/dev/null
+    jobs -p | while read -r pid; do
+        [ -n "$pid" ] && kill -15 "$pid" 2>/dev/null
+    done
     rm -f /var/run/wardriving_core.pid
     exit 0
 }
@@ -21,12 +23,12 @@ blink_led() {
     _LED=$(ls /sys/class/leds/ 2>/dev/null | grep -iE "usb" | head -n 1)
     [ -z "$_LED" ] && _LED=$(ls /sys/class/leds/ 2>/dev/null | grep -iE "wps|wlan|wifi|system|power" | head -n 1)
     if [ -n "$_LED" ] && [ -f "/sys/class/leds/$_LED/brightness" ]; then
-        _current=$(cat /sys/class/leds/$_LED/brightness)
-        echo 0 > /sys/class/leds/$_LED/brightness
+        _current=$(cat "/sys/class/leds/$_LED/brightness")
+        echo 0 > "/sys/class/leds/$_LED/brightness"
         usleep 100000 2>/dev/null || sleep 1
-        echo 255 > /sys/class/leds/$_LED/brightness 2>/dev/null || echo 1 > /sys/class/leds/$_LED/brightness
+        echo 255 > "/sys/class/leds/$_LED/brightness" 2>/dev/null || echo 1 > "/sys/class/leds/$_LED/brightness"
         usleep 100000 2>/dev/null || sleep 1
-        echo $_current > /sys/class/leds/$_LED/brightness
+        echo "$_current" > "/sys/class/leds/$_LED/brightness"
     fi
 }
 
@@ -92,28 +94,60 @@ while true; do
         [ -f /etc/wardriving_remote_enabled ] && REMOTE_ENABLED=$(cat /etc/wardriving_remote_enabled)
         REMOTE_URL=""
         [ -f /etc/wardriving_remote_url ] && REMOTE_URL=$(cat /etc/wardriving_remote_url)
+        REMOTE_SECRET=""
+        [ -f /etc/wardriving_remote_secret ] && REMOTE_SECRET=$(cat /etc/wardriving_remote_secret)
+        [ -z "$REMOTE_SECRET" ] && [ -f /etc/wardriving_api_token ] && REMOTE_SECRET=$(cat /etc/wardriving_api_token)
         
         PROCESSED_REMOTE=0
         if [ "$REMOTE_ENABLED" = "1" ] && [ -n "$REMOTE_URL" ]; then
             echo "[*] Sending $FILENAME to remote server ($REMOTE_URL) ..."
-            HTTP_CODE=$(curl -s -o "/tmp/respuesta_server.sql" -w "%{http_code}" -X POST -F "pcap=@$FILENAME" "$REMOTE_URL" --connect-timeout 10)
+            AUTH_HEADER=""
+            [ -n "$REMOTE_SECRET" ] && AUTH_HEADER="X-OWRT-Token: $REMOTE_SECRET"
+            if [ -n "$AUTH_HEADER" ]; then
+                HTTP_CODE=$(curl -s -o "/tmp/respuesta_server.jsonl" -w "%{http_code}" -X POST -H "X-OWRT-Contract: jsonl" -H "$AUTH_HEADER" -F "pcap=@$FILENAME" "$REMOTE_URL" --connect-timeout 10)
+            else
+                HTTP_CODE=$(curl -s -o "/tmp/respuesta_server.jsonl" -w "%{http_code}" -X POST -H "X-OWRT-Contract: jsonl" -F "pcap=@$FILENAME" "$REMOTE_URL" --connect-timeout 10)
+            fi
             if [ "$HTTP_CODE" = "200" ]; then
                 echo "[+] Remote server processed capture successfully."
                 PROCESSED_REMOTE=1
                 
-                # Inyectar SQL si el servidor devolvio algo util
-                if [ -s "/tmp/respuesta_server.sql" ]; then
+                if [ -s "/tmp/respuesta_server.jsonl" ] && grep -q '"mac"' /tmp/respuesta_server.jsonl 2>/dev/null; then
                     sqlite3 /mnt/wardriving/wardriving.db "CREATE TABLE IF NOT EXISTS networks (mac TEXT PRIMARY KEY, ssid TEXT, enc TEXT, channel INTEGER, lat REAL, lon REAL, first_seen DATETIME, last_seen DATETIME, rssi INTEGER);"
                     sqlite3 /mnt/wardriving/wardriving.db "PRAGMA journal_mode=WAL; CREATE INDEX IF NOT EXISTS idx_last_seen ON networks(last_seen);" > /dev/null 2>&1
-                    sqlite3 /mnt/wardriving/wardriving.db < "/tmp/respuesta_server.sql"
+                    while IFS= read -r line; do
+                        MAC=$(echo "$line" | sed -n 's/.*"mac":"\([^"]*\)".*/\1/p' | tr -cd 'a-fA-F0-9:')
+                        SSID_B64=$(echo "$line" | sed -n 's/.*"ssid_b64":"\([^"]*\)".*/\1/p' | tr -cd 'A-Za-z0-9+/=')
+                        ENC=$(echo "$line" | sed -n 's/.*"enc":"\([^"]*\)".*/\1/p' | sed "s/'/''/g" | tr -cd '[:print:]')
+                        CHAN=$(echo "$line" | sed -n 's/.*"channel":\([-0-9]*\).*/\1/p' | tr -cd '0-9-')
+                        LAT=$(echo "$line" | sed -n 's/.*"lat":\([^,}]*\).*/\1/p' | tr -cd '0-9.-')
+                        LON=$(echo "$line" | sed -n 's/.*"lon":\([^,}]*\).*/\1/p' | tr -cd '0-9.-')
+                        RSSI=$(echo "$line" | sed -n 's/.*"rssi":\([-0-9]*\).*/\1/p' | tr -cd '0-9-')
+                        [ -z "$MAC" ] && continue
+                        [ -z "$CHAN" ] && CHAN=0
+                        [ -z "$RSSI" ] && RSSI=0
+                        [ -z "$LAT" ] && LAT="NULL"
+                        [ -z "$LON" ] && LON="NULL"
+                        SSID=$(printf "%s" "$SSID_B64" | base64 -d 2>/dev/null | sed "s/'/''/g" | tr -cd '[:print:]')
+                        sqlite3 /mnt/wardriving/wardriving.db "INSERT INTO networks (mac, ssid, enc, channel, lat, lon, first_seen, last_seen, rssi) VALUES ('$MAC', '$SSID', '$ENC', $CHAN, $LAT, $LON, datetime('now'), datetime('now'), $RSSI) ON CONFLICT(mac) DO UPDATE SET ssid=EXCLUDED.ssid, enc=EXCLUDED.enc, channel=EXCLUDED.channel, lat=EXCLUDED.lat, lon=EXCLUDED.lon, last_seen=EXCLUDED.last_seen, rssi=EXCLUDED.rssi;"
+                    done < /tmp/respuesta_server.jsonl
+                elif [ -s "/tmp/respuesta_server.jsonl" ] && [ -f /etc/wardriving_remote_allow_sql ]; then
+                    echo "[!] Remote SQL legacy mode enabled. Executing returned SQL."
+                    sqlite3 /mnt/wardriving/wardriving.db "CREATE TABLE IF NOT EXISTS networks (mac TEXT PRIMARY KEY, ssid TEXT, enc TEXT, channel INTEGER, lat REAL, lon REAL, first_seen DATETIME, last_seen DATETIME, rssi INTEGER);"
+                    sqlite3 /mnt/wardriving/wardriving.db "PRAGMA journal_mode=WAL; CREATE INDEX IF NOT EXISTS idx_last_seen ON networks(last_seen);" > /dev/null 2>&1
+                    sqlite3 /mnt/wardriving/wardriving.db < "/tmp/respuesta_server.jsonl"
                 fi
-                rm -f "/tmp/respuesta_server.sql"
+                rm -f "/tmp/respuesta_server.jsonl"
                 rm -f "$FILENAME" "$NMEAFILE"
                 # Sync offline hashes si existen
                 if [ -s "/mnt/wardriving/master.hc2200" ]; then
                     SYNC_URL=$(echo "$REMOTE_URL" | sed 's|/upload|/upload_hc2200|')
                     echo "[*] Syncing offline hashes to $SYNC_URL ..."
-                    SYNC_HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST -F "hc2200=@/mnt/wardriving/master.hc2200" "$SYNC_URL" --connect-timeout 10)
+                    if [ -n "$AUTH_HEADER" ]; then
+                        SYNC_HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "$AUTH_HEADER" -F "hc2200=@/mnt/wardriving/master.hc2200" "$SYNC_URL" --connect-timeout 10)
+                    else
+                        SYNC_HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST -F "hc2200=@/mnt/wardriving/master.hc2200" "$SYNC_URL" --connect-timeout 10)
+                    fi
                     if [ "$SYNC_HTTP" = "200" ]; then
                         echo "[+] Offline hashes synced successfully."
                         rm -f "/mnt/wardriving/master.hc2200"
@@ -171,10 +205,14 @@ while true; do
         if [ ! -f /etc/wardriving_keep_pcap.txt ]; then
             rm -f "$FILENAME" "$NMEAFILE"
                 # Sync offline hashes si existen
-                if [ -s "/mnt/wardriving/master.hc2200" ]; then
+                if [ "$REMOTE_ENABLED" = "1" ] && [ -n "$REMOTE_URL" ] && [ -s "/mnt/wardriving/master.hc2200" ]; then
                     SYNC_URL=$(echo "$REMOTE_URL" | sed 's|/upload|/upload_hc2200|')
                     echo "[*] Syncing offline hashes to $SYNC_URL ..."
-                    SYNC_HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST -F "hc2200=@/mnt/wardriving/master.hc2200" "$SYNC_URL" --connect-timeout 10)
+                    if [ -n "$AUTH_HEADER" ]; then
+                        SYNC_HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "$AUTH_HEADER" -F "hc2200=@/mnt/wardriving/master.hc2200" "$SYNC_URL" --connect-timeout 10)
+                    else
+                        SYNC_HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST -F "hc2200=@/mnt/wardriving/master.hc2200" "$SYNC_URL" --connect-timeout 10)
+                    fi
                     if [ "$SYNC_HTTP" = "200" ]; then
                         echo "[+] Offline hashes synced successfully."
                         rm -f "/mnt/wardriving/master.hc2200"

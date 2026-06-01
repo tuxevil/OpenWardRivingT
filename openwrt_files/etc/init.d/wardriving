@@ -25,9 +25,9 @@ start() {
     # LED Blinking
     WPS_LED=$(ls /sys/class/leds/ | grep -i wps | head -n 1)
     if [ -n "$WPS_LED" ] && [ -d "/sys/class/leds/$WPS_LED" ]; then
-        echo "timer" > /sys/class/leds/$WPS_LED/trigger
-        echo 100 > /sys/class/leds/$WPS_LED/delay_on
-        echo 100 > /sys/class/leds/$WPS_LED/delay_off
+        echo "timer" > "/sys/class/leds/$WPS_LED/trigger"
+        echo 100 > "/sys/class/leds/$WPS_LED/delay_on"
+        echo 100 > "/sys/class/leds/$WPS_LED/delay_off"
     fi
 }
 
@@ -77,7 +77,7 @@ stop() {
     # LED Off
     WPS_LED=$(ls /sys/class/leds/ | grep -i wps | head -n 1)
     if [ -n "$WPS_LED" ] && [ -d "/sys/class/leds/$WPS_LED" ]; then
-        echo "none" > /sys/class/leds/$WPS_LED/trigger
-        echo 0 > /sys/class/leds/$WPS_LED/brightness
+        echo "none" > "/sys/class/leds/$WPS_LED/trigger"
+        echo 0 > "/sys/class/leds/$WPS_LED/brightness"
     fi
 }

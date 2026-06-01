@@ -16,15 +16,16 @@ It uses a completely serverless backend approach: the "backend" is a collection 
 - **`openwrt_files/www/cgi-bin/wardriving_api`**: The Backend API.
   - **Pure Shell**: Written in busybox `ash`.
   - **Stateless CGI**: Every HTTP request forks `/bin/sh` to run this script. It parses the `QUERY_STRING` manually.
-  - **Authentication**: Requires a `token=` URL parameter on most endpoints. The frontend intercepts `fetch` calls to automatically append `window.API_TOKEN` (which is injected by `install.sh`).
+  - **Authentication**: Requires a `token=` URL parameter on all state-changing endpoints and sensitive read/export endpoints. `status` remains a lightweight public health endpoint. The frontend intercepts `fetch` calls to automatically append `window.API_TOKEN` (which is injected by `install.sh`), and export buttons use the same tokenized URL helper.
   - **JSON Generation**: Uses extensive `awk` scripting to parse logs, SQLite databases, and `hc2200` hash files into raw JSON strings.
 
 - **`openwrt_files/usr/bin/wardriving_core.sh`**: The Capture Daemon.
-  - Runs a continuous loop launching `hcxdumptool` for 5 minutes (`--tot=5`).
+  - Runs a continuous loop launching `hcxdumptool` in 1-minute capture windows (`--tot=1`).
   - Upon exiting, it uses `hcxpcapngtool` to extract handshakes and GPS tracks.
   - Integrates with `sqlite3` to push captured networks into `/mnt/wardriving/wardriving.db`.
   - Dedupes hashes into `/mnt/wardriving/master.hc2200`.
-  - **Performance Note**: The 5-minute rollover is CPU-heavy. We run these heavy tasks with `nice -n 10` so they don't freeze the router's UI.
+  - Supports optional GPU offload. The safe contract requests authenticated JSONL (`X-OWRT-Contract: jsonl`) and validates rows locally before SQLite insert. Legacy remote SQL execution is disabled unless `/etc/wardriving_remote_allow_sql` exists.
+  - **Performance Note**: Capture rollover is CPU-heavy. We run these heavy tasks with `nice -n 10` so they don't freeze the router's UI.
 
 - **`openwrt_files/etc/init.d/wardriving`**: The Service Manager.
   - Standard OpenWrt `init.d` script. Starts/Stops `wardriving_core.sh` and manages the `socat` PTY lifecycle.
@@ -39,6 +40,6 @@ Feeding GPS from the browser to `hcxdumptool` is non-trivial and relies on a del
 6. `hcxdumptool` reads from `--nmea_dev=/tmp/vGPS` to tag captured WiFi packets with location data.
 
 ## 🛑 Known Quirks & Strange Behaviors
-- **5-Minute CPU Spikes**: Due to the `hcxdumptool` 5-minute capture limits, exactly every 5 minutes the core script stops capturing and processes the `.pcapng` file. This takes 5-10 seconds of 100% CPU. During this time, API responses might be slightly delayed. This is normal.
+- **Rollover CPU Spikes**: The core script periodically stops capture to process the `.pcapng` file. This can take several seconds of high CPU. During this time, API responses might be slightly delayed. This is normal.
 - **Ash vs Bash**: OpenWrt uses BusyBox `ash`. Scripts MUST be POSIX compliant. Do not use bash arrays (`()`) or bash substring replacements (`${var//...}`). Use `awk` or `sed` heavily.
 - **ShellCheck CI**: The GitHub Actions CI runs ShellCheck configured with specific exclusions (`-e SC3043,SC3048,etc.`) because `ash` supports `local` and `SIGTERM`, even though pure POSIX `sh` does not.

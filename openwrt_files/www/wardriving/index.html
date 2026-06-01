@@ -234,10 +234,10 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
           <h3 style="color:var(--c-cyan);margin:0;border:none;padding:0">📦 Capture Manager</h3>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="btn small" onclick="loadFiles()">🔄 Refresh</button>
-            <button class="btn small cyan" onclick="window.open('/cgi-bin/wardriving_api?action=download_all','_blank')">📥 .tar.gz</button>
-            <button class="btn small amber" onclick="window.open('/cgi-bin/wardriving_api?action=export_gpx','_blank')">🗺️ GPX</button>
-            <button class="btn small magenta" onclick="window.open('/cgi-bin/wardriving_api?action=export_kml','_blank')">🌍 KML</button>
-            <button class="btn small" onclick="window.open('/cgi-bin/wardriving_api?action=export_hashcat','_blank')">🔥 Hashcat</button>
+            <button class="btn small cyan" onclick="window.open(apiUrl('download_all'),'_blank')">📥 .tar.gz</button>
+            <button class="btn small amber" onclick="window.open(apiUrl('export_gpx'),'_blank')">🗺️ GPX</button>
+            <button class="btn small magenta" onclick="window.open(apiUrl('export_kml'),'_blank')">🌍 KML</button>
+            <button class="btn small" onclick="window.open(apiUrl('export_hashcat'),'_blank')">🔥 Hashcat</button>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;border:1px dashed var(--c-green);padding:8px 12px;border-radius:8px">
@@ -331,6 +331,13 @@ window.fetch=function(url,options){
   }
   return _origFetch(url,options);
 };
+function apiUrl(action,params){
+  let url='/cgi-bin/wardriving_api?action='+encodeURIComponent(action);
+  if(params)Object.keys(params).forEach(k=>{url+='&'+encodeURIComponent(k)+'='+encodeURIComponent(params[k]);});
+  if(window.API_TOKEN)url+='&token='+encodeURIComponent(window.API_TOKEN);
+  return url;
+}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 
 // GLOBALS
 let isRunning=false,lastGpsFixTime=Date.now(),lastHandshakeCount=-1;
@@ -424,7 +431,7 @@ function updateStatus(){
       let fd=d.channels_data.filter(i=>!excludedSSIDs.includes(i.s)),cm={};
       fd.forEach(i=>{if(!cm[i.c])cm[i.c]=[];cm[i.c].push(i.s);});
       let sh='',chs=[1,2,3,4,5,6,7,8,9,10,11];
-      chs.forEach(c=>{let ss=cm[c]||[];sh+='<div class="ch-row" onclick="this.nextElementSibling.classList.toggle(\'open\')"><span class="ch-n">CH '+c+'</span><span class="ch-c">'+ss.length+'</span></div><div class="ch-detail'+(openChs.has('CH '+c)?' open':'')+'">'+(ss.length?ss.map(s=>'<div>'+s.replace(/</g,'&lt;')+'</div>').join(''):'<span style="color:var(--c-dim)">empty</span>')+'</div>';});
+      chs.forEach(c=>{let ss=cm[c]||[];sh+='<div class="ch-row" onclick="this.nextElementSibling.classList.toggle(\'open\')"><span class="ch-n">CH '+c+'</span><span class="ch-c">'+ss.length+'</span></div><div class="ch-detail'+(openChs.has('CH '+c)?' open':'')+'">'+(ss.length?ss.map(s=>'<div>'+esc(s)+'</div>').join(''):'<span style="color:var(--c-dim)">empty</span>')+'</div>';});
       document.getElementById('specList').innerHTML=sh;
     }
     updateScores();
@@ -438,7 +445,7 @@ function updateScores(){
     d.slice(0,12).forEach(n=>{
       let v=OUI_DB[(n.mac||'').replace(/:/g,'').substring(0,6).toUpperCase()]||'';
       let sc=100+parseInt(n.rssi||-100),co=sc>100?'var(--c-green)':(sc>60?'var(--c-amber)':'var(--c-dim)');
-      h+='<div class="sr"><div class="sr-top"><span class="sr-ssid">'+(n.ssid||'??')+'</span><span class="sr-pts" style="color:'+co+'">'+sc+' pts</span></div><div class="sr-info">'+(n.enc||'?')+' | RSSI:'+(n.rssi||'?')+' | '+(n.has_hs?'🔑 PMKID':'')+(v?' | '+v:'')+'</div></div>';
+      h+='<div class="sr"><div class="sr-top"><span class="sr-ssid">'+esc(n.ssid||'??')+'</span><span class="sr-pts" style="color:'+co+'">'+sc+' pts</span></div><div class="sr-info">'+esc(n.enc||'?')+' | RSSI:'+esc(n.rssi||'?')+' | '+(n.has_hs?'🔑 PMKID':'')+(v?' | '+esc(v):'')+'</div></div>';
     });
     document.getElementById('scoresList').innerHTML=h||'<span style="color:var(--c-dim)">No targets</span>';
   }).catch(()=>{});
@@ -480,11 +487,11 @@ function generateNMEA(pos){
 }
 
 // CAPTURES
-function loadFiles(){fetch('/cgi-bin/wardriving_api?action=list_files').then(r=>r.json()).then(d=>{let h='';if(!d||!d.length){document.getElementById('fileList').innerHTML='<span style="color:var(--c-dim)">No captures yet.</span>';return;}d.forEach(f=>{h+='<div class="file-item"><div class="fi-name">'+f.name+'</div><div class="fi-nets">'+f.nets+'</div><div class="fi-meta">'+f.size+'<br>'+f.date+'</div><button class="btn small stop" onclick="deleteFile(\''+f.name+'\')">✕</button></div>';});document.getElementById('fileList').innerHTML=h;});}
+function loadFiles(){fetch('/cgi-bin/wardriving_api?action=list_files').then(r=>r.json()).then(d=>{let h='';if(!d||!d.length){document.getElementById('fileList').innerHTML='<span style="color:var(--c-dim)">No captures yet.</span>';return;}d.forEach(f=>{let name=String(f.name||'');h+='<div class="file-item"><div class="fi-name">'+esc(name)+'</div><div class="fi-nets">'+esc(f.nets)+'</div><div class="fi-meta">'+esc(f.size)+'<br>'+esc(f.date)+'</div><button class="btn small stop" onclick="deleteFile(\''+encodeURIComponent(name)+'\')">✕</button></div>';});document.getElementById('fileList').innerHTML=h;});}
 function deleteFile(fn){fetch('/cgi-bin/wardriving_api?action=delete_file&file='+fn).then(()=>{loadFiles();updateStatus();});}
 function togglePcap(){fetch('/cgi-bin/wardriving_api?action=set_pcap_retention&keep='+document.getElementById('chkKeepPcap').checked);}
 function uploadPotfile(){let f=document.getElementById('potfileInput').files[0];if(!f)return;document.getElementById('potfileStatus').innerText='Uploading...';fetch('/cgi-bin/wardriving_api?action=upload_potfile',{method:'POST',body:f}).then(()=>{document.getElementById('potfileStatus').innerText='✓ Uploaded!';loadCrackedNetworks();});}
-function loadCrackedNetworks(){fetch('/cgi-bin/wardriving_api?action=cracked_networks').then(r=>r.json()).then(d=>{crackedMarkers.forEach(m=>map.removeLayer(m));crackedMarkers=[];if(!d||!d.length)return;d.forEach(n=>{let m=L.marker([n.lat,n.lon],{icon:L.divIcon({className:'cracked-icon',html:'<div style="font-size:22px;text-shadow:0 0 5px #0f0;line-height:28px;text-align:center">🔓</div>',iconSize:[28,28]})}).addTo(map).bindPopup('<b style="color:#0f0;">🔓 CRACKED!</b><br>'+n.ssid);crackedMarkers.push(m);});});}
+function loadCrackedNetworks(){fetch('/cgi-bin/wardriving_api?action=cracked_networks').then(r=>r.json()).then(d=>{crackedMarkers.forEach(m=>map.removeLayer(m));crackedMarkers=[];if(!d||!d.length)return;d.forEach(n=>{let m=L.marker([n.lat,n.lon],{icon:L.divIcon({className:'cracked-icon',html:'<div style="font-size:22px;text-shadow:0 0 5px #0f0;line-height:28px;text-align:center">🔓</div>',iconSize:[28,28]})}).addTo(map).bindPopup('<b style="color:#0f0;">🔓 CRACKED!</b><br>'+esc(n.ssid));crackedMarkers.push(m);});});}
 
 // SETTINGS
 function toggleNightMode(){let n=document.getElementById('chkNight').checked;localStorage.setItem('nightMode',n);if(n)document.body.classList.add('night-mode');else document.body.classList.remove('night-mode');}
@@ -513,22 +520,22 @@ loadProcessing();
 // EXCLUSIONS & TARGETS
 
 function loadExclusions(){fetch('/cgi-bin/wardriving_api?action=get_exclusions').then(r=>r.json()).then(d=>{excludedSSIDs=d||[];renderExclusions();});}
-function renderExclusions(){let c=document.getElementById('exclusionsList');if(!c)return;c.innerHTML='';if(!excludedSSIDs.length){c.innerHTML='<span style="color:var(--c-dim)">None</span>';return;}excludedSSIDs.forEach(s=>{let d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:8px;border:1px solid var(--border);margin-bottom:4px;border-radius:6px';d.innerHTML='<span>'+s.replace(/</g,'&lt;')+'</span><button class="btn small" style="border-color:var(--c-red);color:var(--c-red);min-width:60px;min-height:30px" onclick="removeExclusion(\''+encodeURIComponent(s)+'\')">✕</button>';c.appendChild(d);});}
+function renderExclusions(){let c=document.getElementById('exclusionsList');if(!c)return;c.innerHTML='';if(!excludedSSIDs.length){c.innerHTML='<span style="color:var(--c-dim)">None</span>';return;}excludedSSIDs.forEach(s=>{let d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:8px;border:1px solid var(--border);margin-bottom:4px;border-radius:6px';d.innerHTML='<span>'+esc(s)+'</span><button class="btn small" style="border-color:var(--c-red);color:var(--c-red);min-width:60px;min-height:30px" onclick="removeExclusion(\''+encodeURIComponent(s)+'\')">✕</button>';c.appendChild(d);});}
 function addExclusion(){let v=document.getElementById('newExclusion').value.trim();if(!v)return;fetch('/cgi-bin/wardriving_api?action=add_exclusion&ssid='+encodeURIComponent(v)).then(()=>{document.getElementById('newExclusion').value='';loadExclusions();});}
 function removeExclusion(s){fetch('/cgi-bin/wardriving_api?action=remove_exclusion&ssid='+s).then(()=>loadExclusions());}
 loadExclusions();setInterval(loadExclusions,10000);
 function loadTargets(){fetch('/cgi-bin/wardriving_api?action=get_targets').then(r=>r.json()).then(d=>{targetMacs=d||[];renderTargets();});}
-function renderTargets(){let c=document.getElementById('targetsList');if(!c)return;c.innerHTML='';targetMacs.forEach(m=>{let d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:8px;border:1px solid var(--c-red);margin-bottom:4px;border-radius:6px';d.innerHTML='<span style="color:var(--c-red);font-weight:bold">'+m+'</span><button class="btn small" style="border-color:var(--c-red);color:var(--c-red);min-width:60px;min-height:30px" onclick="removeTarget(\''+m+'\')">✕</button>';c.appendChild(d);});}
+function renderTargets(){let c=document.getElementById('targetsList');if(!c)return;c.innerHTML='';targetMacs.forEach(m=>{let d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:8px;border:1px solid var(--c-red);margin-bottom:4px;border-radius:6px';d.innerHTML='<span style="color:var(--c-red);font-weight:bold">'+esc(m)+'</span><button class="btn small" style="border-color:var(--c-red);color:var(--c-red);min-width:60px;min-height:30px" onclick="removeTarget(\''+encodeURIComponent(m)+'\')">✕</button>';c.appendChild(d);});}
 function addTarget(){let m=document.getElementById('newTarget').value.trim().toUpperCase();if(!m)return;fetch('/cgi-bin/wardriving_api?action=add_target&mac='+encodeURIComponent(m)).then(()=>{document.getElementById('newTarget').value='';loadTargets();});}
-function removeTarget(m){fetch('/cgi-bin/wardriving_api?action=remove_target&mac='+encodeURIComponent(m)).then(()=>loadTargets());}
+function removeTarget(m){fetch('/cgi-bin/wardriving_api?action=remove_target&mac='+m).then(()=>loadTargets());}
 function checkTargets(){if(!isRunning||!targetMacs.length)return;fetch('/cgi-bin/wardriving_api?action=check_targets').then(r=>r.json()).then(d=>{if(d&&d.length)d.forEach(n=>{if(!alertedTargets.includes(n.mac)){alertedTargets.push(n.mac);if(audioEnabled&&'speechSynthesis' in window)window.speechSynthesis.speak(new SpeechSynthesisUtterance('Target detected! '+n.ssid));}});});}
 loadTargets();setInterval(checkTargets,10000);
 
 // HISTORY
-function loadHistory(){fetch('/cgi-bin/wardriving_api?action=history').then(r=>r.json()).then(d=>{document.getElementById('stHistTotal').innerText=d.total;document.getElementById('stHistWpa3').innerText=d.wpa3;document.getElementById('stHistHs').innerText=d.hs;document.getElementById('stHistDays').innerText=d.days;let h='';d.sessions.forEach(s=>{h+='<div style="padding:8px;border:1px solid var(--border);border-radius:6px;margin-bottom:4px;display:flex;justify-content:space-between"><span>📅 '+s.date+'</span><span>'+s.count+' nets</span></div>';});document.getElementById('historyList').innerHTML=h||'<span style="color:var(--c-dim)">No data</span>';});}
+function loadHistory(){fetch('/cgi-bin/wardriving_api?action=history').then(r=>r.json()).then(d=>{document.getElementById('stHistTotal').innerText=d.total;document.getElementById('stHistWpa3').innerText=d.wpa3;document.getElementById('stHistHs').innerText=d.hs;document.getElementById('stHistDays').innerText=d.days;let h='';d.sessions.forEach(s=>{h+='<div style="padding:8px;border:1px solid var(--border);border-radius:6px;margin-bottom:4px;display:flex;justify-content:space-between"><span>📅 '+esc(s.date)+'</span><span>'+esc(s.count)+' nets</span></div>';});document.getElementById('historyList').innerHTML=h||'<span style="color:var(--c-dim)">No data</span>';});}
 
 // PWNAGOTCHI
-function fetchPwnagotchi(){fetch('/cgi-bin/wardriving_api?action=pwnagotchi_status').then(r=>r.json()).then(d=>{let c=document.getElementById('pwnagotchiStatus');if(!d||!d.uptime){c.innerHTML='<span style="color:var(--c-dim)">No pwnagotchi detected</span>';petPwnagotchiDetected=false;return;}petPwnagotchiDetected=true;c.innerHTML='Uptime:<b>'+Math.floor(d.uptime/60)+'m</b> | Mode:<b>'+(d.mode||'AUTO')+'</b> | Hands:<b>'+(d.handshakes||0)+'</b> | Pwns:<b>'+(d.pwnd_tot||0)+'</b>';updatePet();}).catch(()=>{document.getElementById('pwnagotchiStatus').innerHTML='<span style="color:var(--c-dim)">No pwnagotchi detected</span>';petPwnagotchiDetected=false;});}
+function fetchPwnagotchi(){fetch('/cgi-bin/wardriving_api?action=pwnagotchi_status').then(r=>r.json()).then(d=>{let c=document.getElementById('pwnagotchiStatus');if(!d||!d.uptime){c.innerHTML='<span style="color:var(--c-dim)">No pwnagotchi detected</span>';petPwnagotchiDetected=false;return;}petPwnagotchiDetected=true;c.innerHTML='Uptime:<b>'+esc(Math.floor(d.uptime/60))+'m</b> | Mode:<b>'+esc(d.mode||'AUTO')+'</b> | Hands:<b>'+esc(d.handshakes||0)+'</b> | Pwns:<b>'+esc(d.pwnd_tot||0)+'</b>';updatePet();}).catch(()=>{document.getElementById('pwnagotchiStatus').innerHTML='<span style="color:var(--c-dim)">No pwnagotchi detected</span>';petPwnagotchiDetected=false;});}
 setInterval(fetchPwnagotchi,10000);fetchPwnagotchi();
 
 // PET ENGINE

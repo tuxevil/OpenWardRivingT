@@ -56,22 +56,23 @@ bd close <id>         # Complete work
 
 ### Layer 1: Core Capture (`wardriving_core.sh`)
 - Infinite loop: mount check → hcxdumptool capture → hcxpcapngtool conversion → SQLite insert
-- Sessions are 3s (`-t 3 --tot=5`), producing `.pcapng` files on USB
+- Sessions use 3-second dwell time and 1-minute capture windows (`-t 3 --tot=1`), producing `.pcapng` files on USB
 - Converts pcapng → `.hc2200` (PMKID hashes) + CSV via `hcxpcapngtool`
 - Merges hashes into `master.hc2200` with `sort -u` dedup
 - Inserts network metadata into SQLite (`/mnt/wardriving/wardriving.db`)
 - Manages GPS via virtual PTY (`socat` → `/tmp/vGPS` → `hcxdumptool --nmea_dev`)
 
 ### Layer 2: GPS Bridge (Built-in + Browser)
-- **NMEA hardware path**: USB/Serial GPS → `socat` TCP:2947 → virtual PTY → hcxdumptool
-- **Browser GPS path**: HTML5 Geolocation → JS generates synthetic NMEA → POST to CGI → forward to TCP:2947
+- **NMEA path**: browser HTML5 Geolocation → JS generates synthetic NMEA → POST to CGI → `/tmp/vGPS_fifo` → `socat` virtual PTY (`/tmp/vGPS`) → hcxdumptool
 - NMEA data is saved alongside captures for replay/map features
 
 ### Layer 3: API (`wardriving_api` CGI)
 - Shell CGI under uhttpd at `/cgi-bin/wardriving_api`
-- Token-authenticated for write operations (read from `/etc/wardriving_api_token`)
-- Read endpoints: status, map_data, heatmap_data, scored_networks, history
-- Write endpoints: start, stop, delete_file, set_hw, wigle_upload, upload_tiles
+- Token-authenticated for write operations and sensitive read/export operations (read from `/etc/wardriving_api_token`)
+- Public endpoint: status
+- Sensitive read/export endpoints: map_data, heatmap_data, scored_networks, history, list_files, cracked_networks, export_*.
+- Write endpoints: start, stop, delete_file, set_hw, set_processing, wigle_upload, upload_tiles, upload_potfile, pwnagotchi_sync.
+- Remote GPU processing uses authenticated JSONL by default. Legacy remote SQL execution requires `/etc/wardriving_remote_allow_sql`.
 
 ### Layer 4: Web Dashboard (`index.html`)
 - Single-page app, 4-column responsive layout (car head unit optimized)
@@ -86,8 +87,8 @@ bd close <id>         # Complete work
 
 ### Data Flow
 ```
-GPS Device → NMEA serial → socat TCP:2947 → /tmp/vGPS → hcxdumptool
-                                                      ↓
+Browser GPS → CGI gps_push → /tmp/vGPS_fifo → socat PTY /tmp/vGPS → hcxdumptool
+                                                                 ↓
 wlan0mon → hcxdumptool → .pcapng → hcxpcapngtool → .hc2200 → master.hc2200
                                     ↓                ↓
                                   .csv → sqlite3 → wardriving.db
@@ -103,6 +104,9 @@ No build step required — this is pure shell + vanilla JS. Files are deployed d
 ```bash
 # CGI smoke test (from router shell)
 QUERY_STRING='action=status' sh /www/cgi-bin/wardriving_api
+
+# Sensitive endpoint smoke test
+QUERY_STRING='action=history&token=YOUR_TOKEN' sh /www/cgi-bin/wardriving_api
 
 # Core script dry-run (will fail without monitor interface)
 bash -x /usr/bin/wardriving_core.sh
@@ -127,7 +131,7 @@ echo '$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A' | aw
 - **USB safety**: Always check `mount | grep /mnt/wardriving` before writing to flash.
 
 ### CGI Patterns
-- **Auth**: Extract token, check against `/etc/wardriving_api_token` for write actions
+- **Auth**: Extract token, check against `/etc/wardriving_api_token` for write actions and sensitive read/export actions
 - **Response**: Always emit `Content-Type` header + blank line before body
 - **JSON**: Build manually with `cat << JSON` heredocs. Validate with `python3 -m json.tool`
 - **NMEA parsing**: Extract to shared `parse_nmea()` function. Do NOT copy-paste the awk block.
@@ -137,6 +141,7 @@ echo '$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A' | aw
 - **localStorage**: Only for UI preferences (night mode, map toggle, audio). Never for secrets.
 - **Polling**: `setInterval` for status(3s), map(4s), scores(5s). Respect router CPU.
 - **Fetch override**: Monkey-patched with auth token injection. All `fetch()` calls auto-include token.
+- **Escaping**: Any SSID, filename, target, exclusion, or remote status shown via `innerHTML` must pass through the dashboard `esc()` helper or be inserted with DOM text APIs.
 
 ### Git Hygiene
 - **No large binaries**: `oui.csv` (3.7MB) is source; `oui.json` (869KB) is the deployed artifact

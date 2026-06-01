@@ -53,7 +53,7 @@ The automated installer will automatically detect your package manager (`apk` fo
 
 ## 🚙 Basic Usage
 1. Power up the router in your vehicle with the USB drive attached.
-2. **(GPS Setup)**: Either toggle the **Browser GPS Override** on the dashboard to use your device's native browser location, OR use a background NMEA forwarder app pointing to port 2947.
+2. **(GPS Setup)**: Toggle the **Browser GPS Override** on the dashboard to use your device's native browser location. The dashboard posts synthetic NMEA to the CGI API, which forwards it through `/tmp/vGPS_fifo` into the `/tmp/vGPS` virtual PTY used by `hcxdumptool`.
 3. Connect your tablet to the 5GHz WiFi network (`owrt`).
 4. Navigate to `http://192.168.1.1/wardriving/index.html` (or your router's IP).
 5. Hit **START** on the screen or press the configured physical router button. Start driving!
@@ -61,6 +61,21 @@ The automated installer will automatically detect your package manager (`apk` fo
 ## 🗺️ Offline Map Management
 In the "Settings" tab of the web application, you can upload a `.tar.gz` file containing a standard `Z/X/Y.png` tile folder (generated via tools like Mobile Atlas Creator). This gives you a rich street map on your dashboard without needing mobile data.
 
+## 🔐 API & Remote Processing Security
+The installer generates `/etc/wardriving_api_token` and injects it into the dashboard so normal UI actions continue to work without extra steps. Sensitive exports and data endpoints require that token; the lightweight `status` endpoint remains available for health checks.
+
+For GPU offload, configure the same shared secret on both sides:
+
+```bash
+# Router
+echo "replace-with-a-long-random-secret" > /etc/wardriving_remote_secret
+
+# GPU server systemd environment
+OWRT_GPU_SHARED_SECRET=replace-with-a-long-random-secret
+OWRT_ROUTER_TOKEN=<router-api-token-used-for-potfile-sync>
+```
+
+The router now requests an authenticated JSONL response from the GPU server and validates rows locally before inserting into SQLite. Legacy remote SQL execution is disabled by default; create `/etc/wardriving_remote_allow_sql` only if you intentionally need compatibility with an old GPU server.
 
 ## 🐾 Pwnagotchi Bridge & Virtual Pet
 As an homage to the legendary [evilsocket/pwnagotchi](https://github.com/evilsocket/pwnagotchi) project, the dashboard features its very own JavaScript-based virtual pet.
@@ -70,7 +85,7 @@ As an homage to the legendary [evilsocket/pwnagotchi](https://github.com/evilsoc
 ## 🛑 Known Quirks & Strange Behaviors
 When operating the router, you might notice the following behaviors. These are entirely normal and part of how the software handles heavy processing on low-power hardware:
 
-1. **The 5-Minute CPU Spikes**: `hcxdumptool` works in 5-minute capture blocks. Exactly every 5 minutes, the router stops sniffing to process the resulting `.pcapng` file, crack handshakes using `hcxpcapngtool`, and insert thousands of networks into the SQLite database. During these 5 to 10 seconds, the router's CPU will hit 100% and the *Load Average* will spike. We run these rollover tasks with lower priority (`nice`) so the UI doesn't freeze, but slight API delays are expected.
+1. **Rollover CPU Spikes**: `hcxdumptool` runs in short capture windows. When the router stops sniffing to process the resulting `.pcapng` file, extract handshakes using `hcxpcapngtool`, and insert networks into SQLite, CPU can briefly hit 100%. We run these rollover tasks with lower priority (`nice`) so the UI doesn't freeze, but slight API delays are expected.
 2. **GPS Buffer Lag**: When using the Browser GPS Override, your phone batches location updates and sends them to the router every 4 seconds to prevent suffocating the web server with CGI requests. This introduces a slight spatial lag of ~40-50 meters if you are driving at high speeds, which is perfectly acceptable given standard WiFi ranges.
 3. **WiGLE Handshakes**: The "Upload to WiGLE" button securely generates a CSV file with router MACs, SSIDs, and GPS coordinates and sends it to the WiGLE API. It **does not** upload your captured packets or `.hc2200` password hashes.
 
@@ -86,7 +101,7 @@ When operating the router, you might notice the following behaviors. These are e
 
 1. File issues using `bd` (beads) — see [AGENTS.md](AGENTS.md)
 2. Follow shell conventions in [CLAUDE.md](CLAUDE.md): BusyBox ash compatibility, no bashisms, `mktemp` for atomic writes
-3. Test CGI endpoints with: `QUERY_STRING='action=status&token=YOUR_TOKEN' sh /www/cgi-bin/wardriving_api`
+3. Test CGI endpoints with: `QUERY_STRING='action=status' sh /www/cgi-bin/wardriving_api` and sensitive endpoints with `QUERY_STRING='action=history&token=YOUR_TOKEN' sh /www/cgi-bin/wardriving_api`
 4. Pull requests welcome against `main` branch
 
 ## 📄 License

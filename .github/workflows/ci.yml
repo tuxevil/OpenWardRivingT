@@ -18,7 +18,7 @@ jobs:
       - name: Lint shell scripts (shellcheck)
         run: |
           echo "=== Running shellcheck ==="
-          shellcheck -e SC1090,SC2002,SC2004,SC2010,SC2012,SC2016,SC2018,SC2019,SC2035,SC2045,SC2046,SC2086,SC2155,SC3037,SC3043,SC3048 -x \
+          shellcheck -e SC1090,SC2002,SC2010,SC2012,SC2035,SC2045,SC3043,SC3048 -x \
             install.sh \
             uninstall.sh \
             openwrt_files/usr/bin/wardriving_core.sh \
@@ -28,15 +28,15 @@ jobs:
             test/run_tests.sh
           echo "✓ shellcheck passed"
 
-      - name: Validate bash syntax
+      - name: Validate shell syntax
         run: |
-          echo "=== Checking bash syntax ==="
+          echo "=== Checking POSIX shell syntax ==="
           for f in install.sh uninstall.sh \
                    openwrt_files/usr/bin/wardriving_core.sh \
                    openwrt_files/usr/bin/wardriving_sync.sh \
                    openwrt_files/etc/init.d/wardriving \
                    openwrt_files/www/cgi-bin/wardriving_api; do
-            bash -n "$f" || { echo "FAIL: $f"; exit 1; }
+            sh -n "$f" || { echo "FAIL: $f"; exit 1; }
           done
           echo "✓ All scripts pass syntax check"
 

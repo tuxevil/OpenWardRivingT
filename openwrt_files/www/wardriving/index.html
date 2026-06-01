@@ -12,296 +12,128 @@
 <script src="leaflet.js"></script>
 <script src="leaflet-heat.js"></script>
 <style>
-/* ===== CYBERPUNK DESIGN SYSTEM ===== */
 :root {
-  --c-green:  #00ff41;
-  --c-amber:  #ffb000;
-  --c-cyan:   #00ffff;
-  --c-magenta:#ff00ff;
-  --c-red:    #ff3333;
-  --c-white:  #e0e0e0;
-  --c-dim:    #666666;
-  --bg-deep:  #0a0a0a;
-  --bg-panel: #111111;
-  --bg-card:  #161616;
-  --border:   #252525;
-  --radius:   10px;
-  --glow-sm:  0 0 6px;
-  --glow-md:  0 0 14px;
-  --font:     "Courier New", Courier, monospace;
-  --nav-h:    64px;
-  --header-h: 52px;
-  --sidebar-w: 200px;
-  --right-w:   200px;
+  --c-green:  #00ff41; --c-amber: #ffb000; --c-cyan: #00ffff;
+  --c-magenta:#ff00ff; --c-red:   #ff3333; --c-white: #e0e0e0;
+  --c-dim:    #666666; --bg-deep: #0a0a0a; --bg-panel:#111111;
+  --bg-card:  #161616; --border:  #252525; --radius:  10px;
+  --glow-sm:  0 0 6px; --glow-md: 0 0 14px;
+  --font: "Courier New", Courier, monospace;
+  --header-h:52px; --icon-nav-w:52px; --left-w:170px; --right-w:200px;
 }
-* { box-sizing:border-box; margin:0; padding:0; }
-html, body { height:100%; overflow:hidden; }
-body {
-  background: var(--bg-deep);
-  color: var(--c-green);
-  font-family: var(--font);
-  font-size: 14px;
-  line-height: 1.4;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg-deep);color:var(--c-green);font-family:var(--font);font-size:14px;line-height:1.4;-webkit-tap-highlight-color:transparent;user-select:none}
 
-/* Scanline overlay (toggleable) */
-body.scanlines::after {
-  content:""; position:fixed; inset:0; z-index:9999; pointer-events:none;
-  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
-}
+/* HEADER */
+#header{position:fixed;top:0;left:0;right:0;height:var(--header-h);z-index:200;background:#000;border-bottom:2px solid var(--c-green);display:flex;align-items:center;padding:0 10px;gap:10px;font-size:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,255,65,0.1)}
+#header .metric{display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);flex-shrink:0}
+#header .metric .icon{font-size:17px}
+#header .metric .val{font-weight:bold;color:var(--c-white);font-size:17px}
+#header .metric .unit{font-size:17px;color:var(--c-dim);margin-left:2px}
+#header .metric.warn .val{color:var(--c-amber)}
+#header .metric.crit .val{color:var(--c-red);animation:pulse 1s infinite}
+#header .spacer{flex:1}
+#header .title{font-size:16px;font-weight:bold;letter-spacing:3px;color:var(--c-green);text-transform:uppercase;flex-shrink:0;text-shadow:var(--glow-sm) var(--c-green)}
+#header .status-dot{font-size:12px;font-weight:bold;padding:4px 10px;border-radius:6px;flex-shrink:0;letter-spacing:1px;text-transform:uppercase}
+#header .status-dot.on{color:var(--c-green);border:1px solid var(--c-green);box-shadow:var(--glow-sm) var(--c-green);animation:pulse 2s infinite}
+#header .status-dot.off{color:var(--c-red);border:1px solid var(--c-red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
 
-/* ===== HEADER ===== */
-#header {
-  position:fixed; top:0; left:0; right:0; height:var(--header-h); z-index:200;
-  background:#000; border-bottom:2px solid var(--c-green);
-  display:flex; align-items:center; padding:0 10px; gap:10px;
-  font-size:14px; overflow:hidden;
-  box-shadow: 0 2px 12px rgba(0,255,65,0.1);
-}
-#header .metric {
-  display:flex; align-items:center; gap:5px; padding:6px 10px;
-  border-radius:6px; border:1px solid var(--border); flex-shrink:0;
-}
-#header .metric .icon { font-size:17px; }
-#header .metric .val { font-weight:bold; color:var(--c-white); font-size:17px; }
-#header .metric .unit { font-size:17px; color:var(--c-dim); margin-left:2px; }
-#header .metric.warn .val { color:var(--c-amber); }
-#header .metric.crit .val { color:var(--c-red); animation:pulse 1s infinite; }
-#header .spacer { flex:1; }
-#header .title {
-  font-size:16px; font-weight:bold; letter-spacing:3px; color:var(--c-green);
-  text-transform:uppercase; flex-shrink:0;
-  text-shadow: var(--glow-sm) var(--c-green);
-}
-#header .status-dot {
-  font-size:12px; font-weight:bold; padding:4px 10px; border-radius:6px;
-  flex-shrink:0; letter-spacing:1px; text-transform:uppercase;
-}
-#header .status-dot.on { color:var(--c-green); border:1px solid var(--c-green); box-shadow:var(--glow-sm) var(--c-green); animation:pulse 2s infinite; }
-#header .status-dot.off { color:var(--c-red); border:1px solid var(--c-red); }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+/* MAIN LAYOUT */
+#main{position:fixed;top:var(--header-h);bottom:0;left:0;right:0;display:flex;overflow:hidden}
 
-/* ===== MAIN CONTENT AREA ===== */
-#main {
-  position:fixed; top:var(--header-h); bottom:0; left:0; right:0;
-  display:flex; overflow:hidden;
-}
+/* ICON NAV */
+#icon-nav{width:var(--icon-nav-w);background:#000;border-right:1px solid var(--c-green);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;z-index:100}
+#icon-nav .nav-icon{display:flex;align-items:center;justify-content:center;padding:16px 0;cursor:pointer;opacity:0.45;transition:0.2s;border-left:3px solid transparent;font-size:1.8em}
+#icon-nav .nav-icon.active{opacity:1;border-left-color:var(--c-green);background:rgba(0,255,65,0.06)}
+#icon-nav .nav-icon:hover{opacity:0.8}
 
-/* ===== VIEWS ===== */
-.view { display:none; width:100%; height:100%; }
-.view.active { display:flex; flex-direction:column; }
+/* LEFT PANEL */
+#left-panel{width:var(--left-w);flex-shrink:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;padding:6px;gap:6px;border-right:1px solid var(--border);background:var(--bg-deep)}
+#left-panel .pet-mini{text-align:center;padding:6px 0}
+#left-panel .pet-mini .face{font-size:2em;color:var(--c-magenta);line-height:1.2}
+#left-panel .pet-mini .name{font-size:0.7em;color:var(--c-magenta);font-weight:bold;letter-spacing:2px}
+#left-panel .pet-mini .quote{font-size:0.6em;color:var(--c-dim);font-style:italic;margin-top:3px}
+#left-panel .pet-mini .bridge{font-size:0.55em;color:var(--c-cyan);margin-top:2px;display:none}
+#left-panel .spec-compact{font-size:0.78em;color:var(--c-cyan);overflow-y:auto;flex:1;min-height:0}
+#left-panel .spec-compact .ch-row{display:flex;justify-content:space-between;padding:3px 4px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.03)}
+#left-panel .spec-compact .ch-row:hover{background:rgba(0,255,255,0.04)}
+#left-panel .spec-compact .ch-row .ch-n{color:var(--c-green);font-weight:bold}
+#left-panel .spec-compact .ch-row .ch-c{color:var(--c-white);background:rgba(0,255,255,0.08);padding:1px 8px;border-radius:8px;font-size:0.85em}
+#left-panel .spec-compact .ch-detail{display:none;padding:2px 4px 6px 14px;font-size:0.9em;color:var(--c-dim)}
+#left-panel .spec-compact .ch-detail.open{display:block}
 
-/* ===== CONTENT AREA (right of sidebar) ===== */
-#content-area {
-  flex:1; display:flex; overflow:hidden; min-width:0;
-}
+/* DASHBOARD */
+.dash-grid{display:flex;width:100%;height:100%;overflow:hidden}
+.dash-center{flex:1;background:#000;border:1px solid var(--c-green);position:relative;min-width:0;overflow:hidden;box-shadow:var(--glow-sm) rgba(0,255,65,0.15)}
+.dash-right{width:var(--right-w);flex-shrink:0;display:flex;flex-direction:column;padding:6px;gap:6px;overflow:hidden;border-left:1px solid var(--border);background:var(--bg-deep)}
+.map-overlay{position:absolute;bottom:8px;right:8px;z-index:1000;display:flex;flex-direction:column;gap:6px;background:rgba(0,0,0,0.9);padding:10px;border-radius:8px;border:1px solid var(--border);min-width:140px}
+.map-overlay label{font-size:0.85em;display:flex;align-items:center;gap:8px;color:var(--c-white);cursor:pointer;padding:3px 0}
 
-/* ===== DASHBOARD ===== */
-.dash-grid {
-  display:flex; width:100%; height:100%; overflow:hidden;
-}
-.dash-center {
-  flex:1; background:#000; border:1px solid var(--c-green);
-  position:relative; min-width:0; overflow:hidden;
-  box-shadow: var(--glow-sm) rgba(0,255,65,0.15);
-}
-.dash-right {
-  width:var(--right-w); flex-shrink:0; display:flex; flex-direction:column;
-  padding:6px; gap:6px; overflow-y:auto; overflow-x:hidden;
-  border-left:1px solid var(--border);
-}
+/* TARGETS */
+.scores-panel{background:var(--bg-card);border:1px solid var(--c-amber);border-radius:var(--radius);padding:8px;overflow-y:auto;flex:1;min-height:0;box-shadow:var(--glow-sm) rgba(255,176,0,0.1)}
+.scores-panel h4{font-size:0.85em;color:var(--c-amber);margin-bottom:8px;text-transform:uppercase;letter-spacing:2px}
+.scores-panel .sr{padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.85em}
+.scores-panel .sr .sr-top{display:flex;justify-content:space-between;margin-bottom:2px;word-break:break-all}
+.scores-panel .sr .sr-ssid{color:var(--c-white);font-weight:bold}
+.scores-panel .sr .sr-pts{color:var(--c-cyan);flex-shrink:0;margin-left:8px}
+.scores-panel .sr .sr-info{font-size:0.7em;color:var(--c-dim)}
 
-/* Map */
-#map { width:100%; height:100%; background:#111; }
-.leaflet-container { font-family:var(--font); background:#111; }
-.map-overlay {
-  position:absolute; bottom:8px; right:8px; z-index:1000;
-  display:flex; flex-direction:column; gap:6px;
-  background:rgba(0,0,0,0.9); padding:10px; border-radius:8px; border:1px solid var(--border);
-  min-width:140px;
-}
-.map-overlay label {
-  font-size:0.85em; display:flex; align-items:center; gap:8px;
-  color:var(--c-white); cursor:pointer; padding:3px 0;
-}
+/* VIEWS */
+.view{display:none;width:100%;height:100%}
+.view.active{display:flex;flex-direction:column}
 
-/* Pet */
-.pet-card {
-  background:var(--bg-card); border:1px solid var(--c-magenta);
-  border-radius:var(--radius); padding:8px; text-align:center;
-  box-shadow: var(--glow-sm) rgba(255,0,255,0.15);
-}
-.pet-card .face { font-size:2.2em; color:var(--c-magenta); line-height:1.2; }
-.pet-card .name { font-size:0.7em; color:var(--c-magenta); font-weight:bold; text-transform:uppercase; letter-spacing:2px; }
-.pet-card .quote { font-size:0.65em; color:var(--c-dim); font-style:italic; margin-top:4px; }
-.pet-card .bridge { font-size:0.6em; color:var(--c-cyan); margin-top:2px; display:none; }
+/* CARDS */
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
+.card h3{font-size:0.85em;text-transform:uppercase;letter-spacing:2px;border-bottom:1px dashed var(--border);padding-bottom:6px;margin-bottom:10px}
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.setting-row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:#000;border-radius:8px;border:1px solid var(--border);margin-bottom:8px}
+.setting-row span{font-size:0.85em}
 
-/* Spectrum in left column */
-.spec-panel {
-  background:var(--bg-card); border:1px solid var(--c-cyan);
-  border-radius:var(--radius); padding:8px; flex:1; overflow-y:auto;
-  box-shadow: var(--glow-sm) rgba(0,255,255,0.1);
-}
-.spec-panel h4 { font-size:0.85em; color:var(--c-cyan); margin-bottom:6px; text-transform:uppercase; letter-spacing:2px; }
-.spec-panel .ch-row {
-  display:flex; justify-content:space-between; align-items:center;
-  font-size:0.95em; padding:6px 6px; border-bottom:1px solid var(--border);
-  cursor:pointer;
-}
-.spec-panel .ch-row:hover { background:rgba(0,255,255,0.05); }
-.spec-panel .ch-row .ch-n { color:var(--c-green); font-weight:bold; }
-.spec-panel .ch-row .ch-c { color:var(--c-white); background:rgba(0,255,255,0.1); padding:3px 10px; border-radius:10px; font-size:0.9em; }
-.spec-panel .ch-detail { display:none; padding:3px 8px 8px 16px; font-size:0.85em; color:var(--c-dim); }
-.spec-panel .ch-detail.open { display:block; }
+/* BUTTONS */
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;background:transparent;border:2px solid var(--c-green);color:var(--c-green);font-family:var(--font);font-weight:bold;font-size:16px;padding:14px 18px;border-radius:12px;cursor:pointer;text-transform:uppercase;letter-spacing:1px;transition:all 0.2s;min-height:52px;width:100%}
+.btn:hover,.btn:active{background:var(--c-green);color:#000;box-shadow:var(--glow-md) var(--c-green)}
+.btn:active{transform:scale(0.97)}
+.btn.huge{font-size:20px;padding:18px;min-height:60px;border-width:3px}
+.btn.stop{border-color:var(--c-red);color:var(--c-red)}
+.btn.stop:hover{background:var(--c-red);color:#fff;box-shadow:var(--glow-md) var(--c-red)}
+.btn.small{font-size:13px;padding:10px 14px;min-height:42px}
+.btn.cyan{border-color:var(--c-cyan);color:var(--c-cyan)}.btn.cyan:hover{background:var(--c-cyan);color:#000}
+.btn.amber{border-color:var(--c-amber);color:var(--c-amber)}.btn.amber:hover{background:var(--c-amber);color:#000}
+.btn.magenta{border-color:var(--c-magenta);color:var(--c-magenta)}.btn.magenta:hover{background:var(--c-magenta);color:#000}
+.btn.dim{border-color:var(--c-dim);color:var(--c-dim)}
 
-/* Scores in right panel */
-.scores-panel {
-  background:var(--bg-card); border:1px solid var(--c-amber);
-  border-radius:var(--radius); padding:8px; overflow-y:auto; flex:1; min-height:0;
-  box-shadow: var(--glow-sm) rgba(255,176,0,0.1);
-}
-.scores-panel h4 { font-size:0.85em; color:var(--c-amber); margin-bottom:8px; text-transform:uppercase; letter-spacing:2px; }
-.scores-panel .sr {
-  padding:6px 8px; border-bottom:1px solid var(--border); font-size:0.85em;
-}
-.scores-panel .sr .sr-top { display:flex; justify-content:space-between; margin-bottom:2px; word-break:break-all; }
-.scores-panel .sr .sr-ssid { color:var(--c-white); font-weight:bold; }
-.scores-panel .sr .sr-pts { color:var(--c-cyan); flex-shrink:0; }
-.scores-panel .sr .sr-info { font-size:0.7em; color:var(--c-dim); }
+/* FORMS */
+input[type=text],input[type=password],input[type=number],select{background:#000;color:var(--c-white);border:1px solid var(--border);padding:10px;font-size:14px;border-radius:8px;font-family:var(--font);width:100%}
+input:focus,select:focus{border-color:var(--c-green);outline:none;box-shadow:var(--glow-sm) var(--c-green)}
+input[type=checkbox]{appearance:none;width:44px;height:24px;background:var(--border);border-radius:12px;position:relative;cursor:pointer;transition:0.2s;border:none;flex-shrink:0}
+input[type=checkbox]::after{content:"";position:absolute;top:2px;left:2px;width:20px;height:20px;background:var(--c-dim);border-radius:50%;transition:0.2s}
+input[type=checkbox]:checked{background:var(--c-green)}
+input[type=checkbox]:checked::after{left:22px;background:#000}
 
-/* ===== CARDS ===== */
-.card {
-  background:var(--bg-card); border:1px solid var(--border);
-  border-radius:var(--radius); padding:12px;
-}
-.card h3 {
-  font-size:0.85em; text-transform:uppercase; letter-spacing:2px;
-  border-bottom:1px dashed var(--border); padding-bottom:6px; margin-bottom:10px;
-}
+/* FILE LIST */
+.file-item{display:grid;grid-template-columns:1.5fr 2fr 1fr auto;gap:8px;align-items:center;padding:12px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;background:#000}
+.file-item .fi-name{color:var(--c-green);font-weight:bold;word-break:break-all}
+.file-item .fi-nets{color:var(--c-dim);font-size:0.8em}
+.file-item .fi-meta{color:var(--c-dim);font-size:0.8em;text-align:right}
 
-/* ===== BUTTONS ===== */
-.btn {
-  display:flex; align-items:center; justify-content:center; gap:8px;
-  background:transparent; border:2px solid var(--c-green);
-  color:var(--c-green); font-family:var(--font); font-weight:bold;
-  font-size:16px; padding:14px 18px; border-radius:12px; cursor:pointer;
-  text-transform:uppercase; letter-spacing:1px; transition:all 0.2s;
-  min-height:52px; width:100%;
-}
-.btn:hover, .btn:active { background:var(--c-green); color:#000; box-shadow:var(--glow-md) var(--c-green); }
-.btn:active { transform:scale(0.97); }
-.btn.huge { font-size:22px; padding:20px; min-height:64px; border-width:3px; }
-.btn.stop { border-color:var(--c-red); color:var(--c-red); }
-.btn.stop:hover { background:var(--c-red); color:#fff; box-shadow:var(--glow-md) var(--c-red); }
-.btn.small { font-size:13px; padding:10px 14px; min-height:42px; }
-.btn.cyan { border-color:var(--c-cyan); color:var(--c-cyan); }
-.btn.cyan:hover { background:var(--c-cyan); color:#000; }
-.btn.amber { border-color:var(--c-amber); color:var(--c-amber); }
-.btn.amber:hover { background:var(--c-amber); color:#000; }
-.btn.magenta { border-color:var(--c-magenta); color:var(--c-magenta); }
-.btn.magenta:hover { background:var(--c-magenta); color:#000; }
-.btn.dim { border-color:var(--c-dim); color:var(--c-dim); }
+/* LOG */
+.log-box{background:#000;border:1px solid var(--border);border-radius:var(--radius);padding:12px;height:100%;overflow-y:auto;white-space:pre-wrap;font-size:1.1em;color:var(--c-green)}
 
-/* ===== STATUS BADGE (header only) ===== */
+/* ANIMATIONS */
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.view.active{animation:fadeIn 0.2s}
 
-/* ===== SIDEBAR NAV ===== */
-#sidebar {
-  width:var(--sidebar-w); background:#000; border-right:1px solid var(--c-green);
-  display:flex; flex-direction:column; flex-shrink:0; overflow-y:auto; overflow-x:hidden;
-  z-index:100;
-}
-#sidebar .nav-item {
-  display:flex; align-items:center; gap:10px; padding:14px 16px;
-  color:var(--c-green); cursor:pointer; font-size:0.9em; font-weight:bold;
-  text-transform:uppercase; letter-spacing:1px; opacity:0.5; transition:0.2s;
-  border-left:3px solid transparent;
-}
-#sidebar .nav-item .ni { font-size:1.6em; font-style:normal; width:28px; text-align:center; }
-#sidebar .nav-item.active { opacity:1; border-left-color:var(--c-green); background:rgba(0,255,65,0.05); }
-#sidebar .nav-item:hover { opacity:0.8; background:rgba(0,255,65,0.03); }
-#sidebar .sidebar-spacer { flex:1; min-height:8px; }
-#sidebar .sidebar-pet {
-  padding:8px 10px; text-align:center; border-top:1px solid var(--border);
-}
-#sidebar .sidebar-pet .face { font-size:1.8em; color:var(--c-magenta); line-height:1.2; }
-#sidebar .sidebar-pet .name { font-size:0.7em; color:var(--c-magenta); font-weight:bold; letter-spacing:2px; }
-#sidebar .sidebar-pet .quote { font-size:0.6em; color:var(--c-dim); font-style:italic; margin-top:3px; }
-#sidebar .sidebar-pet .bridge { font-size:0.55em; color:var(--c-cyan); margin-top:2px; display:none; }
-#sidebar .sidebar-btn { padding:6px 8px; }
-#sidebar .sidebar-btn .btn { font-size:14px; padding:12px; min-height:40px; }
-
-/* ===== SETTINGS ===== */
-.settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
-.setting-row {
-  display:flex; justify-content:space-between; align-items:center;
-  padding:10px 12px; background:#000; border-radius:8px; border:1px solid var(--border); margin-bottom:8px;
-}
-.setting-row span { font-size:0.85em; }
-
-/* ===== FORMS ===== */
-input[type=text], input[type=password], input[type=number], select {
-  background:#000; color:var(--c-white); border:1px solid var(--border);
-  padding:10px; font-size:14px; border-radius:8px; font-family:var(--font);
-  width:100%;
-}
-input:focus, select:focus { border-color:var(--c-green); outline:none; box-shadow:var(--glow-sm) var(--c-green); }
-input[type=checkbox] { transform:scale(1.4); accent-color:var(--c-green); }
-
-/* ===== FILE LIST ===== */
-.file-item {
-  display:grid; grid-template-columns:1.5fr 2fr 1fr auto; gap:8px; align-items:center;
-  padding:12px; border:1px solid var(--border); border-radius:8px; margin-bottom:6px;
-  background:#000;
-}
-.file-item .fi-name { color:var(--c-green); font-weight:bold; word-break:break-all; }
-.file-item .fi-nets { color:var(--c-dim); font-size:0.8em; }
-.file-item .fi-meta { color:var(--c-dim); font-size:0.8em; text-align:right; }
-
-/* ===== LOG ===== */
-.log-box {
-  background:#000; border:1px solid var(--border); border-radius:var(--radius);
-  padding:12px; height:100%; overflow-y:auto; white-space:pre-wrap;
-  font-size:1.1em; color:var(--c-green);
-}
-
-/* ===== RESPONSIVE ===== */
-@media (max-width:1279px) {
-  :root { --sidebar-w:160px; --right-w:180px; }
-}
-@media (max-width:1023px) {
-  :root { --sidebar-w:140px; --right-w:160px; }
-  .settings-grid { grid-template-columns:1fr; }
-  .file-item { grid-template-columns:1fr; }
-}
-@media (max-width:799px) {
-  :root { --header-h:36px; --sidebar-w:50px; --right-w:0px; }
-  #sidebar .nav-item span { display:none; }
-  #sidebar .nav-item { justify-content:center; padding:12px 6px; }
-  #sidebar .sidebar-pet, #sidebar .sidebar-btn, #sidebar #sidebarSpec { display:none; }
-  .dash-right { display:none; }
-  #header { font-size:10px; gap:4px; }
-  #header .metric { padding:2px 4px; }
-  #header .metric .val, #header .metric .unit { font-size:12px; }
-  #header .metric .icon { font-size:13px; }
-  #header .title { font-size:12px; letter-spacing:1px; }
-}
-
-/* ===== ANIMATIONS ===== */
-@keyframes fadeIn { from{opacity:0} to{opacity:1} }
-.view.active { animation:fadeIn 0.2s; }
-
-/* ===== CHECKBOX TOGGLE STYLE ===== */
-input[type=checkbox] { appearance:none; width:44px; height:24px; background:var(--border); border-radius:12px; position:relative; cursor:pointer; transition:0.2s; border:none; }
-input[type=checkbox]::after { content:""; position:absolute; top:2px; left:2px; width:20px; height:20px; background:var(--c-dim); border-radius:50%; transition:0.2s; }
-input[type=checkbox]:checked { background:var(--c-green); }
-input[type=checkbox]:checked::after { left:22px; background:#000; }
+/* RESPONSIVE */
+@media(max-width:1279px){:root{--left-w:150px;--right-w:170px}}
+@media(max-width:1023px){:root{--left-w:0px;--right-w:0px}#left-panel,.dash-right{display:none}.settings-grid{grid-template-columns:1fr}.file-item{grid-template-columns:1fr}}
+@media(max-width:799px){:root{--header-h:40px;--icon-nav-w:44px}#header{font-size:10px;gap:4px}#header .metric{padding:3px 5px}#header .metric .val,#header .metric .unit{font-size:13px}#header .metric .icon{font-size:14px}#header .title{font-size:12px;letter-spacing:1px}#icon-nav .nav-icon{font-size:1.5em;padding:12px 0}}
 </style>
 </head>
-<body class="scanlines">
+<body>
 
-<!-- ===== HEADER ===== -->
+<!-- HEADER -->
 <div id="header">
   <div class="metric" id="hdr_gps"><span class="icon">🛰️</span><span class="val">--</span><span class="unit">sats</span></div>
   <div class="metric" id="hdr_speed"><span class="icon">🚗</span><span class="val">0</span><span class="unit">km/h</span></div>
@@ -316,132 +148,132 @@ input[type=checkbox]:checked::after { left:22px; background:#000; }
   <span class="status-dot off" id="hdr_dot">● STOPPED</span>
 </div>
 
-<!-- ===== MAIN LAYOUT: sidebar + content ===== -->
+<!-- MAIN -->
 <div id="main">
 
-  <!-- SIDEBAR -->
-  <div id="sidebar">
-    <div class="nav-item active" onclick="switchTab('dashboard',this)"><i class="ni">🚗</i>Dash</div>
-    <div class="nav-item" onclick="switchTab('captures',this)"><i class="ni">📁</i>Files</div>
-    <div class="nav-item" onclick="switchTab('console',this)"><i class="ni">🖥️</i>Console</div>
-    <div class="nav-item" onclick="switchTab('settings',this)"><i class="ni">⚙️</i>Settings</div>
-    <div class="nav-item" onclick="switchTab('history',this)"><i class="ni">📊</i>Stats</div>
-    <div class="sidebar-spacer"></div>
-    <div class="sidebar-pet">
+  <!-- ICON NAV -->
+  <div id="icon-nav">
+    <div class="nav-icon active" onclick="switchTab('dashboard',this)" title="Dashboard">🚗</div>
+    <div class="nav-icon" onclick="switchTab('captures',this)" title="Captures">📁</div>
+    <div class="nav-icon" onclick="switchTab('console',this)" title="Console">🖥️</div>
+    <div class="nav-icon" onclick="switchTab('settings',this)" title="Settings">⚙️</div>
+    <div class="nav-icon" onclick="switchTab('history',this)" title="History">📊</div>
+  </div>
+
+  <!-- LEFT PANEL (pet + start + spectrum) -->
+  <div id="left-panel">
+    <div class="pet-mini">
       <div class="face" id="petFace">(◕‿‿◕)</div>
       <div class="name">Wardriv3r</div>
       <div class="quote" id="petQuote">Zzzz...</div>
       <div class="bridge" id="petBridge">🐾 Linked</div>
     </div>
-    <div class="sidebar-btn"><button class="btn huge" id="btnToggle" onclick="toggleWardriving()">▶ START</button></div>
-    <div id="sidebarSpec" style="padding:6px 8px;font-size:0.75em;color:var(--c-cyan);border-top:1px solid var(--border);overflow-y:auto;max-height:200px;">
-      <div style="font-weight:bold;margin-bottom:4px;">📶 Spectrum</div>
+    <button class="btn huge" id="btnToggle" onclick="toggleWardriving()">▶ START</button>
+    <div class="spec-compact">
+      <div style="font-weight:bold;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px;">📶 Spectrum</div>
       <div id="specList"></div>
     </div>
   </div>
 
   <!-- CONTENT AREA -->
-  <div id="content-area">
+  <div style="flex:1;display:flex;overflow:hidden;min-width:0">
 
     <!-- DASHBOARD -->
-    <div class="view active" id="view-dashboard" style="display:flex;width:100%;height:100%;">
+    <div class="view active" id="view-dashboard" style="display:flex;width:100%;height:100%">
       <div class="dash-grid">
         <div class="dash-center">
           <div id="map"></div>
           <div class="map-overlay">
-            <label title="Switch between online OpenStreetMap and offline tiles"><input type="checkbox" id="chkOnlineTiles" onchange="toggleTiles()"> 🌐 Online Map</label>
-            <label title="Show WiFi signal heatmap overlay"><input type="checkbox" id="chkHeatmap" onchange="toggleHeatmap()"> 🔥 Heatmap</label>
-            <label title="Use your device GPS for live positioning"><input type="checkbox" id="chkBrowserGPS" onchange="toggleBrowserGPS()"> 📡 Phone GPS</label>
+            <label title="Switch between online and offline maps"><input type="checkbox" id="chkOnlineTiles" onchange="toggleTiles()"> 🌐 Online Map</label>
+            <label title="WiFi signal heatmap overlay"><input type="checkbox" id="chkHeatmap" onchange="toggleHeatmap()"> 🔥 Heatmap</label>
+            <label title="Use your phone GPS for positioning"><input type="checkbox" id="chkBrowserGPS" onchange="toggleBrowserGPS()"> 📡 Phone GPS</label>
             <button class="btn small cyan" onclick="startReplay()" style="width:100%;margin-top:4px;">▶ Replay Route</button>
           </div>
         </div>
         <div class="dash-right">
           <div class="scores-panel">
             <h4>🏆 Top Targets</h4>
-            <div id="scoresList"><span style="color:var(--c-dim)">Waiting for targets...</span></div>
+            <div id="scoresList"><span style="color:var(--c-dim)">Waiting...</span></div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- CAPTURES -->
-    <div class="view" id="view-captures" style="padding:8px;overflow-y:auto;width:100%;">
-      <div class="card" style="margin-bottom:8px;">
+    <div class="view" id="view-captures" style="padding:8px;overflow-y:auto;width:100%">
+      <div class="card" style="margin-bottom:8px">
         <h3 style="color:var(--c-cyan)">📦 Capture Manager</h3>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
           <button class="btn small" onclick="loadFiles()">🔄 Refresh</button>
           <button class="btn small cyan" onclick="window.open('/cgi-bin/wardriving_api?action=download_all','_blank')">📥 .tar.gz</button>
           <button class="btn small amber" onclick="window.open('/cgi-bin/wardriving_api?action=export_gpx','_blank')">🗺️ GPX</button>
           <button class="btn small magenta" onclick="window.open('/cgi-bin/wardriving_api?action=export_kml','_blank')">🌍 KML</button>
           <button class="btn small" onclick="window.open('/cgi-bin/wardriving_api?action=export_hashcat','_blank')">🔥 Hashcat</button>
         </div>
-        <div style="border:1px dashed var(--c-green);padding:10px;border-radius:8px;margin-bottom:10px;">
-          <p style="font-size:0.8em;color:var(--c-green);margin:0 0 6px 0;">Upload hashcat.potfile to highlight cracked networks on map:</p>
-          <input type="file" id="potfileInput" style="margin-bottom:6px;">
+        <div style="border:1px dashed var(--c-green);padding:10px;border-radius:8px;margin-bottom:10px">
+          <p style="font-size:0.8em;color:var(--c-green);margin:0 0 6px 0">Upload hashcat.potfile to highlight cracked networks:</p>
+          <input type="file" id="potfileInput" style="margin-bottom:6px">
           <button class="btn small" onclick="uploadPotfile()">📤 Upload Potfile</button>
-          <div id="potfileStatus" style="margin-top:6px;font-size:0.8em;"></div>
+          <div id="potfileStatus" style="margin-top:6px;font-size:0.8em"></div>
         </div>
-        <div class="setting-row" style="justify-content:flex-start;gap:10px;">
-          <span style="color:var(--c-cyan);">Keep RAW .pcapng</span>
-          <input type="checkbox" id="chkKeepPcap" onchange="togglePcap()">
-        </div>
+        <div class="setting-row" style="justify-content:flex-start;gap:10px"><span style="color:var(--c-cyan)">Keep RAW .pcapng</span><input type="checkbox" id="chkKeepPcap" onchange="togglePcap()"></div>
       </div>
       <div id="fileList"><span style="color:var(--c-dim)">Loading...</span></div>
     </div>
 
     <!-- CONSOLE -->
-    <div class="view" id="view-console" style="padding:4px;width:100%;height:100%;">
+    <div class="view" id="view-console" style="padding:4px;width:100%;height:100%">
       <div class="log-box" id="logBox">Waiting for data...</div>
     </div>
 
     <!-- SETTINGS -->
-    <div class="view" id="view-settings" style="padding:8px;overflow-y:auto;width:100%;">
+    <div class="view" id="view-settings" style="padding:8px;overflow-y:auto;width:100%">
       <div class="settings-grid">
         <div class="card"><h3 style="color:var(--c-magenta)">🌙 Display</h3>
           <div class="setting-row"><span>Night Mode</span><input type="checkbox" id="chkNight" onchange="toggleNightMode()"></div>
           <div class="setting-row"><span style="color:var(--c-cyan)">High Accuracy GPS</span><input type="checkbox" id="chkHighGPS" onchange="toggleHighAccuracyGPS()"></div>
           <div class="setting-row"><span style="color:var(--c-magenta)">TTS Audio Alerts</span><input type="checkbox" id="chkAudio" onchange="toggleAudio()"></div>
           <button class="btn small magenta" onclick="testAudio()">🔊 Test Speech</button>
-          <div class="setting-row" style="margin-top:10px;"><span>🚗 Driver Side</span><select id="selDriverSide" onchange="setDriverSide()" style="width:auto;"><option value="left">Left (LHD)</option><option value="right">Right (RHD)</option></select></div>
+          <div class="setting-row" style="margin-top:10px"><span>🚗 Driver Side</span><select id="selDriverSide" onchange="setDriverSide()" style="width:auto"><option value="left">Left (LHD)</option><option value="right">Right (RHD)</option></select></div>
         </div>
         <div class="card"><h3 style="color:var(--c-green)">⚙️ Hardware</h3>
-          <label style="font-size:0.8em;color:var(--c-dim);">Status LED</label><select id="selLED" style="margin-bottom:8px;"></select>
-          <label style="font-size:0.8em;color:var(--c-dim);">Physical Button</label><select id="selBtn" style="margin-bottom:8px;"><option value="wps">WPS Button</option><option value="wifi">WiFi Button</option></select>
-          <label style="font-size:0.8em;color:var(--c-dim);">Operation Mode</label><select id="selMode" style="margin-bottom:8px;"><option value="active">Active (Full Injection)</option><option value="passive">Passive (Silent Survey)</option><option value="smart">Smart (Targeted Only)</option></select>
+          <label style="font-size:0.8em;color:var(--c-dim)">Status LED</label><select id="selLED" style="margin-bottom:8px"></select>
+          <label style="font-size:0.8em;color:var(--c-dim)">Physical Button</label><select id="selBtn" style="margin-bottom:8px"><option value="wps">WPS Button</option><option value="wifi">WiFi Button</option></select>
+          <label style="font-size:0.8em;color:var(--c-dim)">Operation Mode</label><select id="selMode" style="margin-bottom:8px"><option value="active">Active (Full Injection)</option><option value="passive">Passive (Silent Survey)</option><option value="smart">Smart (Targeted Only)</option></select>
           <button class="btn small" onclick="saveHW()">💾 Save Hardware</button>
         </div>
         <div class="card"><h3 style="color:var(--c-amber)">📡 WiGLE</h3>
-          <input type="password" id="wigleToken" placeholder="Paste Base64 API Token..." style="margin-bottom:8px;">
-          <div style="display:flex;gap:6px;"><button class="btn small amber" onclick="saveWigle()">💾 Save</button><button class="btn small" style="background:var(--c-amber);color:#000;" onclick="uploadWigle()">📤 Upload</button></div>
-          <div id="wigleStatus" style="margin-top:8px;font-size:0.8em;color:var(--c-amber);"></div>
+          <input type="password" id="wigleToken" placeholder="Paste Base64 API Token..." style="margin-bottom:8px">
+          <div style="display:flex;gap:6px"><button class="btn small amber" onclick="saveWigle()">💾 Save</button><button class="btn small" style="background:var(--c-amber);color:#000" onclick="uploadWigle()">📤 Upload</button></div>
+          <div id="wigleStatus" style="margin-top:8px;font-size:0.8em;color:var(--c-amber)"></div>
         </div>
         <div class="card"><h3 style="color:var(--c-cyan)">🗺️ Map Tiles</h3>
-          <div style="display:flex;gap:6px;margin-bottom:8px;"><input type="number" id="dlZoomMin" value="12" style="width:60px;"><input type="number" id="dlZoomMax" value="16" style="width:60px;"></div>
-          <button class="btn small cyan" onclick="downloadBBox()">⬇️ Download Viewport</button><div id="bboxStatus" style="margin-top:6px;font-size:0.8em;color:var(--c-cyan);"></div>
-          <hr style="border-color:var(--border);margin:10px 0;"><input type="file" id="tilesFile" accept=".tar.gz,.gz" style="margin-bottom:6px;">
-          <button class="btn small dim" onclick="uploadTiles()">📤 Install from file</button><div id="uploadStatus" style="margin-top:6px;font-size:0.8em;"></div>
+          <div style="display:flex;gap:6px;margin-bottom:8px"><input type="number" id="dlZoomMin" value="12" style="width:60px"><input type="number" id="dlZoomMax" value="16" style="width:60px"></div>
+          <button class="btn small cyan" onclick="downloadBBox()">⬇️ Download Viewport</button><div id="bboxStatus" style="margin-top:6px;font-size:0.8em;color:var(--c-cyan)"></div>
+          <hr style="border-color:var(--border);margin:10px 0"><input type="file" id="tilesFile" accept=".tar.gz,.gz" style="margin-bottom:6px">
+          <button class="btn small dim" onclick="uploadTiles()">📤 Install from file</button><div id="uploadStatus" style="margin-top:6px;font-size:0.8em"></div>
         </div>
         <div class="card"><h3 style="color:var(--c-red)">🛡️ Excluded SSIDs</h3>
-          <div style="display:flex;gap:6px;margin-bottom:8px;"><input type="text" id="newExclusion" placeholder="SSID to hide..." style="flex:1;"><button class="btn small" onclick="addExclusion()">+ Add</button></div>
-          <div id="exclusionsList" style="max-height:200px;overflow-y:auto;"></div>
+          <div style="display:flex;gap:6px;margin-bottom:8px"><input type="text" id="newExclusion" placeholder="SSID to hide..." style="flex:1"><button class="btn small" onclick="addExclusion()">+ Add</button></div>
+          <div id="exclusionsList" style="max-height:200px;overflow-y:auto"></div>
         </div>
         <div class="card"><h3 style="color:var(--c-red)">🎯 Target Alerts</h3>
-          <div style="display:flex;gap:6px;margin-bottom:8px;"><input type="text" id="newTarget" placeholder="e.g. 00:11:22" style="flex:1;text-transform:uppercase;"><button class="btn small" style="border-color:var(--c-red);color:var(--c-red);" onclick="addTarget()">+ Add</button></div>
-          <div id="targetsList" style="max-height:200px;overflow-y:auto;"></div>
+          <div style="display:flex;gap:6px;margin-bottom:8px"><input type="text" id="newTarget" placeholder="e.g. 00:11:22" style="flex:1;text-transform:uppercase"><button class="btn small" style="border-color:var(--c-red);color:var(--c-red)" onclick="addTarget()">+ Add</button></div>
+          <div id="targetsList" style="max-height:200px;overflow-y:auto"></div>
         </div>
       </div>
     </div>
 
     <!-- HISTORY -->
-    <div class="view" id="view-history" style="padding:8px;overflow-y:auto;width:100%;">
-      <div class="card" style="margin-bottom:8px;"><h3 style="color:var(--c-cyan)">📊 Lifetime Statistics</h3>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;">
-          <div class="setting-row" style="flex-direction:column;align-items:center;"><span>Total Nets</span><span class="val" id="stHistTotal" style="font-size:1.3em;color:var(--c-white);">0</span></div>
-          <div class="setting-row" style="flex-direction:column;align-items:center;"><span>WPA3/SAE</span><span class="val" id="stHistWpa3" style="font-size:1.3em;color:var(--c-white);">0</span></div>
-          <div class="setting-row" style="flex-direction:column;align-items:center;"><span>Handshakes</span><span class="val" id="stHistHs" style="font-size:1.3em;color:var(--c-white);">0</span></div>
-          <div class="setting-row" style="flex-direction:column;align-items:center;"><span>Days Active</span><span class="val" id="stHistDays" style="font-size:1.3em;color:var(--c-white);">0</span></div>
+    <div class="view" id="view-history" style="padding:8px;overflow-y:auto;width:100%">
+      <div class="card" style="margin-bottom:8px"><h3 style="color:var(--c-cyan)">📊 Lifetime Statistics</h3>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+          <div class="setting-row" style="flex-direction:column;align-items:center"><span>Total Nets</span><span class="val" id="stHistTotal" style="font-size:1.3em;color:var(--c-white)">0</span></div>
+          <div class="setting-row" style="flex-direction:column;align-items:center"><span>WPA3/SAE</span><span class="val" id="stHistWpa3" style="font-size:1.3em;color:var(--c-white)">0</span></div>
+          <div class="setting-row" style="flex-direction:column;align-items:center"><span>Handshakes</span><span class="val" id="stHistHs" style="font-size:1.3em;color:var(--c-white)">0</span></div>
+          <div class="setting-row" style="flex-direction:column;align-items:center"><span>Days Active</span><span class="val" id="stHistDays" style="font-size:1.3em;color:var(--c-white)">0</span></div>
         </div>
-        <h4 style="font-size:0.8em;color:var(--c-dim);margin-bottom:8px;">Recent Sessions</h4><div id="historyList"><span style="color:var(--c-dim)">Loading...</span></div>
+        <h4 style="font-size:0.8em;color:var(--c-dim);margin-bottom:8px">Recent Sessions</h4><div id="historyList"><span style="color:var(--c-dim)">Loading...</span></div>
       </div>
       <div class="card"><h3 style="color:var(--c-magenta)">🐾 Pwnagotchi Bridge</h3><div id="pwnagotchiStatus"><span style="color:var(--c-dim)">No pwnagotchi detected</span></div></div>
     </div>
@@ -451,215 +283,142 @@ input[type=checkbox]:checked::after { left:22px; background:#000; }
 
 <script>
 // API_TOKEN_PLACEHOLDER
-if(typeof window.API_TOKEN==='undefined') window.API_TOKEN='';
+if(typeof window.API_TOKEN==='undefined')window.API_TOKEN='';
 const _origFetch=window.fetch;
 window.fetch=function(url,options){
-  if(typeof url==='string' && url.includes('/cgi-bin/wardriving_api') && window.API_TOKEN){
-    url+= (url.includes('?')?'&':'?') + 'token='+encodeURIComponent(window.API_TOKEN);
+  if(typeof url==='string'&&url.includes('/cgi-bin/wardriving_api')&&window.API_TOKEN){
+    url+=(url.includes('?')?'&':'?')+'token='+encodeURIComponent(window.API_TOKEN);
   }
   return _origFetch(url,options);
 };
 
-// ===== GLOBALS =====
-let isRunning=false, lastGpsFixTime=Date.now(), lastHandshakeCount=-1;
+// GLOBALS
+let isRunning=false,lastGpsFixTime=Date.now(),lastHandshakeCount=-1;
 let audioEnabled=localStorage.getItem('audioEnabled')==='true';
 let map,onlineLayer,offlineLayer,carMarker,firstLoc=true,watchId=null,browserGpsActive=false;
 let wpsMarkers={},crackedMarkers=[],heatLayer=null,replayTimer=null;
-let excludedSSIDs=[],targetMacs=[],alertedTargets=[];
-let OUI_DB={};
+let excludedSSIDs=[],targetMacs=[],alertedTargets=[],OUI_DB={};
 let petMood='sleep',petLastMoodChange=Date.now(),petHandshakeBurst=0,petLastHandshakes=0,petPwnagotchiDetected=false;
 let dlTimer=null;
 
-// ===== NMEA PARSERS =====
-function parseNMEARMC(line){
-  if(!line||!line.match(/^\$[A-Z]{2}RMC/)) return null;
-  let p=line.split(','); if(p[2]!=='A') return null;
-  let latRaw=parseFloat(p[3]),lat=Math.floor(latRaw/100)+((latRaw/100)%1)*100/60; if(p[4]==='S')lat=-lat;
-  let lonRaw=parseFloat(p[5]),lon=Math.floor(lonRaw/100)+((lonRaw/100)%1)*100/60; if(p[6]==='W')lon=-lon;
-  return {lat,lon,speedKmh:(parseFloat(p[7])||0)*1.852,time:p[1]};
-}
-function parseNMEAWPL(line){
-  if(!line||!line.startsWith('$GPWPL')) return null;
-  let p=line.split(','),latRaw=parseFloat(p[1]),lat=Math.floor(latRaw/100)+((latRaw/100)%1)*100/60; if(p[2]==='S')lat=-lat;
-  let lonRaw=parseFloat(p[3]),lon=Math.floor(lonRaw/100)+((lonRaw/100)%1)*100/60; if(p[4]==='W')lon=-lon;
-  return {lat,lon,mac:(p[5]||'').split('*')[0]};
-}
+// NMEA PARSERS
+function parseNMEARMC(l){if(!l||!l.match(/^\$[A-Z]{2}RMC/))return null;let p=l.split(',');if(p[2]!=='A')return null;let r=parseFloat(p[3]),lat=Math.floor(r/100)+((r/100)%1)*100/60;if(p[4]==='S')lat=-lat;let r2=parseFloat(p[5]),lon=Math.floor(r2/100)+((r2/100)%1)*100/60;if(p[6]==='W')lon=-lon;return{lat,lon,speedKmh:(parseFloat(p[7])||0)*1.852,time:p[1]};}
+function parseNMEAWPL(l){if(!l||!l.startsWith('$GPWPL'))return null;let p=l.split(','),r=parseFloat(p[1]),lat=Math.floor(r/100)+((r/100)%1)*100/60;if(p[2]==='S')lat=-lat;let r2=parseFloat(p[3]),lon=Math.floor(r2/100)+((r2/100)%1)*100/60;if(p[4]==='W')lon=-lon;return{lat,lon,mac:(p[5]||'').split('*')[0]};}
 
-// ===== INIT =====
+// INIT MAP
 function initMap(){
   map=L.map('map',{zoomControl:false}).setView([0,0],2);
   L.control.zoom({position:'topright'}).addTo(map);
   onlineLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OSM'});
   offlineLayer=L.tileLayer('/wardriving/captures/tiles/{z}/{x}/{y}.png',{maxZoom:18,errorTileUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='});
-  let useOnline=localStorage.getItem('useOnlineMaps')==='true';
-  document.getElementById('chkOnlineTiles').checked=useOnline;
-  if(useOnline)onlineLayer.addTo(map); else offlineLayer.addTo(map);
-  carMarker=L.circleMarker([0,0],{radius:8,fillColor:'#00ffff',color:'#fff',weight:2,opacity:1,fillOpacity:1}).addTo(map);
-  carMarker.bindPopup('<b>Current Location</b>');
+  let uo=localStorage.getItem('useOnlineMaps')==='true';
+  document.getElementById('chkOnlineTiles').checked=uo;
+  if(uo)onlineLayer.addTo(map);else offlineLayer.addTo(map);
+  carMarker=L.circleMarker([0,0],{radius:8,fillColor:'#00ffff',color:'#fff',weight:2,opacity:1,fillOpacity:1}).addTo(map).bindPopup('<b>Current Location</b>');
 }
 initMap();
-fetch('/wardriving/oui.json').then(r=>r.json()).then(d=>{OUI_DB=d;}).catch(()=>{});
+fetch('/wardriving/oui.json').then(r=>r.json()).then(d=>{OUI_DB=d}).catch(()=>{});
 
-// ===== TABS =====
+// TABS
 function switchTab(id,el){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
-  document.querySelectorAll('#sidebar .nav-item').forEach(v=>v.classList.remove('active'));
-  let view=document.getElementById('view-'+id); if(view){view.classList.add('active');view.style.display='flex';}
+  document.querySelectorAll('#icon-nav .nav-icon').forEach(v=>v.classList.remove('active'));
+  let view=document.getElementById('view-'+id);if(view){view.classList.add('active');view.style.display='flex';}
   if(el)el.classList.add('active');
-  if(id==='dashboard')setTimeout(()=>{if(map)map.invalidateSize();},200);
+  if(id==='dashboard')setTimeout(()=>{if(map)map.invalidateSize()},200);
   if(id==='history')loadHistory();
 }
 
-// ===== DRIVER SIDE =====
+// DRIVER SIDE
 function setDriverSide(){
-  let side=document.getElementById('selDriverSide').value;
-  localStorage.setItem('driverSide',side);
-  applyDriverSide(side);
+  let s=document.getElementById('selDriverSide').value;localStorage.setItem('driverSide',s);
+  let nav=document.getElementById('icon-nav'),lp=document.getElementById('left-panel');
+  if(s==='right'){nav.style.order='3';lp.style.order='2';}else{nav.style.order='1';lp.style.order='2';}
 }
-function applyDriverSide(side){
-  let sb=document.getElementById('sidebar');
-  if(side==='right'){sb.style.order='2';document.getElementById('content-area').style.order='1';}
-  else {sb.style.order='1';document.getElementById('content-area').style.order='2';}
-}
-(function(){
-  let side=localStorage.getItem('driverSide')||'left';
-  let sel=document.getElementById('selDriverSide'); if(sel)sel.value=side;
-  applyDriverSide(side);
-})();
+(function(){let s=localStorage.getItem('driverSide')||'left',el=document.getElementById('selDriverSide');if(el)el.value=s;})();
 
-// ===== TOGGLE WARDIRIVING =====
+// TOGGLE WARDIRIVING
 function toggleWardriving(){
-  let action=isRunning?'stop':'start';
+  let a=isRunning?'stop':'start';
   document.getElementById('btnToggle').innerText='⏳...';
-  fetch('/cgi-bin/wardriving_api?action='+action).then(()=>setTimeout(updateStatus,1500));
+  fetch('/cgi-bin/wardriving_api?action='+a).then(()=>setTimeout(updateStatus,1500));
 }
 
-// ===== STATUS POLL =====
+// STATUS POLL
 function updateStatus(){
   fetch('/cgi-bin/wardriving_api?action=status').then(r=>r.json()).then(d=>{
     isRunning=d.running;
     let btn=document.getElementById('btnToggle'),dot=document.getElementById('hdr_dot');
-    if(isRunning){
-      btn.innerHTML='⏹ STOP'; btn.className='btn huge stop';
-      dot.className='status-dot on'; dot.innerText='● LIVE';
-    } else {
-      btn.innerHTML='▶ START'; btn.className='btn huge';
-      dot.className='status-dot off'; dot.innerText='● STOPPED';
-    }
-    // Header metrics
+    if(isRunning){btn.innerHTML='⏹ STOP';btn.className='btn huge stop';dot.className='status-dot on';dot.innerText='● LIVE';}
+    else{btn.innerHTML='▶ START';btn.className='btn huge';dot.className='status-dot off';dot.innerText='● STOPPED';}
     document.getElementById('hdr_gps').querySelector('.val').innerText=(d.sats||'0');
-    let gpsUnit=document.getElementById('hdr_gps').querySelector('.unit');
-    if(gpsUnit)gpsUnit.innerText=d.fix!=='0'?'sats':'NO FIX';
-    let hdrGps=document.getElementById('hdr_gps');
-    hdrGps.className='metric'+(d.fix==='0'?' crit':'');
-    let speedKmh=Math.round((parseFloat(d.speed)||0)*1.852);
-    document.getElementById('hdr_speed').querySelector('.val').innerText=speedKmh;
+    let gu=document.getElementById('hdr_gps').querySelector('.unit');if(gu)gu.innerText=d.fix!=='0'?'sats':'NO FIX';
+    document.getElementById('hdr_gps').className='metric'+(d.fix==='0'?' crit':'');
+    let skm=Math.round((parseFloat(d.speed)||0)*1.852);
+    document.getElementById('hdr_speed').querySelector('.val').innerText=skm;
     document.getElementById('hdr_deauths').querySelector('.val').innerText=d.deauths||'0';
     document.getElementById('hdr_hs').querySelector('.val').innerText=d.handshakes||'0';
-    let usbEl=document.getElementById('hdr_usb');
-    usbEl.querySelector('.val').innerText=(d.usb_pct||'?')+'%';
-    usbEl.className='metric'+(parseInt(d.usb_pct)>90?' crit':(parseInt(d.usb_pct)>75?' warn':''));
+    let ue=document.getElementById('hdr_usb');ue.querySelector('.val').innerText=(d.usb_pct||'?')+'%';
+    ue.className='metric'+(parseInt(d.usb_pct)>90?' crit':(parseInt(d.usb_pct)>75?' warn':''));
     document.getElementById('hdr_cpu').querySelector('.val').innerText=(d.cpu||'--');
-    let cpuEl=document.getElementById('hdr_cpu');
-    cpuEl.className='metric'+(parseFloat(d.cpu)>2?' crit':(parseFloat(d.cpu)>1?' warn':''));
+    document.getElementById('hdr_cpu').className='metric'+(parseFloat(d.cpu)>2?' crit':(parseFloat(d.cpu)>1?' warn':''));
     document.getElementById('hdr_ram').querySelector('.val').innerText=(d.ram||'--')+'%';
-    let ramEl=document.getElementById('hdr_ram');
-    ramEl.className='metric'+(parseInt(d.ram)>85?' crit':(parseInt(d.ram)>70?' warn':''));
+    document.getElementById('hdr_ram').className='metric'+(parseInt(d.ram)>85?' crit':(parseInt(d.ram)>70?' warn':''));
 
-    // Browser GPS stats
-    if(!browserGpsActive){
-      if(d.gps_status==='WAITING'){}
-      else if(d.fix==='0'){
-        let lostSecs=Math.floor((Date.now()-lastGpsFixTime)/1000);
-        let timeStr=lostSecs>60?Math.floor(lostSecs/60)+'m'+(lostSecs%60)+'s':lostSecs+'s';
-      } else {lastGpsFixTime=Date.now();}
+    let ch=parseInt(d.handshakes||0);
+    if(lastHandshakeCount!==-1&&ch>lastHandshakeCount&&audioEnabled&&'speechSynthesis' in window){
+      window.speechSynthesis.speak(new SpeechSynthesisUtterance('Captured '+(ch-lastHandshakeCount)+' new handshake'+(ch-lastHandshakeCount>1?'s':'')));
     }
+    lastHandshakeCount=ch;
 
-    let currentHandshakes=parseInt(d.handshakes||0);
-    if(lastHandshakeCount!==-1 && currentHandshakes>lastHandshakeCount && audioEnabled && 'speechSynthesis' in window){
-      let diff=currentHandshakes-lastHandshakeCount;
-      window.speechSynthesis.speak(new SpeechSynthesisUtterance('Captured '+diff+' new handshake'+(diff>1?'s':'')));
+    if(d.logs){let lb=document.getElementById('logBox');lb.innerText=d.logs.replace(/\\n/g,'\n');if(lb.scrollHeight-lb.scrollTop<lb.clientHeight+100)lb.scrollTop=lb.scrollHeight;}
+
+    if(d.channels_data&&Array.isArray(d.channels_data)){
+      let fd=d.channels_data.filter(i=>!excludedSSIDs.includes(i.s)),cm={};
+      fd.forEach(i=>{if(!cm[i.c])cm[i.c]=[];cm[i.c].push(i.s);});
+      let sh='',chs=[1,2,3,4,5,6,7,8,9,10,11];
+      chs.forEach(c=>{let ss=cm[c]||[];sh+='<div class="ch-row" onclick="this.nextElementSibling.classList.toggle(\'open\')"><span class="ch-n">CH '+c+'</span><span class="ch-c">'+ss.length+'</span></div><div class="ch-detail">'+(ss.length?ss.map(s=>'<div>'+s.replace(/</g,'&lt;')+'</div>').join(''):'<span style="color:var(--c-dim)">empty</span>')+'</div>';});
+      document.getElementById('specList').innerHTML=sh;
     }
-    lastHandshakeCount=currentHandshakes;
-
-    // Log box
-    if(d.logs){let lb=document.getElementById('logBox');lb.innerText=d.logs.replace(/\\n/g,'\n'); if(lb.scrollHeight-lb.scrollTop<lb.clientHeight+100)lb.scrollTop=lb.scrollHeight;}
-
-    // Spectrum with expandable channels
-    if(d.channels_data && Array.isArray(d.channels_data)){
-      let filtered=d.channels_data.filter(i=>!excludedSSIDs.includes(i.s));
-      let chMap={}; filtered.forEach(i=>{if(!chMap[i.c])chMap[i.c]=[];chMap[i.c].push(i.s);});
-      let specHtml='',channels=[1,2,3,4,5,6,7,8,9,10,11];
-      channels.forEach(c=>{let ssids=(chMap[c]||[]);
-        specHtml+='<div class="ch-row" onclick="this.nextElementSibling.classList.toggle(\'open\')"><span class="ch-n">CH '+c+'</span><span class="ch-c">'+ssids.length+'</span></div>';
-        specHtml+='<div class="ch-detail">'+(ssids.length?ssids.map(s=>'<div>'+s.replace(/</g,'&lt;')+'</div>').join(''):'<span style="color:var(--c-dim)">empty</span>')+'</div>';
-      });
-      document.getElementById('specList').innerHTML=specHtml;
-    }
-
-    // Scores - larger display
     updateScores();
   });
 }
 
 function updateScores(){
   if(!isRunning)return;
-  fetch('/cgi-bin/wardriving_api?action=scored_networks').then(r=>r.json()).then(data=>{
-    let html=''; if(!data||!data.length){document.getElementById('scoresList').innerHTML='<span style="color:var(--c-dim)">No targets in range</span>';return;}
-    data.slice(0,12).forEach(n=>{
-      let vendor=OUI_DB[(n.mac||'').replace(/:/g,'').substring(0,6).toUpperCase()]||'';
-      let score=100+parseInt(n.rssi||-100);let color=score>100?'var(--c-green)':(score>60?'var(--c-amber)':'var(--c-dim)');
-      html+='<div class="sr"><div class="sr-top"><span class="sr-ssid">'+(n.ssid||'??')+'</span><span class="sr-pts" style="color:'+color+'">'+score+' pts</span></div>';
-      html+='<div class="sr-info">'+(n.enc||'?')+' | RSSI: '+(n.rssi||'?')+' | '+(n.has_hs?'🔑 PMKID':'')+(vendor?' | '+vendor:'')+'</div></div>';
+  fetch('/cgi-bin/wardriving_api?action=scored_networks').then(r=>r.json()).then(d=>{
+    let h='';if(!d||!d.length){document.getElementById('scoresList').innerHTML='<span style="color:var(--c-dim)">No targets in range</span>';return;}
+    d.slice(0,12).forEach(n=>{
+      let v=OUI_DB[(n.mac||'').replace(/:/g,'').substring(0,6).toUpperCase()]||'';
+      let sc=100+parseInt(n.rssi||-100),co=sc>100?'var(--c-green)':(sc>60?'var(--c-amber)':'var(--c-dim)');
+      h+='<div class="sr"><div class="sr-top"><span class="sr-ssid">'+(n.ssid||'??')+'</span><span class="sr-pts" style="color:'+co+'">'+sc+' pts</span></div><div class="sr-info">'+(n.enc||'?')+' | RSSI:'+(n.rssi||'?')+' | '+(n.has_hs?'🔑 PMKID':'')+(v?' | '+v:'')+'</div></div>';
     });
-    document.getElementById('scoresList').innerHTML=html||'<span style="color:var(--c-dim)">No targets</span>';
+    document.getElementById('scoresList').innerHTML=h||'<span style="color:var(--c-dim)">No targets</span>';
   }).catch(()=>{});
 }
 
-// ===== MAP POLL =====
+// MAP POLL
 function updateMap(){
   if(!isRunning)return;
   fetch('/cgi-bin/wardriving_api?action=map_data').then(r=>r.json()).then(d=>{
-    if(!d.nmea_b64)return;
-    let lines=atob(d.nmea_b64).split('\n'),curLat=null,curLng=null;
-    lines.forEach(l=>{
-      let rmc=parseNMEARMC(l); if(rmc){curLat=rmc.lat;curLng=rmc.lon;window.carLat=rmc.lat;window.carLng=rmc.lon;return;}
-      let wpl=parseNMEAWPL(l); if(wpl && !wpsMarkers[wpl.mac] && !isNaN(wpl.lat) && !isNaN(wpl.lon)){
-        wpsMarkers[wpl.mac]=L.circleMarker([wpl.lat,wpl.lon],{radius:5,fillColor:'#00ff00',color:'#00aa00',weight:1,opacity:1,fillOpacity:0.7}).addTo(map).bindPopup('<b>Handshake:</b><br>'+wpl.mac);
-      }
-    });
-    if(curLat!==null && !isNaN(curLat)){carMarker.setLatLng([curLat,curLng]);if(firstLoc){map.setView([curLat,curLng],16);firstLoc=false;}}
+    if(!d.nmea_b64)return;let ls=atob(d.nmea_b64).split('\n'),cl=null,cln=null;
+    ls.forEach(l=>{let r=parseNMEARMC(l);if(r){cl=r.lat;cln=r.lon;window.carLat=r.lat;window.carLng=r.lon;return;}
+      let w=parseNMEAWPL(l);if(w&&!wpsMarkers[w.mac]&&!isNaN(w.lat)&&!isNaN(w.lon)){wpsMarkers[w.mac]=L.circleMarker([w.lat,w.lon],{radius:5,fillColor:'#00ff00',color:'#00aa00',weight:1,opacity:1,fillOpacity:0.7}).addTo(map).bindPopup('<b>Handshake:</b><br>'+w.mac);}});
+    if(cl!==null&&!isNaN(cl)){carMarker.setLatLng([cl,cln]);if(firstLoc){map.setView([cl,cln],16);firstLoc=false;}}
   });
 }
 
-// ===== MAP CONTROLS =====
-function toggleTiles(){let on=document.getElementById('chkOnlineTiles').checked;localStorage.setItem('useOnlineMaps',on);if(on){map.removeLayer(offlineLayer);onlineLayer.addTo(map);}else{map.removeLayer(onlineLayer);offlineLayer.addTo(map);}}
-function toggleHeatmap(){
-  if(document.getElementById('chkHeatmap').checked){
-    fetch('/cgi-bin/wardriving_api?action=heatmap_data').then(r=>r.json()).then(d=>{if(d.length>0)heatLayer=L.heatLayer(d,{radius:25,blur:15,maxZoom:17}).addTo(map);});
-  }else{if(heatLayer){map.removeLayer(heatLayer);heatLayer=null;}}
-}
-function startReplay(){
-  if(replayTimer){clearInterval(replayTimer);replayTimer=null;return;}
-  fetch('/cgi-bin/wardriving_api?action=map_data').then(r=>r.json()).then(d=>{
-    if(!d.nmea_b64)return;
-    let coords=[],lines=atob(d.nmea_b64).split('\n');
-    lines.forEach(l=>{let rmc=parseNMEARMC(l);if(rmc)coords.push([rmc.lat,rmc.lon]);});
-    if(!coords.length)return;
-    let idx=0;replayTimer=setInterval(()=>{if(idx>=coords.length){clearInterval(replayTimer);replayTimer=null;return;}map.setView(coords[idx],16);carMarker.setLatLng(coords[idx]);idx++;},500);
-  });
-}
+// MAP CONTROLS
+function toggleTiles(){let o=document.getElementById('chkOnlineTiles').checked;localStorage.setItem('useOnlineMaps',o);if(o){map.removeLayer(offlineLayer);onlineLayer.addTo(map);}else{map.removeLayer(onlineLayer);offlineLayer.addTo(map);}}
+function toggleHeatmap(){if(document.getElementById('chkHeatmap').checked){fetch('/cgi-bin/wardriving_api?action=heatmap_data').then(r=>r.json()).then(d=>{if(d.length>0)heatLayer=L.heatLayer(d,{radius:25,blur:15,maxZoom:17}).addTo(map);});}else{if(heatLayer){map.removeLayer(heatLayer);heatLayer=null;}}}
+function startReplay(){if(replayTimer){clearInterval(replayTimer);replayTimer=null;return;}fetch('/cgi-bin/wardriving_api?action=map_data').then(r=>r.json()).then(d=>{if(!d.nmea_b64)return;let co=[],ls=atob(d.nmea_b64).split('\n');ls.forEach(l=>{let r=parseNMEARMC(l);if(r)co.push([r.lat,r.lon]);});if(!co.length)return;let i=0;replayTimer=setInterval(()=>{if(i>=co.length){clearInterval(replayTimer);replayTimer=null;return;}map.setView(co[i],16);carMarker.setLatLng(co[i]);i++;},500);});}
 
-// ===== BROWSER GPS =====
+// BROWSER GPS
 function toggleBrowserGPS(){
   browserGpsActive=document.getElementById('chkBrowserGPS').checked;localStorage.setItem('browserGpsActive',browserGpsActive);
   if(browserGpsActive){
     if(!navigator.geolocation){document.getElementById('chkBrowserGPS').checked=false;browserGpsActive=false;return;}
-    watchId=navigator.geolocation.watchPosition(pos=>{
-      window.carLat=pos.coords.latitude;window.carLng=pos.coords.longitude;carMarker.setLatLng([window.carLat,window.carLng]);
-      if(firstLoc){map.setView([window.carLat,window.carLng],16);firstLoc=false;}
-      if(isRunning){let nmea=generateNMEA(pos);fetch('/cgi-bin/wardriving_api?action=gps_push',{method:'POST',body:nmea});}
-    },()=>{document.getElementById('chkBrowserGPS').checked=false;browserGpsActive=false;},{enableHighAccuracy:window.GPS_HIGH_ACCURACY||false,maximumAge:1000,timeout:10000});
+    watchId=navigator.geolocation.watchPosition(p=>{window.carLat=p.coords.latitude;window.carLng=p.coords.longitude;carMarker.setLatLng([window.carLat,window.carLng]);if(firstLoc){map.setView([window.carLat,window.carLng],16);firstLoc=false;}if(isRunning){let n=generateNMEA(p);fetch('/cgi-bin/wardriving_api?action=gps_push',{method:'POST',body:n});}},()=>{document.getElementById('chkBrowserGPS').checked=false;browserGpsActive=false;},{enableHighAccuracy:window.GPS_HIGH_ACCURACY||false,maximumAge:1000,timeout:10000});
   }else{if(watchId!==null)navigator.geolocation.clearWatch(watchId);}
 }
 function generateNMEA(pos){
@@ -673,180 +432,62 @@ function generateNMEA(pos){
   return '$'+rmc+'*'+cs(rmc)+'\r\n$'+gga+'*'+cs(gga)+'\r\n';
 }
 
-// ===== CAPTURES =====
-function loadFiles(){
-  fetch('/cgi-bin/wardriving_api?action=list_files').then(r=>r.json()).then(d=>{
-    let html='';if(!d||!d.length){document.getElementById('fileList').innerHTML='<span style="color:var(--c-dim)">No captures yet.</span>';return;}
-    d.forEach(f=>{html+='<div class="file-item"><div class="fi-name">'+f.name+'</div><div class="fi-nets">'+f.nets+'</div><div class="fi-meta">'+f.size+'<br>'+f.date+'</div><button class="btn small stop" onclick="deleteFile(\''+f.name+'\')" style="min-width:50px;">✕</button></div>';});
-    document.getElementById('fileList').innerHTML=html;
-  });
-}
+// CAPTURES
+function loadFiles(){fetch('/cgi-bin/wardriving_api?action=list_files').then(r=>r.json()).then(d=>{let h='';if(!d||!d.length){document.getElementById('fileList').innerHTML='<span style="color:var(--c-dim)">No captures yet.</span>';return;}d.forEach(f=>{h+='<div class="file-item"><div class="fi-name">'+f.name+'</div><div class="fi-nets">'+f.nets+'</div><div class="fi-meta">'+f.size+'<br>'+f.date+'</div><button class="btn small stop" onclick="deleteFile(\''+f.name+'\')">✕</button></div>';});document.getElementById('fileList').innerHTML=h;});}
 function deleteFile(fn){fetch('/cgi-bin/wardriving_api?action=delete_file&file='+fn).then(()=>{loadFiles();updateStatus();});}
 function togglePcap(){fetch('/cgi-bin/wardriving_api?action=set_pcap_retention&keep='+document.getElementById('chkKeepPcap').checked);}
-function uploadPotfile(){
-  let f=document.getElementById('potfileInput').files[0];if(!f)return;
-  document.getElementById('potfileStatus').innerText='Uploading...';
-  fetch('/cgi-bin/wardriving_api?action=upload_potfile',{method:'POST',body:f}).then(()=>{document.getElementById('potfileStatus').innerText='✓ Uploaded!';loadCrackedNetworks();});
-}
-function loadCrackedNetworks(){
-  fetch('/cgi-bin/wardriving_api?action=cracked_networks').then(r=>r.json()).then(d=>{
-    crackedMarkers.forEach(m=>map.removeLayer(m));crackedMarkers=[];
-    if(!d||!d.length)return;
-    d.forEach(n=>{let m=L.marker([n.lat,n.lon],{icon:L.divIcon({className:'cracked-icon',html:'🔓',iconSize:[20,20]})}).addTo(map).bindPopup('<b style="color:#0f0;">🔓 CRACKED!</b><br>'+n.ssid);crackedMarkers.push(m);});
-  });
-}
+function uploadPotfile(){let f=document.getElementById('potfileInput').files[0];if(!f)return;document.getElementById('potfileStatus').innerText='Uploading...';fetch('/cgi-bin/wardriving_api?action=upload_potfile',{method:'POST',body:f}).then(()=>{document.getElementById('potfileStatus').innerText='✓ Uploaded!';loadCrackedNetworks();});}
+function loadCrackedNetworks(){fetch('/cgi-bin/wardriving_api?action=cracked_networks').then(r=>r.json()).then(d=>{crackedMarkers.forEach(m=>map.removeLayer(m));crackedMarkers=[];if(!d||!d.length)return;d.forEach(n=>{let m=L.marker([n.lat,n.lon],{icon:L.divIcon({className:'cracked-icon',html:'🔓',iconSize:[20,20]})}).addTo(map).bindPopup('<b style="color:#0f0;">🔓 CRACKED!</b><br>'+n.ssid);crackedMarkers.push(m);});});}
 
-// ===== CONSOLE =====
-// (log box updated by updateStatus)
-
-// ===== SETTINGS =====
-function toggleNightMode(){let n=document.getElementById('chkNight').checked;localStorage.setItem('nightMode',n);if(n){document.body.classList.add('night-mode');}else{document.body.classList.remove('night-mode');}}
+// SETTINGS
+function toggleNightMode(){let n=document.getElementById('chkNight').checked;localStorage.setItem('nightMode',n);if(n)document.body.classList.add('night-mode');else document.body.classList.remove('night-mode');}
 if(localStorage.getItem('nightMode')==='true'){document.body.classList.add('night-mode');window.addEventListener('DOMContentLoaded',()=>{let c=document.getElementById('chkNight');if(c)c.checked=true;});}
-
 function toggleHighAccuracyGPS(){let e=document.getElementById('chkHighGPS').checked;window.GPS_HIGH_ACCURACY=e;localStorage.setItem('gpsHighAccuracy',e);}
 window.GPS_HIGH_ACCURACY=localStorage.getItem('gpsHighAccuracy')==='true';
 window.addEventListener('DOMContentLoaded',()=>{if(window.GPS_HIGH_ACCURACY){let c=document.getElementById('chkHighGPS');if(c)c.checked=true;}});
-
-function toggleAudio(){audioEnabled=document.getElementById('chkAudio').checked;localStorage.setItem('audioEnabled',audioEnabled);if(audioEnabled && 'Notification' in window)Notification.requestPermission();}
+function toggleAudio(){audioEnabled=document.getElementById('chkAudio').checked;localStorage.setItem('audioEnabled',audioEnabled);if(audioEnabled&&'Notification' in window)Notification.requestPermission();}
 if(audioEnabled){let c=document.getElementById('chkAudio');if(c)c.checked=true;}
-
 function testAudio(){if('speechSynthesis' in window){window.speechSynthesis.speak(new SpeechSynthesisUtterance('OpenWardRivingT audio active.'));sendNotification('OpenWardRivingT','Audio enabled');}}
-function sendNotification(t,b){if('Notification' in window && Notification.permission==='granted')new Notification(t,{body:b});}
+function sendNotification(t,b){if('Notification' in window&&Notification.permission==='granted')new Notification(t,{body:b});}
+function loadHW(){fetch('/cgi-bin/wardriving_api?action=get_hw').then(r=>r.json()).then(d=>{let s=document.getElementById('selLED');s.innerHTML='';if(d.leds)d.leds.forEach(l=>{let o=document.createElement('option');o.value=l;o.text=l;if(l===d.current_led)o.selected=true;s.appendChild(o);});document.getElementById('selBtn').value=(d.current_button==='wifi'?'wifi':'wps');document.getElementById('selMode').value=d.mode||'active';});}
+function saveHW(){let l=document.getElementById('selLED').value,b=document.getElementById('selBtn').value,m=document.getElementById('selMode').value;fetch('/cgi-bin/wardriving_api?action=set_hw&led='+encodeURIComponent(l)+'&btn='+b+'&mode='+m).then(r=>r.json()).then(d=>{if(d.status==='saved')alert('Hardware saved!');});}
+function saveWigle(){let t=document.getElementById('wigleToken').value;if(!t)return;fetch('/cgi-bin/wardriving_api?action=save_wigle_token',{method:'POST',body:t}).then(r=>r.json()).then(d=>{if(d.status==='ok'){document.getElementById('wigleStatus').innerText='Token Saved!';setTimeout(()=>document.getElementById('wigleStatus').innerText='',3000);}});}
+function uploadWigle(){document.getElementById('wigleStatus').innerText='Uploading...';fetch('/cgi-bin/wardriving_api?action=wigle_upload').then(r=>r.json()).then(d=>{document.getElementById('wigleStatus').innerText=d.success?'✓ Uploaded!':'Error: '+(d.error||'Unknown');}).catch(()=>{document.getElementById('wigleStatus').innerText='Network Error!';});}
+function downloadBBox(){if(!map)return;let b=map.getBounds(),zMin=document.getElementById('dlZoomMin').value||12,zMax=document.getElementById('dlZoomMax').value||16;let n=b.getNorth(),s=b.getSouth(),e=b.getEast(),w=b.getWest();document.getElementById('bboxStatus').innerText='Starting...';fetch('/cgi-bin/wardriving_api?action=download_bbox&n='+n+'&s='+s+'&e='+e+'&w='+w+'&z1='+zMin+'&z2='+zMax).then(r=>r.json()).then(d=>{if(d.status==='started'){document.getElementById('bboxStatus').innerText='Downloading...';if(dlTimer)clearInterval(dlTimer);dlTimer=setInterval(()=>{fetch('/cgi-bin/wardriving_api?action=download_status').then(rr=>rr.json()).then(dd=>{if(dd.status==='DONE'){document.getElementById('bboxStatus').innerText='✓ Done!';clearInterval(dlTimer);}});},3000);}}).catch(()=>{document.getElementById('bboxStatus').innerText='Error';});}
+function uploadTiles(){let f=document.getElementById('tilesFile').files[0];if(!f)return;document.getElementById('uploadStatus').innerText='Uploading...';fetch('/cgi-bin/wardriving_api?action=upload_tiles',{method:'POST',body:f}).then(r=>r.json()).then(d=>{document.getElementById('uploadStatus').innerText=d.status==='ok'?'✓ Installed!':'Error';setTimeout(()=>{if(map)map.invalidateSize();},1000);}).catch(()=>{document.getElementById('uploadStatus').innerText='Error';});}
 
-function loadHW(){
-  fetch('/cgi-bin/wardriving_api?action=get_hw').then(r=>r.json()).then(d=>{
-    let sel=document.getElementById('selLED');sel.innerHTML='';
-    if(d.leds)d.leds.forEach(l=>{let o=document.createElement('option');o.value=l;o.text=l;if(l===d.current_led)o.selected=true;sel.appendChild(o);});
-    document.getElementById('selBtn').value=(d.current_button==='wifi'?'wifi':'wps');
-    document.getElementById('selMode').value=d.mode||'active';
-  });
-}
-function saveHW(){
-  let led=document.getElementById('selLED').value,btn=document.getElementById('selBtn').value,mode=document.getElementById('selMode').value;
-  fetch('/cgi-bin/wardriving_api?action=set_hw&led='+encodeURIComponent(led)+'&btn='+btn+'&mode='+mode).then(r=>r.json()).then(d=>{if(d.status==='saved')alert('Hardware saved!');});
-}
-
-// WiGLE
-function saveWigle(){
-  let t=document.getElementById('wigleToken').value;if(!t)return;
-  fetch('/cgi-bin/wardriving_api?action=save_wigle_token',{method:'POST',body:t}).then(r=>r.json()).then(d=>{
-    if(d.status==='ok'){document.getElementById('wigleStatus').innerText='Token Saved!';setTimeout(()=>document.getElementById('wigleStatus').innerText='',3000);}
-  });
-}
-function uploadWigle(){
-  document.getElementById('wigleStatus').innerText='Uploading...';
-  fetch('/cgi-bin/wardriving_api?action=wigle_upload').then(r=>r.json()).then(d=>{
-    document.getElementById('wigleStatus').innerText=d.success?'✓ Uploaded!':'Error: '+(d.error||'Unknown');
-  }).catch(()=>{document.getElementById('wigleStatus').innerText='Network Error!';});
-}
-
-// Tiles
-function downloadBBox(){
-  if(!map)return;
-  let b=map.getBounds(),zMin=document.getElementById('dlZoomMin').value||12,zMax=document.getElementById('dlZoomMax').value||16;
-  let n=b.getNorth(),s=b.getSouth(),e=b.getEast(),w=b.getWest();
-  document.getElementById('bboxStatus').innerText='Starting download...';
-  fetch('/cgi-bin/wardriving_api?action=download_bbox&n='+n+'&s='+s+'&e='+e+'&w='+w+'&z1='+zMin+'&z2='+zMax).then(r=>r.json()).then(d=>{
-    if(d.status==='started'){document.getElementById('bboxStatus').innerText='Downloading...';if(dlTimer)clearInterval(dlTimer);
-      dlTimer=setInterval(()=>{fetch('/cgi-bin/wardriving_api?action=download_status').then(rr=>rr.json()).then(dd=>{if(dd.status==='DONE'){document.getElementById('bboxStatus').innerText='✓ Done!';clearInterval(dlTimer);}});},3000);}
-  }).catch(()=>{document.getElementById('bboxStatus').innerText='Error';});
-}
-function uploadTiles(){
-  let f=document.getElementById('tilesFile').files[0];if(!f)return;
-  document.getElementById('uploadStatus').innerText='Uploading...';
-  fetch('/cgi-bin/wardriving_api?action=upload_tiles',{method:'POST',body:f}).then(r=>r.json()).then(d=>{
-    document.getElementById('uploadStatus').innerText=d.status==='ok'?'✓ Installed!':'Error';
-    setTimeout(()=>{if(map)map.invalidateSize();},1000);
-  }).catch(()=>{document.getElementById('uploadStatus').innerText='Error';});
-}
-
-// Exclusions
-function loadExclusions(){
-  fetch('/cgi-bin/wardriving_api?action=get_exclusions').then(r=>r.json()).then(d=>{excludedSSIDs=d||[];renderExclusions();});
-}
-function renderExclusions(){
-  let c=document.getElementById('exclusionsList');if(!c)return;c.innerHTML='';
-  if(!excludedSSIDs.length){c.innerHTML='<span style="color:var(--c-dim)">None</span>';return;}
-  excludedSSIDs.forEach(s=>{let d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:8px;border:1px solid var(--border);margin-bottom:4px;border-radius:6px;';
-    d.innerHTML='<span>'+s.replace(/</g,'&lt;')+'</span><button class="btn small" style="border-color:var(--c-red);color:var(--c-red);min-width:60px;min-height:30px;" onclick="removeExclusion(\''+encodeURIComponent(s)+'\')">✕</button>';c.appendChild(d);});
-}
-function addExclusion(){
-  let v=document.getElementById('newExclusion').value.trim();if(!v)return;
-  fetch('/cgi-bin/wardriving_api?action=add_exclusion&ssid='+encodeURIComponent(v)).then(()=>{document.getElementById('newExclusion').value='';loadExclusions();});
-}
+// EXCLUSIONS & TARGETS
+function loadExclusions(){fetch('/cgi-bin/wardriving_api?action=get_exclusions').then(r=>r.json()).then(d=>{excludedSSIDs=d||[];renderExclusions();});}
+function renderExclusions(){let c=document.getElementById('exclusionsList');if(!c)return;c.innerHTML='';if(!excludedSSIDs.length){c.innerHTML='<span style="color:var(--c-dim)">None</span>';return;}excludedSSIDs.forEach(s=>{let d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:8px;border:1px solid var(--border);margin-bottom:4px;border-radius:6px';d.innerHTML='<span>'+s.replace(/</g,'&lt;')+'</span><button class="btn small" style="border-color:var(--c-red);color:var(--c-red);min-width:60px;min-height:30px" onclick="removeExclusion(\''+encodeURIComponent(s)+'\')">✕</button>';c.appendChild(d);});}
+function addExclusion(){let v=document.getElementById('newExclusion').value.trim();if(!v)return;fetch('/cgi-bin/wardriving_api?action=add_exclusion&ssid='+encodeURIComponent(v)).then(()=>{document.getElementById('newExclusion').value='';loadExclusions();});}
 function removeExclusion(s){fetch('/cgi-bin/wardriving_api?action=remove_exclusion&ssid='+s).then(()=>loadExclusions());}
 loadExclusions();setInterval(loadExclusions,10000);
-
-// Targets
 function loadTargets(){fetch('/cgi-bin/wardriving_api?action=get_targets').then(r=>r.json()).then(d=>{targetMacs=d||[];renderTargets();});}
-function renderTargets(){
-  let c=document.getElementById('targetsList');if(!c)return;c.innerHTML='';
-  targetMacs.forEach(m=>{let d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:8px;border:1px solid var(--c-red);margin-bottom:4px;border-radius:6px;';
-    d.innerHTML='<span style="color:var(--c-red);font-weight:bold;">'+m+'</span><button class="btn small" style="border-color:var(--c-red);color:var(--c-red);min-width:60px;min-height:30px;" onclick="removeTarget(\''+m+'\')">✕</button>';c.appendChild(d);});
-}
+function renderTargets(){let c=document.getElementById('targetsList');if(!c)return;c.innerHTML='';targetMacs.forEach(m=>{let d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:8px;border:1px solid var(--c-red);margin-bottom:4px;border-radius:6px';d.innerHTML='<span style="color:var(--c-red);font-weight:bold">'+m+'</span><button class="btn small" style="border-color:var(--c-red);color:var(--c-red);min-width:60px;min-height:30px" onclick="removeTarget(\''+m+'\')">✕</button>';c.appendChild(d);});}
 function addTarget(){let m=document.getElementById('newTarget').value.trim().toUpperCase();if(!m)return;fetch('/cgi-bin/wardriving_api?action=add_target&mac='+encodeURIComponent(m)).then(()=>{document.getElementById('newTarget').value='';loadTargets();});}
 function removeTarget(m){fetch('/cgi-bin/wardriving_api?action=remove_target&mac='+encodeURIComponent(m)).then(()=>loadTargets());}
-function checkTargets(){
-  if(!isRunning || !targetMacs.length)return;
-  fetch('/cgi-bin/wardriving_api?action=check_targets').then(r=>r.json()).then(d=>{
-    if(d && d.length) d.forEach(n=>{if(!alertedTargets.includes(n.mac)){alertedTargets.push(n.mac);
-      if(audioEnabled && 'speechSynthesis' in window)window.speechSynthesis.speak(new SpeechSynthesisUtterance('Target detected! '+n.ssid));}});
-  });
-}
+function checkTargets(){if(!isRunning||!targetMacs.length)return;fetch('/cgi-bin/wardriving_api?action=check_targets').then(r=>r.json()).then(d=>{if(d&&d.length)d.forEach(n=>{if(!alertedTargets.includes(n.mac)){alertedTargets.push(n.mac);if(audioEnabled&&'speechSynthesis' in window)window.speechSynthesis.speak(new SpeechSynthesisUtterance('Target detected! '+n.ssid));}});});}
 loadTargets();setInterval(checkTargets,10000);
 
-// ===== HISTORY =====
-function loadHistory(){
-  fetch('/cgi-bin/wardriving_api?action=history').then(r=>r.json()).then(d=>{
-    document.getElementById('stHistTotal').innerText=d.total;document.getElementById('stHistWpa3').innerText=d.wpa3;
-    document.getElementById('stHistHs').innerText=d.hs;document.getElementById('stHistDays').innerText=d.days;
-    let html='';d.sessions.forEach(s=>{html+='<div style="padding:8px;border:1px solid var(--border);border-radius:6px;margin-bottom:4px;display:flex;justify-content:space-between;"><span>📅 '+s.date+'</span><span>'+s.count+' nets</span></div>';});
-    document.getElementById('historyList').innerHTML=html||'<span style="color:var(--c-dim)">No data</span>';
-  });
-}
+// HISTORY
+function loadHistory(){fetch('/cgi-bin/wardriving_api?action=history').then(r=>r.json()).then(d=>{document.getElementById('stHistTotal').innerText=d.total;document.getElementById('stHistWpa3').innerText=d.wpa3;document.getElementById('stHistHs').innerText=d.hs;document.getElementById('stHistDays').innerText=d.days;let h='';d.sessions.forEach(s=>{h+='<div style="padding:8px;border:1px solid var(--border);border-radius:6px;margin-bottom:4px;display:flex;justify-content:space-between"><span>📅 '+s.date+'</span><span>'+s.count+' nets</span></div>';});document.getElementById('historyList').innerHTML=h||'<span style="color:var(--c-dim)">No data</span>';});}
 
-// ===== PWNAGOTCHI =====
-function fetchPwnagotchi(){
-  fetch('/cgi-bin/wardriving_api?action=pwnagotchi_status').then(r=>r.json()).then(d=>{
-    let c=document.getElementById('pwnagotchiStatus');if(!d||!d.uptime){c.innerHTML='<span style="color:var(--c-dim)">No pwnagotchi detected</span>';petPwnagotchiDetected=false;return;}
-    petPwnagotchiDetected=true;c.innerHTML='Uptime: <b>'+Math.floor(d.uptime/60)+'m</b> | Mode: <b>'+(d.mode||'AUTO')+'</b> | Hands: <b>'+(d.handshakes||0)+'</b> | Pwns: <b>'+(d.pwnd_tot||0)+'</b>';
-    updatePet();
-  }).catch(()=>{document.getElementById('pwnagotchiStatus').innerHTML='<span style="color:var(--c-dim)">No pwnagotchi detected</span>';petPwnagotchiDetected=false;});
-}
+// PWNAGOTCHI
+function fetchPwnagotchi(){fetch('/cgi-bin/wardriving_api?action=pwnagotchi_status').then(r=>r.json()).then(d=>{let c=document.getElementById('pwnagotchiStatus');if(!d||!d.uptime){c.innerHTML='<span style="color:var(--c-dim)">No pwnagotchi detected</span>';petPwnagotchiDetected=false;return;}petPwnagotchiDetected=true;c.innerHTML='Uptime:<b>'+Math.floor(d.uptime/60)+'m</b> | Mode:<b>'+(d.mode||'AUTO')+'</b> | Hands:<b>'+(d.handshakes||0)+'</b> | Pwns:<b>'+(d.pwnd_tot||0)+'</b>';updatePet();}).catch(()=>{document.getElementById('pwnagotchiStatus').innerHTML='<span style="color:var(--c-dim)">No pwnagotchi detected</span>';petPwnagotchiDetected=false;});}
 setInterval(fetchPwnagotchi,10000);fetchPwnagotchi();
 
-// ===== PET ENGINE =====
-const PET_FACES={sleep:['(⇀‿‿↼)','(≖‿‿≖)','(－_－) zZZ'],awake:['(◕‿‿◕)','(◉‿‿◉)','(⊙‿‿⊙)'],bored:['(-__-)','(—__—)','(￣ω￣)'],happy:['(•‿‿•)','(^‿‿^)','(◕‿◕)'],excited:['(ᵔ◡◡ᵔ)','(✜‿‿✜)','(★‿★)'],intense:['(°▃▃°)','(°ロ°)','(⚆ᗝ⚆)'],sad:['(╥﹏╥)','(ಥ﹏ಥ)','(｡•́︿•̀｡)'],grateful:['(♥‿‿♥)','(♡‿‿♡)','(♥ω♥)'],cool:['(⌐■_■)','(단__단)','(▀̿Ĺ̯▀̿ ̿)'],lonely:['(ب__ب)','(︶︹︺)','(๑•́ ₃ •̀๑)']};
-const PET_QUOTES={sleep:['ZzzzZZzzzzZzzz','Dreaming of packets...','Recharging...'],awake:['Ready to hunt!','New day, new pwns!','Sniff. Deauth. Repeat.'],bored:['I\'m bored ...','Let\'s go for a drive!','Any Wi-Fi around?'],happy:['This is the best day!','All your packets are belong to us','I pwn therefore I am'],excited:['So many networks!!!','I\'m living the life!','Hack the Planet!'],intense:['Deauthing everything!','No more mister Wi-Fi!','Pretty fly 4 a Wi-Fi!'],sad:['Shitty day :/','USB is crying ...','Need more space!'],grateful:['Good friends!','Synced and happy!','Home sweet home!'],cool:['I\'ll be back.','Hasta la vista, Wi-Fi','May the Wi-Fi be with you'],lonely:['Nobody wants to play ...','Where\'s everybody?!','I feel so alone ...']};
-function updatePet(){
-  let face=document.getElementById('petFace'),quote=document.getElementById('petQuote'),bridge=document.getElementById('petBridge');
-  if(!face||!quote)return;
-  let faces=PET_FACES[petMood]||PET_FACES.sleep,quotes=PET_QUOTES[petMood]||PET_QUOTES.sleep;
-  face.innerText=faces[Math.floor(Math.random()*faces.length)];
-  quote.innerText=quotes[Math.floor(Math.random()*quotes.length)];
-  if(bridge){bridge.style.display=petPwnagotchiDetected?'block':'none';}
-}
+// PET ENGINE
+const PF={sleep:['(⇀‿‿↼)','(≖‿‿≖)','(－_－)zZZ'],awake:['(◕‿‿◕)','(◉‿‿◉)','(⊙‿‿⊙)'],bored:['(-__-)','(—__—)','(￣ω￣)'],happy:['(•‿‿•)','(^‿‿^)','(◕‿◕)'],excited:['(ᵔ◡◡ᵔ)','(✜‿‿✜)','(★‿★)'],intense:['(°▃▃°)','(°ロ°)','(⚆ᗝ⚆)'],sad:['(╥﹏╥)','(ಥ﹏ಥ)','(｡•́︿•̀｡)'],grateful:['(♥‿‿♥)','(♡‿‿♡)','(♥ω♥)'],cool:['(⌐■_■)','(단__단)','(▀̿Ĺ̯▀̿ ̿)'],lonely:['(ب__ب)','(︶︹︺)','(๑•́ ₃ •̀๑)']};
+const PQ={sleep:['Zzzz...','Dreaming of packets','Recharging'],awake:['Ready to hunt!','New day, new pwns!','Sniff.Deauth.Repeat.'],bored:['I\'m bored...','Let\'s go driving!','Any Wi-Fi around?'],happy:['Best day ever!','All packets belong to us','I pwn therefore I am'],excited:['So many networks!!!','Living the life!','Hack the Planet!'],intense:['Deauth everything!','No more Mr Wi-Fi!','Pretty fly 4 a Wi-Fi'],sad:['Shitty day :/','USB is crying...','Need more space!'],grateful:['Good friends!','Synced & happy!','Home sweet home!'],cool:['I\'ll be back.','Hasta la vista, Wi-Fi','May the Wi-Fi be with you'],lonely:['Nobody to play...','Where is everybody?','So alone...']};
+function updatePet(){let f=document.getElementById('petFace'),q=document.getElementById('petQuote'),b=document.getElementById('petBridge');if(!f||!q)return;let fs=PF[petMood]||PF.sleep,qs=PQ[petMood]||PQ.sleep;f.innerText=fs[Math.floor(Math.random()*fs.length)];q.innerText=qs[Math.floor(Math.random()*qs.length)];if(b)b.style.display=petPwnagotchiDetected?'block':'none';}
 function setPetMood(m){if(m!==petMood){petMood=m;petLastMoodChange=Date.now();updatePet();}}
-function evaluateMood(hs,deauths,running,usbPct,gpsFix){
-  if(!running){setPetMood('sleep');return;} if(parseInt(usbPct)>=95){setPetMood('sad');return;} if(gpsFix==='0'||gpsFix===0){setPetMood('lonely');return;}
-  let now=Date.now(),activeSecs=(now-petLastMoodChange)/1000;
-  if(hs>petLastHandshakes){petHandshakeBurst+=(hs-petLastHandshakes);petLastHandshakes=hs;}
-  if(petHandshakeBurst>=5&&deauths>0)setPetMood('excited');else if(petHandshakeBurst>=3)setPetMood('happy');else if(deauths>2)setPetMood('intense');
-  else if(hs>0&&activeSecs>60)setPetMood('awake');else if(activeSecs>300&&hs===0)setPetMood('bored');else if(hs>0)setPetMood('cool');
-  if(activeSecs>30&&petHandshakeBurst>0)petHandshakeBurst=Math.max(0,petHandshakeBurst-1);
-}
-function evaluateMoodDOM(){
-  let hs=parseInt(document.getElementById('hdr_hs').querySelector('.val').innerText)||0;
-  let deauths=parseInt(document.getElementById('hdr_deauths').querySelector('.val').innerText)||0;
-  evaluateMood(hs,deauths,isRunning,0,1);
-}
-updatePet();setInterval(updatePet,15000);setInterval(evaluateMoodDOM,5000);
+function evalMood(hs,de,r,u,g){if(!r){setPetMood('sleep');return;}if(parseInt(u)>=95){setPetMood('sad');return;}if(g==='0'||g===0){setPetMood('lonely');return;}let n=Date.now(),a=(n-petLastMoodChange)/1000;if(hs>petLastHandshakes){petHandshakeBurst+=(hs-petLastHandshakes);petLastHandshakes=hs;}if(petHandshakeBurst>=5&&de>0)setPetMood('excited');else if(petHandshakeBurst>=3)setPetMood('happy');else if(de>2)setPetMood('intense');else if(hs>0&&a>60)setPetMood('awake');else if(a>300&&hs===0)setPetMood('bored');else if(hs>0)setPetMood('cool');if(a>30&&petHandshakeBurst>0)petHandshakeBurst=Math.max(0,petHandshakeBurst-1);}
+function evalMoodDOM(){let hs=parseInt(document.getElementById('hdr_hs').querySelector('.val').innerText)||0,de=parseInt(document.getElementById('hdr_deauths').querySelector('.val').innerText)||0;evalMood(hs,de,isRunning,0,1);}
+updatePet();setInterval(updatePet,15000);setInterval(evalMoodDOM,5000);
 
-// ===== POLL INTERVALS =====
+// POLL INTERVALS
 setInterval(updateStatus,3000);setInterval(updateMap,4000);
 updateStatus();loadFiles();loadHW();
-
-// Restore browser GPS if was active
 if(localStorage.getItem('browserGpsActive')==='true'){document.getElementById('chkBrowserGPS').checked=true;toggleBrowserGPS();}
 </script>
 </body>

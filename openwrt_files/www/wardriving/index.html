@@ -54,16 +54,16 @@ body.scanlines::after {
 #header {
   position:fixed; top:0; left:0; right:0; height:var(--header-h); z-index:200;
   background:#000; border-bottom:2px solid var(--c-green);
-  display:flex; align-items:center; padding:0 10px; gap:8px;
-  font-size:13px; overflow:hidden;
+  display:flex; align-items:center; padding:0 10px; gap:10px;
+  font-size:14px; overflow:hidden;
   box-shadow: 0 2px 12px rgba(0,255,65,0.1);
 }
 #header .metric {
-  display:flex; align-items:center; gap:5px; padding:5px 10px;
+  display:flex; align-items:center; gap:5px; padding:6px 10px;
   border-radius:6px; border:1px solid var(--border); flex-shrink:0;
 }
-#header .metric .icon { font-size:15px; }
-#header .metric .val { font-weight:bold; color:var(--c-white); font-size:15px; }
+#header .metric .icon { font-size:17px; }
+#header .metric .val { font-weight:bold; color:var(--c-white); font-size:17px; }
 #header .metric .unit { font-size:10px; color:var(--c-dim); }
 #header .metric.warn .val { color:var(--c-amber); }
 #header .metric.crit .val { color:var(--c-red); animation:pulse 1s infinite; }
@@ -142,13 +142,13 @@ body.scanlines::after {
 .spec-panel h4 { font-size:0.85em; color:var(--c-cyan); margin-bottom:6px; text-transform:uppercase; letter-spacing:2px; }
 .spec-panel .ch-row {
   display:flex; justify-content:space-between; align-items:center;
-  font-size:0.85em; padding:4px 6px; border-bottom:1px solid var(--border);
+  font-size:0.9em; padding:5px 6px; border-bottom:1px solid var(--border);
   cursor:pointer;
 }
 .spec-panel .ch-row:hover { background:rgba(0,255,255,0.05); }
 .spec-panel .ch-row .ch-n { color:var(--c-green); font-weight:bold; }
-.spec-panel .ch-row .ch-c { color:var(--c-white); background:rgba(0,255,255,0.1); padding:2px 8px; border-radius:10px; font-size:0.8em; }
-.spec-panel .ch-detail { display:none; padding:2px 8px 6px 16px; font-size:0.75em; color:var(--c-dim); }
+.spec-panel .ch-row .ch-c { color:var(--c-white); background:rgba(0,255,255,0.1); padding:2px 8px; border-radius:10px; font-size:0.85em; }
+.spec-panel .ch-detail { display:none; padding:2px 8px 6px 16px; font-size:0.8em; color:var(--c-dim); }
 .spec-panel .ch-detail.open { display:block; }
 
 /* Scores in right column - full height, larger text */
@@ -308,6 +308,8 @@ input[type=checkbox]:checked::after { left:22px; background:#000; }
   <span class="spacer"></span>
   <div class="metric" id="hdr_hs"><span class="icon">🔑</span><span class="val">0</span><span class="unit">HS</span></div>
   <div class="metric" id="hdr_usb"><span class="icon">💾</span><span class="val">--</span></div>
+  <div class="metric" id="hdr_cpu"><span class="icon">🧠</span><span class="val">--</span></div>
+  <div class="metric" id="hdr_ram"><span class="icon">📊</span><span class="val">--</span></div>
   <span class="status-dot off" id="hdr_dot" title="STOPPED"></span>
 </div>
 
@@ -603,6 +605,12 @@ function updateStatus(){
     let usbEl=document.getElementById('hdr_usb');
     usbEl.querySelector('.val').innerText=(d.usb_pct||'?')+'%';
     usbEl.className='metric'+(parseInt(d.usb_pct)>90?' crit':(parseInt(d.usb_pct)>75?' warn':''));
+    document.getElementById('hdr_cpu').querySelector('.val').innerText=(d.cpu||'--');
+    let cpuEl=document.getElementById('hdr_cpu');
+    cpuEl.className='metric'+(parseFloat(d.cpu)>2?' crit':(parseFloat(d.cpu)>1?' warn':''));
+    document.getElementById('hdr_ram').querySelector('.val').innerText=(d.ram||'--')+'%';
+    let ramEl=document.getElementById('hdr_ram');
+    ramEl.className='metric'+(parseInt(d.ram)>85?' crit':(parseInt(d.ram)>70?' warn':''));
 
     // Browser GPS stats
     if(!browserGpsActive){

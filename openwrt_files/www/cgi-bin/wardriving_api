@@ -263,7 +263,7 @@ elif [ "$ACTION" = "pwnagotchi_sync" ]; then
 elif [ "$ACTION" = "cracked_networks" ]; then
     echo "["
     if [ -f /mnt/wardriving/hashcat.potfile ] && [ -f /mnt/wardriving/wardriving.db ]; then
-        awk -F'*' '/^WPA\*/ {print $4}' /mnt/wardriving/hashcat.potfile | sed 's/../&:/g; s/:$//' | tr 'a-z' 'A-Z' | sort -u > /tmp/cracked_macs.txt
+        awk '{ if ($0 ~ /^WPA\*/) { split($0, arr, "*"); print arr[4] } else if ($0 ~ /^[0-9a-fA-F]{32}:[0-9a-fA-F]{12}:/) { split($0, arr, ":"); print arr[2] } }' /mnt/wardriving/hashcat.potfile | sed 's/../&:/g; s/:$//' | tr 'A-Z' 'a-z' | sort -u > /tmp/cracked_macs.txt
         
         # Generar SQL para extraer lat, lon y ssid de esas MACs
         if [ -s /tmp/cracked_macs.txt ]; then

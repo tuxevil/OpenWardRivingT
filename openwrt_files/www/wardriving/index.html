@@ -21,6 +21,35 @@
   --font: "Courier New", Courier, monospace;
   --header-h:52px; --icon-nav-w:56px; --left-w:220px; --right-w:250px;
 }
+body.night-mode {
+  --c-green: #ff0000;
+  --c-amber: #ff5500;
+  --c-cyan: #ff3333;
+  --c-magenta: #ff0000;
+  --c-white: #ffaaaa;
+  --c-dim: #aa0000;
+  --bg-deep: #050000;
+  --bg-panel: #0a0000;
+  --bg-card: #100000;
+  --border: #330000;
+  /* Add deep red filter to the map tiles */
+}
+body.night-mode .leaflet-tile-pane { filter: grayscale(100%) sepia(100%) hue-rotate(-50deg) saturate(500%) brightness(0.3); }
+body.night-mode {
+  --c-green: #ff0000;
+  --c-amber: #ff5500;
+  --c-cyan: #ff3333;
+  --c-magenta: #ff0000;
+  --c-white: #ffaaaa;
+  --c-dim: #aa0000;
+  --bg-deep: #050000;
+  --bg-panel: #0a0000;
+  --bg-card: #100000;
+  --border: #330000;
+  /* Add deep red filter to the map tiles */
+}
+body.night-mode .leaflet-tile-pane { filter: grayscale(100%) sepia(100%) hue-rotate(-50deg) saturate(500%) brightness(0.3); }
+}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
 body{background:var(--bg-deep);color:var(--c-green);font-family:var(--font);font-size:14px;line-height:1.4;-webkit-tap-highlight-color:transparent;user-select:none}

@@ -503,7 +503,8 @@ elif [ "$ACTION" = "get_hw" ]; then
 
 
 elif [ "$ACTION" = "set_processing" ]; then
-    EN=$(echo "$QUERY_STRING" | grep -o "en=[^&]*" | cut -d= -f2)
+    EN=$(echo "$QUERY_STRING" | awk -F"&en=" '{print $2}' | awk -F"&" '{print $1}')
+    if [ -z "$EN" ]; then EN=$(echo "$QUERY_STRING" | awk -F"?en=" '{print $2}' | awk -F"&" '{print $1}'); fi
     S_URL=$(echo "$QUERY_STRING" | grep -o "url=[^&]*" | cut -d= -f2 | sed 's/%3A/:/g; s/%2F/\//g')
     echo "$EN" > /etc/wardriving_remote_enabled
     echo "$S_URL" > /etc/wardriving_remote_url
@@ -513,7 +514,7 @@ elif [ "$ACTION" = "get_processing" ]; then
     EN="0"; S_URL=""
     [ -f /etc/wardriving_remote_enabled ] && EN=$(cat /etc/wardriving_remote_enabled)
     [ -f /etc/wardriving_remote_url ] && S_URL=$(cat /etc/wardriving_remote_url)
-    echo "{\"enabled\": \"$EN\", \"url\": \"$S_URL\"}"
+    EN=$(echo "$EN" | tr -d "\n"); S_URL=$(echo "$S_URL" | tr -d "\n"); echo "{\"enabled\": \"$EN\", \"url\": \"$S_URL\"}"
 
 elif [ "$ACTION" = "set_pcap_retention" ]; then
     KEEP=$(echo "$QUERY_STRING" | grep -o "keep=[^&]*" | cut -d= -f2)

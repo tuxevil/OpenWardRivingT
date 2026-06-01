@@ -35,15 +35,15 @@ if ping -c 1 -W 2 "$SERVER_IP" > /dev/null 2>&1; then
     # 2. Asegurarse de que el USB está montado
     if mount | grep -q "/mnt/wardriving"; then
         # 3. Sincronizar archivos al servidor usando rsync
-        rsync -avz -e "ssh -p $SERVER_PORT -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10" /mnt/wardriving/*.hc2200 /mnt/wardriving/*.nmea /mnt/wardriving/master_essid.txt "$SERVER_USER@$SERVER_IP:$SERVER_DEST"
-        
-        if [ $? -eq 0 ]; then
+        if rsync -avz -e "ssh -p $SERVER_PORT -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10" \
+            /mnt/wardriving/*.hc2200 /mnt/wardriving/*.nmea /mnt/wardriving/master_essid.txt \
+            "$SERVER_USER@$SERVER_IP:$SERVER_DEST"; then
             echo "[+] Sync successful!"
-            # 4. Opcional: mover archivos sincronizados a una carpeta 'done' o borrarlos
+            # 4. Move synced files to archive (KEEP master.hc2200!)
             mkdir -p /mnt/wardriving/synced
-            mv /mnt/wardriving/*.hc2200 /mnt/wardriving/synced/ 2>/dev/null
-            mv /mnt/wardriving/*.nmea /mnt/wardriving/synced/ 2>/dev/null
-            # Limpiamos el master.hc2200 también o lo dejamos como backup? Lo movemos a synced.
+            for f in /mnt/wardriving/wardriving_*.hc2200 /mnt/wardriving/wardriving_*.nmea; do
+                [ -f "$f" ] && mv "$f" /mnt/wardriving/synced/ 2>/dev/null
+            done
         else
             echo "[-] Sync failed. Will retry later."
         fi

@@ -85,7 +85,7 @@ while true; do
     fi
 
     # shellcheck disable=SC2086 # OPTS needs word splitting for multi-flag modes
-    hcxdumptool -i wlan0mon -w "$FILENAME" --nmea_dev=/tmp/vGPS --nmea_pcapng --nmea_out="$NMEAFILE" -F -t 3 --tot=5 $OPTS
+    hcxdumptool -i wlan0mon -w "$FILENAME" --nmea_dev=/tmp/vGPS --nmea_pcapng --nmea_out="$NMEAFILE" -F -t 3 --tot=1 $OPTS
     
     if [ -f "$FILENAME" ]; then
         REMOTE_ENABLED="0"
@@ -108,6 +108,7 @@ while true; do
                     sqlite3 /mnt/wardriving/wardriving.db < "/tmp/respuesta_server.sql"
                 fi
                 rm -f "/tmp/respuesta_server.sql"
+                rm -f "$FILENAME"
             else
                 echo "[-] Remote server failed (Code: $HTTP_CODE). Falling back to local processing..."
             fi

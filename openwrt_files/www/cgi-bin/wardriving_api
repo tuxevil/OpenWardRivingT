@@ -616,7 +616,7 @@ elif [ "$ACTION" = "scored_networks" ]; then
         # Pre-compute handshake MACs to avoid system() calls in awk loop
         # Pre-compute handshake MACs (busybox-compatible grep -oE, no PCRE)
         HS_MACS=$(grep -oE '\*[0-9a-fA-F]{12}' /mnt/wardriving/master.hc2200 2>/dev/null | sed 's/^\*//' | tr '[:upper:]' '[:lower:]' | sort -u | paste -sd '|' - 2>/dev/null)
-        sqlite3 -separator '|' /mnt/wardriving/wardriving.db "SELECT mac, ssid, enc, rssi FROM networks WHERE last_seen >= datetime('now', '-5 minutes') ORDER BY rssi DESC LIMIT 30;" 2>/dev/null | awk -F'|' -v hs_macs="$HS_MACS" '
+        sqlite3 -separator '|' /mnt/wardriving/wardriving.db "SELECT mac, ssid, enc, rssi FROM networks WHERE last_seen >= datetime('now', '-3 minutes') ORDER BY rssi DESC LIMIT 30;" 2>/dev/null | awk -F'|' -v hs_macs="$HS_MACS" '
         BEGIN { printf "[" }
         {
             mac=$1; ssid=$2; enc=$3; rssi=$4;

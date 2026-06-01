@@ -455,7 +455,7 @@ function toggleBrowserGPS(){
   browserGpsActive=document.getElementById('chkBrowserGPS').checked;localStorage.setItem('browserGpsActive',browserGpsActive);
   if(browserGpsActive){
     if(!navigator.geolocation){document.getElementById('chkBrowserGPS').checked=false;browserGpsActive=false;return;}
-    watchId=navigator.geolocation.watchPosition(p=>{window.carLat=p.coords.latitude;window.carLng=p.coords.longitude;carMarker.setLatLng([window.carLat,window.carLng]);if(firstLoc){map.setView([window.carLat,window.carLng],16);firstLoc=false;}if(isRunning){      window.nmeaBuffer = window.nmeaBuffer || [];      window.nmeaBuffer.push(generateNMEA(p));      window.lastGpsPush = window.lastGpsPush || 0;      let now = Date.now();      if(now - window.lastGpsPush > 2000){        fetch('/cgi-bin/wardriving_api?action=gps_push',{method:'POST',body:window.nmeaBuffer.join('')});        window.nmeaBuffer = [];        window.lastGpsPush = now;      }    }},()=>{document.getElementById('chkBrowserGPS').checked=false;browserGpsActive=false;},{enableHighAccuracy:window.GPS_HIGH_ACCURACY||false,maximumAge:1000,timeout:10000});
+    watchId=navigator.geolocation.watchPosition(p=>{window.carLat=p.coords.latitude;window.carLng=p.coords.longitude;carMarker.setLatLng([window.carLat,window.carLng]);if(firstLoc){map.setView([window.carLat,window.carLng],16);firstLoc=false;}if(isRunning){      window.nmeaBuffer = window.nmeaBuffer || [];      window.nmeaBuffer.push(generateNMEA(p));      window.lastGpsPush = window.lastGpsPush || 0;      let now = Date.now();      if(now - window.lastGpsPush > 4000){        fetch('/cgi-bin/wardriving_api?action=gps_push',{method:'POST',body:window.nmeaBuffer.join('')});        window.nmeaBuffer = [];        window.lastGpsPush = now;      }    }},()=>{document.getElementById('chkBrowserGPS').checked=false;browserGpsActive=false;},{enableHighAccuracy:window.GPS_HIGH_ACCURACY||false,maximumAge:1000,timeout:10000});
   }else{if(watchId!==null)navigator.geolocation.clearWatch(watchId);}
 }
 function generateNMEA(pos){
@@ -523,7 +523,7 @@ function evalMoodDOM(){let hs=parseInt(document.getElementById('hdr_hs').querySe
 updatePet();setInterval(updatePet,15000);setInterval(evalMoodDOM,5000);
 
 // POLL INTERVALS
-setInterval(updateStatus,4000);setInterval(updateMap,5000);
+setInterval(updateStatus,5000);setInterval(updateMap,10000);
 updateStatus();loadFiles();loadHW();
 if(localStorage.getItem('browserGpsActive')==='true'){document.getElementById('chkBrowserGPS').checked=true;toggleBrowserGPS();}
 </script>

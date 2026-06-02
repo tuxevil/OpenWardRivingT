@@ -341,10 +341,17 @@ elif [ "$ACTION" = "cracked_networks" ]; then
     if [ -f /mnt/wardriving/hashcat.potfile ] && [ -f /mnt/wardriving/wardriving.db ]; then
         awk '{ if ($0 ~ /^WPA\*/) { split($0, arr, "*"); print arr[4] } else if ($0 ~ /^[0-9a-fA-F]{32}:[0-9a-fA-F]{12}:/) { split($0, arr, ":"); print arr[2] } }' /mnt/wardriving/hashcat.potfile | sed 's/../&:/g; s/:$//' | tr '[:upper:]' '[:lower:]' | sort -u > /tmp/cracked_macs.txt
         
-        # Generar SQL para extraer lat, lon y ssid de esas MACs
+        # Extract cracked networks from both normal rows and legacy-shifted rows
+        # produced by the old remote SQL contract (real MAC in ssid, real SSID in enc).
         if [ -s /tmp/cracked_macs.txt ]; then
             COND=$(awk '{printf "\"%s\",", $1}' /tmp/cracked_macs.txt | sed 's/,$//')
-            sqlite3 -separator '|' /mnt/wardriving/wardriving.db "SELECT lat, lon, ssid FROM networks WHERE mac IN ($COND) AND lat IS NOT NULL;" 2>/dev/null | awk -F'|' '
+            sqlite3 -separator '|' /mnt/wardriving/wardriving.db "
+                SELECT lat, lon, ssid FROM networks
+                WHERE lower(mac) IN ($COND) AND lat IS NOT NULL AND lon IS NOT NULL
+                UNION
+                SELECT lat, lon, enc FROM networks
+                WHERE lower(ssid) IN ($COND) AND lat IS NOT NULL AND lon IS NOT NULL
+            " 2>/dev/null | awk -F'|' '
             BEGIN { first=1 }
             {
                 if(!first) printf ","

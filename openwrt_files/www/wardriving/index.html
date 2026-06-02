@@ -340,7 +340,7 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
 if(typeof window.API_TOKEN==='undefined')window.API_TOKEN='';
 const _origFetch=window.fetch;
 window.fetch=function(url,options){
-  if(typeof url==='string'&&url.includes('/cgi-bin/wardriving_api')&&window.API_TOKEN){
+  if(typeof url==='string'&&url.includes('/cgi-bin/wardriving_api')&&window.API_TOKEN&&!/[?&]token=/.test(url)){
     url+=(url.includes('?')?'&':'?')+'token='+encodeURIComponent(window.API_TOKEN);
   }
   return _origFetch(url,options);
@@ -414,8 +414,8 @@ function setDriverSide(){
 // TOGGLE WARDIRIVING
 function toggleWardriving(){
   let a=isRunning?'stop':'start';
-  document.getElementById('btnToggle').innerText='⏳...';
-  apiJson(a).then(()=>setTimeout(updateStatus,1500)).catch(e=>{
+  document.getElementById('btnToggle').innerText=a==='start'?'⏳ STARTING':'⏳ STOPPING';
+  apiJson(a).then(()=>setTimeout(updateStatus,a==='start'?4500:1500)).catch(e=>{
     setHtml('logBox','Action '+esc(a)+' failed: '+esc(e.message||'unknown'));
     updateStatus();
   });

@@ -238,7 +238,7 @@ _EOF
     if [ -z "$CLEAN_LOG" ]; then
         LAST_LOG="Waiting for data or initializing monitor mode..."
     else
-        LAST_LOG=$(echo "$CLEAN_LOG" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/$/\\n/g' | tr -d '\n')
+        LAST_LOG=$(echo "$CLEAN_LOG" | tr '\t' ' ' | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/$/\\n/g' | tr -d '\n')
     fi
     
     CHANNELS_JSON=$(echo "$LOG_DATA" | awk '/^[ \t]*[0-9]+ [0-9]{2}:[0-9]{2}:[0-9]{2}/ {chan=$1; essid=$NF; if(length(essid)>2 && essid!~/:/ && essid !~ /^[0-9a-fA-F]{12}$/){ k=chan"\t"essid; if(!seen[k]++){ if(!f) printf "["; else printf ","; printf "{\"c\":%s, \"s\":\"%s\"}", chan, essid; f=1 } }} END{if(!f) printf "["; print "]"}')

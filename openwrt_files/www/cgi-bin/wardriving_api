@@ -197,7 +197,11 @@ if [ "$ACTION" = "status" ]; then
     else
         IS_RUNNING="false"
     fi
-    HANDSHAKES=$(wc -l < /mnt/wardriving/master.hc2200 2>/dev/null || echo 0)
+    if [ -f /mnt/wardriving/master.hc2200 ]; then
+        HANDSHAKES=$(wc -l < /mnt/wardriving/master.hc2200 2>/dev/null || echo 0)
+    else
+        HANDSHAKES=0
+    fi
     read -r SPACE_USED SPACE_FREE USB_PCT <<_EOF
 $(df -h /mnt/wardriving | awk 'NR==2 {print $3, $4, $5}' | tr -d '%')
 _EOF

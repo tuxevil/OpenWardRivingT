@@ -36,7 +36,6 @@ find "$DICT_DIR" -maxdepth 1 -type f -print 2>/dev/null | sort -V | while IFS= r
         
         # Corremos Hashcat SOLO contra las redes nuevas filtradas
         $HASHCAT_BIN --potfile-path="$POTFILE" -m 22000 -a 0 -w 3 --status --status-timer=30 "/tmp/new_targets.hc2200" "$dict"
-        STATUS=$?
         
         $HASHCAT_BIN --potfile-path="$POTFILE" -m 22000 --show "/tmp/new_targets.hc2200" > "/tmp/current_cracked.txt"
         
@@ -70,13 +69,15 @@ find "$DICT_DIR" -maxdepth 1 -type f -print 2>/dev/null | sort -V | while IFS= r
             fi
         fi
 
-        if [ $STATUS -eq 0 ]; then
+        $HASHCAT_BIN --potfile-path="$POTFILE" -m 22000 --left "/tmp/new_targets.hc2200" > "/tmp/current_left.txt"
+        if [ ! -s "/tmp/current_left.txt" ]; then
+            echo "[*] No quedan hashes pendientes para este lote."
             break 
         fi
     fi
 done
 
 echo "[*] Proceso de cracking finalizado."
-rm -f "$HC2200_FILE" "/tmp/new_targets.hc2200" "/tmp/current_cracked.txt" "/tmp/incoming_macs.txt"
+rm -f "$HC2200_FILE" "/tmp/new_targets.hc2200" "/tmp/current_cracked.txt" "/tmp/current_left.txt" "/tmp/incoming_macs.txt"
 
 exec 9>&-

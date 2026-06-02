@@ -255,6 +255,20 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ frontend token injection hook missing"
 fi
 
+echo "  Test: frontend replay markers are cumulative"
+if grep -q "function mergeReplayNetworks" openwrt_files/www/wardriving/index.html && grep -q "replayDiscoveredItems={}" openwrt_files/www/wardriving/index.html && grep -q "if(d&&d.length){mergeReplayNetworks" openwrt_files/www/wardriving/index.html; then
+    PASS=$((PASS + 1)); echo "  ✓ replay marker cache preserves discovered networks"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ replay marker cache missing"
+fi
+
+echo "  Test: frontend replay map has free/follow controls"
+if grep -q "function fitReplayNetworks" openwrt_files/www/wardriving/index.html && grep -q "btnReplayFollow" openwrt_files/www/wardriving/index.html && grep -q "if(replayFollowMode)" openwrt_files/www/wardriving/index.html; then
+    PASS=$((PASS + 1)); echo "  ✓ replay map follow controls present"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ replay map follow controls missing"
+fi
+
 echo ""
 echo "=== NMEA Parser Tests ==="
 

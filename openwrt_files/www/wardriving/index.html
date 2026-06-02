@@ -290,6 +290,10 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
               <button class="btn small dim" onclick="seekReplayTheater(-50)">↤ Back</button>
               <button class="btn small amber" onclick="seekReplayTheater(50)">Next ↦</button>
             </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+              <button class="btn small cyan" id="btnReplayFollow" onclick="toggleReplayFollow()">📍 Follow</button>
+              <button class="btn small amber" onclick="fitReplayNetworks()">Fit Nets</button>
+            </div>
             <div class="timeline"><div class="timeline-fill" id="rpTimeline"></div></div>
             <div id="replayStatusText" style="margin-top:8px;color:var(--c-dim);font-size:0.85em">Upload a clean WiGLE CSV to replay the drive.</div>
           </div>
@@ -431,9 +435,11 @@ let isRunning=false,lastGpsFixTime=Date.now(),lastHandshakeCount=-1,lastHandshak
 let audioEnabled=localStorage.getItem('audioEnabled')==='true';
 let map,onlineLayer,offlineLayer,carMarker,firstLoc=true,watchId=null,browserGpsActive=false,followMode=true;
 let wpsMarkers={},crackedMarkers=[],networkMarkers=[],replayNetworkMarkers=[],heatLayer=null,replayTimer=null;
+let replayDiscoveredItems={};
 let excludedSSIDs=[],targetMacs=[],alertedTargets=[],OUI_DB={};
 let petMood='sleep',petLastMoodChange=Date.now(),petHandshakeBurst=0,petLastHandshakes=0,petPwnagotchiDetected=false;
 let dlTimer=null,replayMap=null,replayMarker=null,replayPollTimer=null,replayEvents=[],lastReplayState='idle';
+let replayFollowMode=true;
 let replayDiscoveredTimer=null;
 
 // NMEA PARSERS
@@ -461,6 +467,7 @@ function initReplayMap(){
   let layer=uo?L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OSM'}):L.tileLayer('/wardriving/captures/tiles/{z}/{x}/{y}.png',{maxZoom:18,errorTileUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='});
   layer.addTo(replayMap);
   replayMarker=L.circleMarker([0,0],{radius:10,fillColor:'#ffb000',color:'#fff',weight:2,opacity:1,fillOpacity:1}).addTo(replayMap).bindPopup('Replay vehicle');
+  updateReplayFollowButton();
 }
 setTimeout(initReplayMap,250);
 fetch('/wardriving/oui.json').then(r=>r.json()).then(d=>{OUI_DB=d}).catch(()=>{});
@@ -647,6 +654,7 @@ function drawNetworkLayer(targetMap,items,store,isReplay){
     let marker=L.circleMarker([lat,lon],{radius:r,fillColor:st.fillColor,color:st.color,weight:n.is_cracked?3:(n.has_handshake?2:1),opacity:0.95,fillOpacity:isReplay?0.55:0.38}).addTo(targetMap);
     let ssids=String(n.ssids||n.ssid||'').split(',').filter(Boolean).slice(0,5).map(esc).join('<br>');
     marker.bindPopup('<b>'+esc(label||'Network')+' '+count+' net'+(count===1?'':'s')+'</b><br>'+ssids+(n.has_handshake?'<br>Handshake: yes':'')+(n.is_cracked?'<br>Cracked: yes':''));
+    if(isReplay)marker.on('click',()=>{replayFollowMode=false;updateReplayFollowButton();});
     next.push(marker);
     if(label){
       let div=L.marker([lat,lon],{interactive:false,icon:L.divIcon({className:'net-label',html:'<div style="color:#000;background:'+st.fillColor+';border-radius:10px;min-width:18px;height:18px;text-align:center;font:bold 12px/18px sans-serif;box-shadow:0 0 8px '+st.fillColor+'">'+esc(label)+'</div>',iconSize:[20,20]})}).addTo(targetMap);
@@ -658,8 +666,31 @@ function drawNetworkLayer(targetMap,items,store,isReplay){
 function loadNetworkMap(){
   apiJson('networks_map').then(d=>{networkMarkers=drawNetworkLayer(map,d,networkMarkers,false);}).catch(()=>{});
 }
+function networkKey(n){
+  let lat=parseFloat(n.lat),lon=parseFloat(n.lon);
+  if(isNaN(lat)||isNaN(lon))return '';
+  return lat.toFixed(4)+','+lon.toFixed(4)+','+String(n.ssids||n.ssid||'');
+}
+function mergeReplayNetworks(items){
+  (items||[]).forEach(n=>{
+    let k=networkKey(n);if(!k)return;
+    let cur=replayDiscoveredItems[k];
+    if(cur){
+      cur.count=Math.max(parseInt(cur.count||1),parseInt(n.count||1));
+      cur.has_handshake=!!(cur.has_handshake||n.has_handshake);
+      cur.is_cracked=!!(cur.is_cracked||n.is_cracked);
+      cur.rssi=Math.max(parseInt(cur.rssi||-999),parseInt(n.rssi||-999));
+      cur.ssids=cur.ssids||n.ssids||n.ssid||'';
+    }else{
+      replayDiscoveredItems[k]=Object.assign({},n);
+    }
+  });
+}
+function renderReplayNetworks(){
+  replayNetworkMarkers=drawNetworkLayer(replayMap,Object.values(replayDiscoveredItems),replayNetworkMarkers,true);
+}
 function loadReplayDiscovered(){
-  apiJson('replay_discovered').then(d=>{replayNetworkMarkers=drawNetworkLayer(replayMap,d,replayNetworkMarkers,true);}).catch(()=>{});
+  apiJson('replay_discovered').then(d=>{if(d&&d.length){mergeReplayNetworks(d);renderReplayNetworks();}}).catch(()=>{});
 }
 
 // MAP CONTROLS
@@ -731,9 +762,12 @@ function updateReplayUi(d){
   let lat=parseFloat(d.lat),lon=parseFloat(d.lon);
   if(replayMap&&replayMarker&&!isNaN(lat)&&!isNaN(lon)&&lat!==0&&lon!==0){
     replayMarker.setLatLng([lat,lon]);
-    replayMap.panTo([lat,lon],{animate:true,duration:0.3});
-    if(replayMap.getZoom()<15)replayMap.setZoom(16);
+    if(replayFollowMode){
+      replayMap.panTo([lat,lon],{animate:true,duration:0.3});
+      if(replayMap.getZoom()<15)replayMap.setZoom(16);
+    }
   }
+  if(d.nearby_networks&&d.nearby_networks.length){mergeReplayNetworks(d.nearby_networks);renderReplayNetworks();}
   if(d.state==='running'||d.state==='paused'||d.state==='done')loadReplayDiscovered();
   if(d.event&&window.lastReplayEvent!==d.event){
     window.lastReplayEvent=d.event;
@@ -742,6 +776,21 @@ function updateReplayUi(d){
   if(d.state==='running'){
     setPipe('pipeCapture','ok','REPLAY');setPipe('pipeGpu',d.gpu==='ERR'?'err':(d.gpu==='UPLOAD'?'warn':'ok'),d.gpu||'GPU');setPipe('pipeTx',d.tx==='TX'?'warn':'ok',d.tx||'IDLE');
   }
+}
+function updateReplayFollowButton(){
+  let b=document.getElementById('btnReplayFollow');if(!b)return;
+  b.className='btn small '+(replayFollowMode?'cyan':'dim');
+  b.innerText=replayFollowMode?'📍 Follow':'⊙ Free';
+}
+function toggleReplayFollow(){
+  replayFollowMode=!replayFollowMode;
+  updateReplayFollowButton();
+}
+function fitReplayNetworks(){
+  let pts=Object.values(replayDiscoveredItems).map(n=>[parseFloat(n.lat),parseFloat(n.lon)]).filter(p=>!isNaN(p[0])&&!isNaN(p[1])&&p[0]!==0&&p[1]!==0);
+  if(!pts.length||!replayMap)return;
+  replayFollowMode=false;updateReplayFollowButton();
+  replayMap.fitBounds(L.latLngBounds(pts),{padding:[28,28],maxZoom:16});
 }
 function loadReplayStatus(){
   apiJson('replay_status').then(updateReplayUi).catch(e=>setText('replayStatusText','Replay status error: '+(e.message||'unknown')));
@@ -754,7 +803,7 @@ function startReplayTheater(){
   let body=f||new Blob([]);
   renderReplayEvent(f?'upload':'resume',f?'Uploading '+f.name:'Resuming replay');
   setText('replayStatusText',f?'Uploading replay CSV...':'Resuming replay...');
-  if(f&&replayMap)replayNetworkMarkers=drawNetworkLayer(replayMap,[],replayNetworkMarkers,true);
+  if(f){replayFollowMode=true;updateReplayFollowButton();replayDiscoveredItems={};if(replayMap)replayNetworkMarkers=drawNetworkLayer(replayMap,[],replayNetworkMarkers,true);}
   fetch(apiUrl('replay_start',{delay,radius,clean,resume:f?'0':'1'}),{method:'POST',body}).then(r=>r.json()).then(d=>{
     if(d.status==='started'||d.status==='resumed'){
       renderReplayEvent(d.status,d.status+' job '+d.pid);

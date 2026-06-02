@@ -138,12 +138,17 @@ while true; do
                         LAT=$(echo "$line" | sed -n 's/.*"lat":\([^,}]*\).*/\1/p' | tr -cd '0-9.-')
                         LON=$(echo "$line" | sed -n 's/.*"lon":\([^,}]*\).*/\1/p' | tr -cd '0-9.-')
                         RSSI=$(echo "$line" | sed -n 's/.*"rssi":\([-0-9]*\).*/\1/p' | tr -cd '0-9-')
-                        [ -z "$MAC" ] && continue
+                        case "$MAC" in
+                            [0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]) ;;
+                            *) continue ;;
+                        esac
                         [ -z "$CHAN" ] && CHAN=0
                         [ -z "$RSSI" ] && RSSI=0
                         [ -z "$LAT" ] && LAT="NULL"
                         [ -z "$LON" ] && LON="NULL"
                         SSID=$(printf "%s" "$SSID_B64" | base64 -d 2>/dev/null | sed "s/'/''/g" | tr -cd '[:print:]')
+                        [ -z "$SSID" ] && continue
+                        [ "$RSSI" -gt 0 ] 2>/dev/null && continue
                         sqlite3 /mnt/wardriving/wardriving.db "INSERT INTO networks (mac, ssid, enc, channel, lat, lon, first_seen, last_seen, rssi) VALUES ('$MAC', '$SSID', '$ENC', $CHAN, $LAT, $LON, datetime('now'), datetime('now'), $RSSI) ON CONFLICT(mac) DO UPDATE SET ssid=EXCLUDED.ssid, enc=EXCLUDED.enc, channel=EXCLUDED.channel, lat=EXCLUDED.lat, lon=EXCLUDED.lon, last_seen=EXCLUDED.last_seen, rssi=EXCLUDED.rssi;"
                     done < /tmp/respuesta_server.jsonl
                 elif [ -s "/tmp/respuesta_server.jsonl" ] && [ -f /etc/wardriving_remote_allow_sql ]; then
@@ -193,6 +198,8 @@ while true; do
                 
                 awk -F'\t' '{
                     mac=$2; ssid=$3; enc=$4; chan=$8; rssi=$9; gpsd=$11
+                    if (mac !~ /^[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]$/) next
+                    if (ssid == "" || rssi > 0) next
                     gsub(/\047/, "\047\047", ssid)
                     lat="NULL"; lon="NULL"
                     split(gpsd, g, " ")

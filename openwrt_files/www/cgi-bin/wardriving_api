@@ -745,10 +745,11 @@ elif [ "$ACTION" = "scored_networks" ]; then
         # Pre-compute handshake MACs to avoid system() calls in awk loop
         # Pre-compute handshake MACs (busybox-compatible grep -oE, no PCRE)
         HS_MACS=$(grep -oE '\*[0-9a-fA-F]{12}' "$WARD_MNT"/master.hc2200 2>/dev/null | sed 's/^\*//' | tr '[:upper:]' '[:lower:]' | sort -u | paste -sd '|' - 2>/dev/null)
-        sqlite3 -separator '|' "$WARD_MNT"/wardriving.db "SELECT mac, ssid, enc, rssi, CAST((julianday('now') - julianday(last_seen)) * 86400 AS INTEGER) AS age_seconds FROM networks WHERE last_seen >= datetime('now', '-90 seconds') ORDER BY rssi DESC LIMIT 12;" 2>/dev/null | awk -F'|' -v hs_macs="$HS_MACS" '
+        sqlite3 -separator '|' "$WARD_MNT"/wardriving.db "SELECT mac, ssid, enc, rssi, CAST((julianday('now') - julianday(last_seen)) * 86400 AS INTEGER) AS age_seconds FROM networks WHERE last_seen >= datetime('now', '-90 seconds') AND ssid IS NOT NULL AND ssid != '' AND rssi <= 0 ORDER BY rssi DESC LIMIT 12;" 2>/dev/null | awk -F'|' -v hs_macs="$HS_MACS" '
         BEGIN { printf "[" }
         {
             mac=$1; ssid=$2; enc=$3; rssi=$4; age=$5;
+            if (mac !~ /^[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]$/) next;
             # Proper JSON escaping in awk
             gsub(/\\/, "\\\\", ssid);
             gsub("\x22", "\\\"", ssid);

@@ -310,6 +310,13 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ dashboard mode/client layer missing"
 fi
 
+echo "  Test: frontend pushes browser GPS while stopped"
+if grep -q "action=gps_push" openwrt_files/www/wardriving/index.html && ! grep -q "if(isRunning).*gps_push" openwrt_files/www/wardriving/index.html; then
+    PASS=$((PASS + 1)); echo "  ✓ browser GPS push is independent of capture state"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ browser GPS push still depends on running state"
+fi
+
 echo ""
 echo "=== NMEA Parser Tests ==="
 
@@ -383,6 +390,12 @@ if bash -n openwrt_files/usr/bin/wardriving_clients.sh 2>/dev/null; then
     PASS=$((PASS + 1)); echo "  ✓ wardriving_clients.sh syntax OK"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ wardriving_clients.sh syntax ERROR"
+fi
+echo "  Test: wardriving_clients.sh requires fresh GPS"
+if grep -q "WARDRIVING_GPS_MAX_AGE" openwrt_files/usr/bin/wardriving_clients.sh && grep -q "GPS_AGE" openwrt_files/usr/bin/wardriving_clients.sh; then
+    PASS=$((PASS + 1)); echo "  ✓ client GPS fallback has freshness guard"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ client GPS fallback freshness guard missing"
 fi
 
 # Test: wardriving_api syntax

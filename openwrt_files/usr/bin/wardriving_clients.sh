@@ -26,7 +26,12 @@ hcxpcapngtool --raw-out="$RAW" "$PCAP" >/dev/null 2>&1 || true
 
 sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS clients (client_mac TEXT, ap_mac TEXT, ssid TEXT, channel INTEGER, lat REAL, lon REAL, first_seen DATETIME, last_seen DATETIME, rssi INTEGER, frame_type TEXT, seen_mode TEXT, PRIMARY KEY(client_mac, ap_mac)); CREATE INDEX IF NOT EXISTS idx_clients_last_seen ON clients(last_seen); CREATE INDEX IF NOT EXISTS idx_clients_ap ON clients(ap_mac);" >/dev/null 2>&1
 
-if [ -s /tmp/vGPS_last ]; then
+GPS_MAX_AGE="${WARDRIVING_GPS_MAX_AGE:-20}"
+GPS_NOW=$(date +%s 2>/dev/null || echo 0)
+GPS_MOD=0
+[ -s /tmp/vGPS_last ] && GPS_MOD=$(date -r /tmp/vGPS_last +%s 2>/dev/null || echo 0)
+GPS_AGE=$((GPS_NOW - GPS_MOD))
+if [ -s /tmp/vGPS_last ] && [ "$GPS_MOD" -gt 0 ] && [ "$GPS_AGE" -le "$GPS_MAX_AGE" ]; then
     awk -F',' '
     function dec(raw,dir,islat, deg,min,val) {
         if (raw == "") return ""

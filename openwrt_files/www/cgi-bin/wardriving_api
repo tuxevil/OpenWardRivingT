@@ -28,6 +28,41 @@ check_content_length() {
     fi
 }
 
+encode_base64() {
+    if command -v base64 >/dev/null 2>&1; then
+        base64
+    elif command -v openssl >/dev/null 2>&1; then
+        openssl enc -A -base64
+    elif command -v hexdump >/dev/null 2>&1; then
+        hexdump -v -e '1/1 "%02x"' | awk '
+        function hexval(c) {
+            c=tolower(c)
+            return index("0123456789abcdef", c) - 1
+        }
+        BEGIN { b64="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/" }
+        {
+            for (i=1; i<=length($0); i+=2) {
+                bytes[++n] = hexval(substr($0, i, 1)) * 16 + hexval(substr($0, i + 1, 1))
+            }
+        }
+        END {
+            for (i=1; i<=n; i+=3) {
+                b1=bytes[i]; b2=(i+1<=n?bytes[i+1]:0); b3=(i+2<=n?bytes[i+2]:0)
+                c1=int(b1/4)
+                c2=((b1%4)*16)+int(b2/16)
+                c3=((b2%16)*4)+int(b3/64)
+                c4=b3%64
+                out = out substr(b64,c1+1,1) substr(b64,c2+1,1)
+                out = out (i+1<=n ? substr(b64,c3+1,1) : "=")
+                out = out (i+2<=n ? substr(b64,c4+1,1) : "=")
+            }
+            printf "%s", out
+        }'
+    else
+        return 1
+    fi
+}
+
 # Actions that mutate state or expose sensitive data
 case "$ACTION" in
     start|stop|delete_file|set_hw|set_processing|set_pcap_retention|save_wigle_token|wigle_upload|upload_tiles|upload_potfile|pwnagotchi_sync|add_target|remove_target|add_exclusion|remove_exclusion|download_all|download_bbox|export_gpx|export_kml|export_hashcat|cracked_networks|map_data|heatmap_data|download_status|list_files|get_processing|get_targets|check_targets|get_exclusions|history|scored_networks|pwnagotchi_status|gps_push|get_hw)
@@ -413,7 +448,7 @@ elif [ "$ACTION" = "heatmap_data" ]; then
 elif [ "$ACTION" = "map_data" ]; then
     LATEST_NMEA=$(ls -1t /mnt/wardriving/*.nmea 2>/dev/null | head -n 1)
     if [ -f "$LATEST_NMEA" ]; then
-        NMEA_B64=$(tail -n 20 "$LATEST_NMEA" | base64 | tr -d '\n')
+        NMEA_B64=$(tail -n 20 "$LATEST_NMEA" | encode_base64 | tr -d '\n')
         echo "{\"nmea_b64\": \"$NMEA_B64\"}"
     else
         echo '{"nmea_b64": ""}'

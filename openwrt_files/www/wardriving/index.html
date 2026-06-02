@@ -338,6 +338,15 @@ function apiUrl(action,params){
   return url;
 }
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function setHtml(id,html){let el=document.getElementById(id);if(el)el.innerHTML=html;}
+function setText(id,text){let el=document.getElementById(id);if(el)el.innerText=text;}
+function dim(msg){return '<span style="color:var(--c-dim)">'+esc(msg)+'</span>';}
+function apiJson(action,params,options){
+  return fetch(apiUrl(action,params),options).then(r=>r.json().catch(()=>({error:'bad json'}))).then(d=>{
+    if(d&&d.error)throw new Error(d.error);
+    return d;
+  });
+}
 
 // GLOBALS
 let isRunning=false,lastGpsFixTime=Date.now(),lastHandshakeCount=-1;
@@ -390,12 +399,15 @@ function setDriverSide(){
 function toggleWardriving(){
   let a=isRunning?'stop':'start';
   document.getElementById('btnToggle').innerText='⏳...';
-  fetch('/cgi-bin/wardriving_api?action='+a).then(()=>setTimeout(updateStatus,1500));
+  apiJson(a).then(()=>setTimeout(updateStatus,1500)).catch(e=>{
+    setHtml('logBox','Action '+esc(a)+' failed: '+esc(e.message||'unknown'));
+    updateStatus();
+  });
 }
 
 // STATUS POLL
 function updateStatus(){
-  fetch('/cgi-bin/wardriving_api?action=status').then(r=>r.json()).then(d=>{
+  apiJson('status').then(d=>{
     isRunning=d.running;
     let btn=document.getElementById('btnToggle'),dot=document.getElementById('hdr_dot');
     if(isRunning){btn.innerHTML='⏹ STOP';btn.className='btn huge stop';dot.className='status-dot on';dot.innerText='● LIVE';}
@@ -428,19 +440,24 @@ function updateStatus(){
       document.querySelectorAll('#specList .ch-detail.open').forEach(el=>{
         let chEl=el.previousElementSibling;if(chEl)openChs.add(chEl.querySelector('.ch-n').innerText);
       });
-      let fd=d.channels_data.filter(i=>!excludedSSIDs.includes(i.s)),cm={};
+      let rawCount=d.channels_data.length,fd=d.channels_data.filter(i=>!excludedSSIDs.includes(i.s)),cm={};
       fd.forEach(i=>{if(!cm[i.c])cm[i.c]=[];cm[i.c].push(i.s);});
       let sh='',chs=[1,2,3,4,5,6,7,8,9,10,11];
-      chs.forEach(c=>{let ss=cm[c]||[];sh+='<div class="ch-row" onclick="this.nextElementSibling.classList.toggle(\'open\')"><span class="ch-n">CH '+c+'</span><span class="ch-c">'+ss.length+'</span></div><div class="ch-detail'+(openChs.has('CH '+c)?' open':'')+'">'+(ss.length?ss.map(s=>'<div>'+esc(s)+'</div>').join(''):'<span style="color:var(--c-dim)">empty</span>')+'</div>';});
+      let emptyText=rawCount===0?'no data':(fd.length===0?'filtered':'empty');
+      chs.forEach(c=>{let ss=cm[c]||[];sh+='<div class="ch-row" onclick="this.nextElementSibling.classList.toggle(\'open\')"><span class="ch-n">CH '+c+'</span><span class="ch-c">'+ss.length+'</span></div><div class="ch-detail'+(openChs.has('CH '+c)?' open':'')+'">'+(ss.length?ss.map(s=>'<div>'+esc(s)+'</div>').join(''):'<span style="color:var(--c-dim)">'+emptyText+'</span>')+'</div>';});
       document.getElementById('specList').innerHTML=sh;
     }
     updateScores();
+  }).catch(e=>{
+    setHtml('specList',dim('status error: '+(e.message||'unknown')));
+    let btn=document.getElementById('btnToggle');if(btn){btn.innerHTML='▶ START';btn.className='btn huge';}
+    let dot=document.getElementById('hdr_dot');if(dot){dot.className='status-dot off';dot.innerText='● API ERR';}
   });
 }
 
 function updateScores(){
   if(!isRunning)return;
-  fetch('/cgi-bin/wardriving_api?action=scored_networks').then(r=>r.json()).then(d=>{
+  apiJson('scored_networks').then(d=>{
     let h='';if(!d||!d.length){document.getElementById('scoresList').innerHTML='<span style="color:var(--c-dim)">No targets in range</span>';return;}
     d.slice(0,12).forEach(n=>{
       let v=OUI_DB[(n.mac||'').replace(/:/g,'').substring(0,6).toUpperCase()]||'';
@@ -448,18 +465,18 @@ function updateScores(){
       h+='<div class="sr"><div class="sr-top"><span class="sr-ssid">'+esc(n.ssid||'??')+'</span><span class="sr-pts" style="color:'+co+'">'+sc+' pts</span></div><div class="sr-info">'+esc(n.enc||'?')+' | RSSI:'+esc(n.rssi||'?')+' | '+(n.has_hs?'🔑 PMKID':'')+(v?' | '+esc(v):'')+'</div></div>';
     });
     document.getElementById('scoresList').innerHTML=h||'<span style="color:var(--c-dim)">No targets</span>';
-  }).catch(()=>{});
+  }).catch(e=>{setHtml('scoresList',dim('score error: '+(e.message||'unknown')));});
 }
 
 // MAP POLL
 function updateMap(){
   if(!isRunning)return;
-  fetch('/cgi-bin/wardriving_api?action=map_data').then(r=>r.json()).then(d=>{
-    if(!d.nmea_b64)return;let ls=atob(d.nmea_b64).split('\n'),cl=null,cln=null;
+  apiJson('map_data').then(d=>{
+    if(!d.nmea_b64){setText('logBox','Map data: no route/NMEA data yet.');return;}let ls=atob(d.nmea_b64).split('\n'),cl=null,cln=null;
     ls.forEach(l=>{let r=parseNMEARMC(l);if(r){cl=r.lat;cln=r.lon;window.carLat=r.lat;window.carLng=r.lon;return;}
       let w=parseNMEAWPL(l);if(w&&!wpsMarkers[w.mac]&&!isNaN(w.lat)&&!isNaN(w.lon)){wpsMarkers[w.mac]=L.circleMarker([w.lat,w.lon],{radius:5,fillColor:'#00ff00',color:'#00aa00',weight:1,opacity:1,fillOpacity:0.7}).addTo(map).bindPopup('<b>Handshake:</b><br>'+w.mac);}});
     if(cl!==null&&!isNaN(cl)){carMarker.setLatLng([cl,cln]);if(firstLoc){map.setView([cl,cln],16);firstLoc=false;}}
-  });
+  }).catch(e=>{setText('logBox','Map data failed: '+(e.message||'unknown'));});
 }
 
 // MAP CONTROLS
@@ -487,11 +504,11 @@ function generateNMEA(pos){
 }
 
 // CAPTURES
-function loadFiles(){fetch('/cgi-bin/wardriving_api?action=list_files').then(r=>r.json()).then(d=>{let h='';if(!d||!d.length){document.getElementById('fileList').innerHTML='<span style="color:var(--c-dim)">No captures yet.</span>';return;}d.forEach(f=>{let name=String(f.name||'');h+='<div class="file-item"><div class="fi-name">'+esc(name)+'</div><div class="fi-nets">'+esc(f.nets)+'</div><div class="fi-meta">'+esc(f.size)+'<br>'+esc(f.date)+'</div><button class="btn small stop" onclick="deleteFile(\''+encodeURIComponent(name)+'\')">✕</button></div>';});document.getElementById('fileList').innerHTML=h;});}
+function loadFiles(){apiJson('list_files').then(d=>{let h='';if(!d||!d.length){document.getElementById('fileList').innerHTML='<span style="color:var(--c-dim)">No captures yet.</span>';return;}d.forEach(f=>{let name=String(f.name||'');h+='<div class="file-item"><div class="fi-name">'+esc(name)+'</div><div class="fi-nets">'+esc(f.nets)+'</div><div class="fi-meta">'+esc(f.size)+'<br>'+esc(f.date)+'</div><button class="btn small stop" onclick="deleteFile(\''+encodeURIComponent(name)+'\')">✕</button></div>';});document.getElementById('fileList').innerHTML=h;}).catch(e=>{setHtml('fileList',dim('files error: '+(e.message||'unknown')));});}
 function deleteFile(fn){fetch('/cgi-bin/wardriving_api?action=delete_file&file='+fn).then(()=>{loadFiles();updateStatus();});}
 function togglePcap(){fetch('/cgi-bin/wardriving_api?action=set_pcap_retention&keep='+document.getElementById('chkKeepPcap').checked);}
 function uploadPotfile(){let f=document.getElementById('potfileInput').files[0];if(!f)return;document.getElementById('potfileStatus').innerText='Uploading...';fetch('/cgi-bin/wardriving_api?action=upload_potfile',{method:'POST',body:f}).then(()=>{document.getElementById('potfileStatus').innerText='✓ Uploaded!';loadCrackedNetworks();});}
-function loadCrackedNetworks(){fetch('/cgi-bin/wardriving_api?action=cracked_networks').then(r=>r.json()).then(d=>{crackedMarkers.forEach(m=>map.removeLayer(m));crackedMarkers=[];if(!d||!d.length)return;let groups={};d.forEach(n=>{let lat=parseFloat(n.lat),lon=parseFloat(n.lon);if(isNaN(lat)||isNaN(lon))return;let k=lat.toFixed(7)+','+lon.toFixed(7);if(!groups[k])groups[k]={lat,lon,ssids:[]};groups[k].ssids.push(String(n.ssid||'??'));});Object.keys(groups).forEach(k=>{let g=groups[k],count=g.ssids.length,label=count>1?'<span style="position:absolute;right:-5px;top:-7px;background:#00ff66;color:#001b0a;border-radius:9px;min-width:16px;height:16px;font:bold 11px/16px sans-serif;text-align:center;box-shadow:0 0 5px #0f0">'+count+'</span>':'';let popup='<b style="color:#0f0;">🔓 CRACKED'+(count>1?' x'+count:'')+'!</b><br>'+g.ssids.map(esc).join('<br>');let m=L.marker([g.lat,g.lon],{icon:L.divIcon({className:'cracked-icon',html:'<div style="position:relative;font-size:22px;text-shadow:0 0 5px #0f0;line-height:28px;text-align:center">🔓'+label+'</div>',iconSize:[34,34]})}).addTo(map).bindPopup(popup);crackedMarkers.push(m);});});}
+function loadCrackedNetworks(){apiJson('cracked_networks').then(d=>{crackedMarkers.forEach(m=>map.removeLayer(m));crackedMarkers=[];if(!d||!d.length)return;let groups={};d.forEach(n=>{let lat=parseFloat(n.lat),lon=parseFloat(n.lon);if(isNaN(lat)||isNaN(lon))return;let k=lat.toFixed(7)+','+lon.toFixed(7);if(!groups[k])groups[k]={lat,lon,ssids:[]};groups[k].ssids.push(String(n.ssid||'??'));});Object.keys(groups).forEach(k=>{let g=groups[k],count=g.ssids.length,label=count>1?'<span style="position:absolute;right:-5px;top:-7px;background:#00ff66;color:#001b0a;border-radius:9px;min-width:16px;height:16px;font:bold 11px/16px sans-serif;text-align:center;box-shadow:0 0 5px #0f0">'+count+'</span>':'';let popup='<b style="color:#0f0;">🔓 CRACKED'+(count>1?' x'+count:'')+'!</b><br>'+g.ssids.map(esc).join('<br>');let m=L.marker([g.lat,g.lon],{icon:L.divIcon({className:'cracked-icon',html:'<div style="position:relative;font-size:22px;text-shadow:0 0 5px #0f0;line-height:28px;text-align:center">🔓'+label+'</div>',iconSize:[34,34]})}).addTo(map).bindPopup(popup);crackedMarkers.push(m);});}).catch(e=>{setText('logBox','Cracked networks failed: '+(e.message||'unknown'));});}
 
 // SETTINGS
 function toggleNightMode(){let n=document.getElementById('chkNight').checked;localStorage.setItem('nightMode',n);if(n)document.body.classList.add('night-mode');else document.body.classList.remove('night-mode');}

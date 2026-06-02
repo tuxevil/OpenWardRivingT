@@ -14,9 +14,29 @@ setup() {
     # Minimal mock: create dummy master files
     mkdir -p /tmp/test_wardriving_mnt
     echo "WPA*02*0011*22334455*4a1f5e6c7d8e9a0b1c2d3e4f5a6b7c8d*70617373776F7264* ***" > /tmp/test_wardriving_mnt/master.hc2200
+    echo "WPA*02*aaaaaaaaaaaa*001122334455*4a1f5e6c7d8e9a0b1c2d3e4f5a6b7c8d*70617373776F7264* ***" > /tmp/test_wardriving_mnt/hashcat.potfile
     echo "test_network" > /tmp/test_wardriving_mnt/master_essid.txt
     echo '{"001122": "TestVendor"}' > /tmp/test_wardriving_mnt/oui.json
     echo "2025-01-01 12:00:00|00:11:22:33:44:55|TestNet|WPA2|6|-45|40.7128|-74.0060|" > /tmp/test_wardriving_mnt/test.csv
+    cat > /tmp/test_wardriving_mnt/route.nmea <<'NMEA'
+$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A
+NMEA
+    if command -v sqlite3 >/dev/null 2>&1; then
+        sqlite3 /tmp/test_wardriving_mnt/wardriving.db <<'SQL'
+CREATE TABLE networks (
+    mac TEXT PRIMARY KEY,
+    ssid TEXT,
+    enc TEXT,
+    channel INTEGER,
+    lat REAL,
+    lon REAL,
+    first_seen TEXT,
+    last_seen TEXT,
+    rssi INTEGER
+);
+INSERT INTO networks VALUES ('00:11:22:33:44:55','TestNet','WPA2',6,40.7128,-74.0060,'2025-01-01','2025-01-01',-45);
+SQL
+    fi
 }
 
 cleanup() {
@@ -70,6 +90,7 @@ assert_status() {
 # ===== TESTS =====
 setup
 export WARDRIVING_TOKEN_FILE=/tmp/test_wardriving_token
+export WARDRIVING_MNT=/tmp/test_wardriving_mnt
 
 echo ""
 echo "=== CGI Tests ==="
@@ -102,6 +123,18 @@ OUT=$(QUERY_STRING="action=export_hashcat" sh "$CGI" 2>/dev/null)
 assert_json "sensitive export without token returns JSON" "$OUT"
 assert_contains "sensitive export requires token" "$OUT" "unauthorized"
 
+echo "  Test: action=map_data (no token)"
+OUT=$(QUERY_STRING="action=map_data" sh "$CGI" 2>/dev/null)
+assert_contains "map_data requires token" "$OUT" "unauthorized"
+
+echo "  Test: action=cracked_networks (no token)"
+OUT=$(QUERY_STRING="action=cracked_networks" sh "$CGI" 2>/dev/null)
+assert_contains "cracked_networks requires token" "$OUT" "unauthorized"
+
+echo "  Test: action=list_files (no token)"
+OUT=$(QUERY_STRING="action=list_files" sh "$CGI" 2>/dev/null)
+assert_contains "list_files requires token" "$OUT" "unauthorized"
+
 # Test 5: Export GPX
 echo "  Test: action=export_gpx"
 OUT=$(QUERY_STRING="action=export_gpx&token=$TOKEN" sh "$CGI" 2>/dev/null)
@@ -133,6 +166,18 @@ OUT=$(QUERY_STRING="action=get_hw&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_json "get_hw returns JSON" "$OUT"
 assert_contains "get_hw has leds" "$OUT" "leds"
 
+echo "  Test: action=map_data"
+OUT=$(QUERY_STRING="action=map_data&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_json "map_data returns JSON" "$OUT"
+assert_contains "map_data includes nmea_b64" "$OUT" "nmea_b64"
+
+if command -v sqlite3 >/dev/null 2>&1; then
+    echo "  Test: action=cracked_networks"
+    OUT=$(QUERY_STRING="action=cracked_networks&token=$TOKEN" sh "$CGI" 2>/dev/null)
+    assert_json "cracked_networks returns JSON" "$OUT"
+    assert_contains "cracked_networks includes matched SSID" "$OUT" "TestNet"
+fi
+
 echo ""
 echo "=== Upload Guard Tests ==="
 
@@ -144,6 +189,10 @@ echo "  Test: upload_potfile rejects oversized payload"
 OUT=$(REQUEST_METHOD="POST" CONTENT_LENGTH="1048577" QUERY_STRING="action=upload_potfile&token=$TOKEN" sh "$CGI" 2>/dev/null < /dev/null)
 assert_contains "upload_potfile size guard" "$OUT" "too large"
 
+echo "  Test: upload_potfile rejects empty body"
+OUT=$(REQUEST_METHOD="POST" CONTENT_LENGTH="0" QUERY_STRING="action=upload_potfile&token=$TOKEN" sh "$CGI" 2>/dev/null < /dev/null)
+assert_contains "upload_potfile empty guard" "$OUT" "empty upload"
+
 echo "  Test: upload_tiles rejects invalid archive"
 OUT=$(printf 'not a tar' | REQUEST_METHOD="POST" CONTENT_LENGTH="9" QUERY_STRING="action=upload_tiles&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_contains "upload_tiles invalid tar guard" "$OUT" "invalid tile archive"
@@ -153,6 +202,13 @@ if grep -q "function esc" openwrt_files/www/wardriving/index.html && grep -q "es
     PASS=$((PASS + 1)); echo "  ✓ frontend escaping helper present"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ frontend escaping helper missing"
+fi
+
+echo "  Test: frontend has token injection placeholder"
+if grep -q "API_TOKEN_PLACEHOLDER" openwrt_files/www/wardriving/index.html && grep -q "window.fetch=function" openwrt_files/www/wardriving/index.html; then
+    PASS=$((PASS + 1)); echo "  ✓ frontend token injection hook present"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ frontend token injection hook missing"
 fi
 
 echo ""

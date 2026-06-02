@@ -12,8 +12,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install shellcheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Install test dependencies
+        run: sudo apt-get update && sudo apt-get install -y shellcheck busybox-static sqlite3
 
       - name: Lint shell scripts (shellcheck)
         run: |
@@ -40,10 +40,25 @@ jobs:
           done
           echo "✓ All scripts pass syntax check"
 
+      - name: Validate BusyBox ash syntax
+        run: |
+          echo "=== Checking BusyBox ash syntax ==="
+          for f in install.sh uninstall.sh \
+                   openwrt_files/usr/bin/wardriving_core.sh \
+                   openwrt_files/usr/bin/wardriving_sync.sh \
+                   openwrt_files/etc/init.d/wardriving \
+                   openwrt_files/www/cgi-bin/wardriving_api; do
+            busybox sh -n "$f" || { echo "FAIL: $f"; exit 1; }
+          done
+          echo "✓ All scripts pass BusyBox ash syntax check"
+
       - name: Run test suite
         run: |
           chmod +x test/run_tests.sh
           sh test/run_tests.sh
+
+      - name: Run test suite with BusyBox ash
+        run: busybox sh test/run_tests.sh
 
       - name: Validate oui.json
         run: |

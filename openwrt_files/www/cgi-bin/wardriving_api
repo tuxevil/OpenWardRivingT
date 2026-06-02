@@ -3,6 +3,7 @@
 ACTION=$(echo "$QUERY_STRING" | grep -o "action=[^&]*" | cut -d= -f2)
 TOKEN=$(echo "$QUERY_STRING" | grep -o "token=[^&]*" | cut -d= -f2)
 TOKEN_FILE="${WARDRIVING_TOKEN_FILE:-/etc/wardriving_api_token}"
+WARD_MNT="${WARDRIVING_MNT:-/mnt/wardriving}"
 
 json_error() {
     echo "{\"status\": \"error\", \"reason\": \"$1\"}"
@@ -111,7 +112,7 @@ if [ "$ACTION" = "download_all" ]; then
     echo "Content-Type: application/gzip"
     echo "Content-Disposition: attachment; filename=\"openwardrivingt_captures_$(date +%Y%m%d_%H%M).tar.gz\""
     echo ""
-    cd /mnt/wardriving && tar -czf - *.pcapng *.nmea *.hc2200 *.txt 2>/dev/null
+    cd "$WARD_MNT" && tar -czf - *.pcapng *.nmea *.hc2200 *.txt 2>/dev/null
     exit 0
 fi
 
@@ -121,7 +122,7 @@ if [ "$ACTION" = "export_gpx" ]; then
     echo "Access-Control-Allow-Origin: *"
     echo "Content-Disposition: attachment; filename=\"wardriving_route_$(date +%Y%m%d_%H%M).gpx\""
     echo ""
-    cat /mnt/wardriving/*.nmea 2>/dev/null | awk '
+    cat "$WARD_MNT"/*.nmea 2>/dev/null | awk '
     BEGIN {
         print "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
         print "<gpx version=\"1.0\">"
@@ -151,7 +152,7 @@ if [ "$ACTION" = "export_kml" ]; then
     echo "Access-Control-Allow-Origin: *"
     echo "Content-Disposition: attachment; filename=\"wardriving_route_$(date +%Y%m%d_%H%M).kml\""
     echo ""
-    cat /mnt/wardriving/*.nmea 2>/dev/null | awk '
+    cat "$WARD_MNT"/*.nmea 2>/dev/null | awk '
     BEGIN {
         print "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
         print "<kml xmlns=\"http://www.opengis.net/kml/2.2\">"
@@ -182,7 +183,7 @@ if [ "$ACTION" = "export_hashcat" ]; then
     echo "Content-Type: application/octet-stream"
     echo "Content-Disposition: attachment; filename=\"openwardrivingt_handshakes_$(date +%Y%m%d).hc2200\""
     echo ""
-    cat /mnt/wardriving/master.hc2200 2>/dev/null
+    cat "$WARD_MNT"/master.hc2200 2>/dev/null
     exit 0
 fi
 
@@ -197,20 +198,20 @@ if [ "$ACTION" = "status" ]; then
     else
         IS_RUNNING="false"
     fi
-    if [ -f /mnt/wardriving/master.hc2200 ]; then
-        HANDSHAKES=$(wc -l < /mnt/wardriving/master.hc2200 2>/dev/null || echo 0)
+    if [ -f "$WARD_MNT"/master.hc2200 ]; then
+        HANDSHAKES=$(wc -l < "$WARD_MNT"/master.hc2200 2>/dev/null || echo 0)
     else
         HANDSHAKES=0
     fi
     read -r SPACE_USED SPACE_FREE USB_PCT <<_EOF
-$(df -h /mnt/wardriving | awk 'NR==2 {print $3, $4, $5}' | tr -d '%')
+$(df -h "$WARD_MNT" | awk 'NR==2 {print $3, $4, $5}' | tr -d '%')
 _EOF
     read -r CPU_LOAD _ < /proc/loadavg
     read -r RAM_TOTAL RAM_USED <<_EOF
 $(free -m | awk '/^Mem:/{print $2, $3}')
 _EOF
     RAM_PCT=0; [ "$RAM_TOTAL" -gt 0 ] && RAM_PCT=$(( 100 * RAM_USED / RAM_TOTAL ))
-    LATEST_NMEA=$(ls -1t /mnt/wardriving/*.nmea 2>/dev/null | head -n 1)
+    LATEST_NMEA=$(ls -1t "$WARD_MNT"/*.nmea 2>/dev/null | head -n 1)
     SATS="0"
     DEAUTHS="N/A"
     FIX="0"
@@ -293,8 +294,8 @@ elif [ "$ACTION" = "upload_potfile" ]; then
         json_error "empty upload"
         exit 0
     fi
-    cat /tmp/uploaded.potfile >> /mnt/wardriving/hashcat.potfile
-    sort -u /mnt/wardriving/hashcat.potfile -o /mnt/wardriving/hashcat.potfile 2>/dev/null
+    cat /tmp/uploaded.potfile >> "$WARD_MNT"/hashcat.potfile
+    sort -u "$WARD_MNT"/hashcat.potfile -o "$WARD_MNT"/hashcat.potfile 2>/dev/null
     rm -f /tmp/uploaded.potfile
     echo '{"status": "ok"}'
 
@@ -316,15 +317,15 @@ elif [ "$ACTION" = "pwnagotchi_sync" ]; then
         
         HAS_HASHES=0
         if [ -s "$HC2200_OUT" ]; then
-            cat "$HC2200_OUT" >> /mnt/wardriving/master.hc2200
-            sort -u /mnt/wardriving/master.hc2200 -o /mnt/wardriving/master.hc2200
+            cat "$HC2200_OUT" >> "$WARD_MNT"/master.hc2200
+            sort -u "$WARD_MNT"/master.hc2200 -o "$WARD_MNT"/master.hc2200
             HAS_HASHES=$(wc -l < "$HC2200_OUT")
         fi
         
         HAS_ESSIDS=0
         if [ -s "$ESSID_OUT" ]; then
-            cat "$ESSID_OUT" >> /mnt/wardriving/master_essid.txt
-            sort -u /mnt/wardriving/master_essid.txt -o /mnt/wardriving/master_essid.txt
+            cat "$ESSID_OUT" >> "$WARD_MNT"/master_essid.txt
+            sort -u "$WARD_MNT"/master_essid.txt -o "$WARD_MNT"/master_essid.txt
             HAS_ESSIDS=$(wc -l < "$ESSID_OUT")
         fi
         
@@ -338,14 +339,14 @@ elif [ "$ACTION" = "pwnagotchi_sync" ]; then
 
 elif [ "$ACTION" = "cracked_networks" ]; then
     echo "["
-    if [ -f /mnt/wardriving/hashcat.potfile ] && [ -f /mnt/wardriving/wardriving.db ]; then
-        awk '{ if ($0 ~ /^WPA\*/) { split($0, arr, "*"); print arr[4] } else if ($0 ~ /^[0-9a-fA-F]{32}:[0-9a-fA-F]{12}:/) { split($0, arr, ":"); print arr[2] } }' /mnt/wardriving/hashcat.potfile | sed 's/../&:/g; s/:$//' | tr '[:upper:]' '[:lower:]' | sort -u > /tmp/cracked_macs.txt
+    if [ -f "$WARD_MNT"/hashcat.potfile ] && [ -f "$WARD_MNT"/wardriving.db ]; then
+        awk '{ if ($0 ~ /^WPA\*/) { split($0, arr, "*"); print arr[4] } else if ($0 ~ /^[0-9a-fA-F]{32}:[0-9a-fA-F]{12}:/) { split($0, arr, ":"); print arr[2] } }' "$WARD_MNT"/hashcat.potfile | sed 's/../&:/g; s/:$//' | tr '[:upper:]' '[:lower:]' | sort -u > /tmp/cracked_macs.txt
         
         # Extract cracked networks from both normal rows and legacy-shifted rows
         # produced by the old remote SQL contract (real MAC in ssid, real SSID in enc).
         if [ -s /tmp/cracked_macs.txt ]; then
             COND=$(awk '{printf "\"%s\",", $1}' /tmp/cracked_macs.txt | sed 's/,$//')
-            sqlite3 -separator '|' /mnt/wardriving/wardriving.db "
+            sqlite3 -separator '|' "$WARD_MNT"/wardriving.db "
                 SELECT lat, lon, ssid FROM networks
                 WHERE lower(mac) IN ($COND) AND lat IS NOT NULL AND lon IS NOT NULL
                 UNION
@@ -386,7 +387,7 @@ elif [ "$ACTION" = "upload_tiles" ]; then
         exit 0
     fi
     rm -rf "$TILE_EXTRACT"
-    mkdir -p /mnt/wardriving/tiles/ "$TILE_EXTRACT"
+    mkdir -p "$WARD_MNT"/tiles/ "$TILE_EXTRACT"
     if ! tar -xzf "$TILE_ARCHIVE" -C "$TILE_EXTRACT" 2>/dev/null; then
         rm -rf "$TILE_EXTRACT"
         rm -f "$TILE_ARCHIVE" /tmp/tiles_list_$$
@@ -396,9 +397,9 @@ elif [ "$ACTION" = "upload_tiles" ]; then
     
     Z_PARENT=$(find "$TILE_EXTRACT" -type d -name '[0-9]*' | head -n 1 | awk -F/ '{OFS="/"; NF--; print $0}')
     if [ -n "$Z_PARENT" ] && [ -d "$Z_PARENT" ]; then
-        cp -rf "$Z_PARENT"/* /mnt/wardriving/tiles/ 2>/dev/null
+        cp -rf "$Z_PARENT"/* "$WARD_MNT"/tiles/ 2>/dev/null
     else
-        cp -rf "$TILE_EXTRACT"/* /mnt/wardriving/tiles/ 2>/dev/null
+        cp -rf "$TILE_EXTRACT"/* "$WARD_MNT"/tiles/ 2>/dev/null
     fi
     
     rm -rf "$TILE_EXTRACT"
@@ -418,7 +419,7 @@ elif [ "$ACTION" = "wigle_upload" ]; then
         echo '{"success": false, "error": "No WiGLE token configured. Save your API token first."}'
         exit 0
     fi
-    if [ ! -f "/mnt/wardriving/wardriving.db" ]; then
+    if [ ! -f "$WARD_MNT/wardriving.db" ]; then
         echo '{"success": false, "error": "No database found"}'
         exit 0
     fi
@@ -426,7 +427,7 @@ elif [ "$ACTION" = "wigle_upload" ]; then
     
     echo "WigleWifi-1.4,appRelease=1.0,model=OpenWardRivingT,release=1.0,device=OpenWrt,display=OpenWrt,board=OpenWrt,brand=OpenWrt" > /tmp/wigle.csv
     echo "MAC,SSID,AuthMode,FirstSeen,Channel,RSSI,CurrentLatitude,CurrentLongitude,AltitudeMeters,AccuracyMeters,Type" >> /tmp/wigle.csv
-    sqlite3 -separator ',' /mnt/wardriving/wardriving.db "SELECT mac, ssid, enc, first_seen, channel, rssi, lat, lon, 0, 10, 'WIFI' FROM networks WHERE lat IS NOT NULL AND lat != 'NULL';" >> /tmp/wigle.csv
+    sqlite3 -separator ',' "$WARD_MNT"/wardriving.db "SELECT mac, ssid, enc, first_seen, channel, rssi, lat, lon, 0, 10, 'WIFI' FROM networks WHERE lat IS NOT NULL AND lat != 'NULL';" >> /tmp/wigle.csv
     
     RES=$(curl -s -m 30 -X POST "https://api.wigle.net/api/v2/network/upload" -H "Authorization: Basic $TOKEN" -H "Accept: application/json" -F "file=@/tmp/wigle.csv")
     rm -f /tmp/wigle.csv
@@ -441,8 +442,8 @@ elif [ "$ACTION" = "wigle_upload" ]; then
 
 
 elif [ "$ACTION" = "heatmap_data" ]; then
-    if [ -f /mnt/wardriving/wardriving.db ]; then
-        sqlite3 -separator ',' /mnt/wardriving/wardriving.db "SELECT lat, lon, rssi FROM networks WHERE lat IS NOT NULL;" 2>/dev/null | awk -F',' '
+    if [ -f "$WARD_MNT"/wardriving.db ]; then
+        sqlite3 -separator ',' "$WARD_MNT"/wardriving.db "SELECT lat, lon, rssi FROM networks WHERE lat IS NOT NULL;" 2>/dev/null | awk -F',' '
         BEGIN { printf "[" }
         {
             if (NR>1) printf ",";
@@ -457,7 +458,7 @@ elif [ "$ACTION" = "heatmap_data" ]; then
     fi
 
 elif [ "$ACTION" = "map_data" ]; then
-    LATEST_NMEA=$(ls -1t /mnt/wardriving/*.nmea 2>/dev/null | head -n 1)
+    LATEST_NMEA=$(ls -1t "$WARD_MNT"/*.nmea 2>/dev/null | head -n 1)
     if [ -f "$LATEST_NMEA" ]; then
         NMEA_B64=$(tail -n 20 "$LATEST_NMEA" | encode_base64 | tr -d '\n')
         echo "{\"nmea_b64\": \"$NMEA_B64\"}"
@@ -511,9 +512,9 @@ for z in $(seq $ZMIN $ZMAX); do
     Y_MAX=$(lat2tile $S $z)
     
     for x in $(seq $X_MIN $X_MAX); do
-        mkdir -p "/mnt/wardriving/tiles/$z/$x"
+        mkdir -p "$WARD_MNT/tiles/$z/$x"
         for y in $(seq $Y_MIN $Y_MAX); do
-            FILE="/mnt/wardriving/tiles/$z/$x/$y.png"
+            FILE="$WARD_MNT/tiles/$z/$x/$y.png"
             if [ ! -f "$FILE" ]; then
                 wget -q -T 10 -O "$FILE" "https://tile.openstreetmap.org/$z/$x/$y.png" || rm -f "$FILE"
                 sleep 0.2
@@ -543,19 +544,19 @@ elif [ "$ACTION" = "list_files" ]; then
     echo "["
     FIRST=1
     
-    if [ -f /mnt/wardriving/master.hc2200 ]; then
+    if [ -f "$WARD_MNT"/master.hc2200 ]; then
         NAME="master.hc2200"
-        SIZE=$(du -h "/mnt/wardriving/master.hc2200" | awk '{print $1}')
-        DATE=$(date -r "/mnt/wardriving/master.hc2200" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "Unknown")
-        TOTAL_NETS=$(wc -l < /mnt/wardriving/master_essid.txt 2>/dev/null || echo 0)
-        NETS=$(head -n 5 /mnt/wardriving/master_essid.txt 2>/dev/null | tr '\n' ',' | sed 's/,$//' | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
+        SIZE=$(du -h "$WARD_MNT/master.hc2200" | awk '{print $1}')
+        DATE=$(date -r "$WARD_MNT/master.hc2200" "+%Y-%m-%d %H:%M:%S" 2>/dev/null || echo "Unknown")
+        TOTAL_NETS=$(wc -l < "$WARD_MNT"/master_essid.txt 2>/dev/null || echo 0)
+        NETS=$(head -n 5 "$WARD_MNT"/master_essid.txt 2>/dev/null | tr '\n' ',' | sed 's/,$//' | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
         if [ "$TOTAL_NETS" -gt 5 ]; then NETS="$NETS... (+$((TOTAL_NETS - 5)))"; fi
         [ -z "$NETS" ] && NETS="No networks / Empty"
         echo "{\"name\": \"$NAME\", \"size\": \"$SIZE\", \"date\": \"$DATE\", \"nets\": \"$NETS\", \"total_nets\": $TOTAL_NETS}"
         FIRST=0
     fi
 
-    for f in $(ls -1r /mnt/wardriving/*.pcapng 2>/dev/null); do
+    for f in $(ls -1r "$WARD_MNT"/*.pcapng 2>/dev/null); do
         NAME=$(basename "$f")
         SIZE=$(du -h "$f" | awk '{print $1}')
         DATE=$(date -r "$f" "+%Y-%m-%d %H:%M:%S")
@@ -579,13 +580,13 @@ elif [ "$ACTION" = "delete_file" ]; then
             exit 0
         fi
         BASENAME=$(basename "$SAFE")
-        # Safety: only allow deletion within /mnt/wardriving
-        TARGET="/mnt/wardriving/$BASENAME"
+        # Safety: only allow deletion within $WARD_MNT
+        TARGET="$WARD_MNT/$BASENAME"
         case "$(readlink -f "$TARGET" 2>/dev/null || realpath "$TARGET" 2>/dev/null || echo "$TARGET")" in
-            /mnt/wardriving/*)
+            "$WARD_MNT"/*)
                 rm -f "$TARGET"
-                rm -f "/mnt/wardriving/${BASENAME%.pcapng}.txt"
-                rm -f "/mnt/wardriving/${BASENAME%.pcapng}.nmea"
+                rm -f "$WARD_MNT/${BASENAME%.pcapng}.txt"
+                rm -f "$WARD_MNT/${BASENAME%.pcapng}.nmea"
                 echo '{"status": "deleted"}'
                 ;;
             *)
@@ -718,11 +719,11 @@ elif [ "$ACTION" = "pwnagotchi_status" ]; then
     echo "$RES"
 
 elif [ "$ACTION" = "scored_networks" ]; then
-    if [ -f /mnt/wardriving/wardriving.db ]; then
+    if [ -f "$WARD_MNT"/wardriving.db ]; then
         # Pre-compute handshake MACs to avoid system() calls in awk loop
         # Pre-compute handshake MACs (busybox-compatible grep -oE, no PCRE)
-        HS_MACS=$(grep -oE '\*[0-9a-fA-F]{12}' /mnt/wardriving/master.hc2200 2>/dev/null | sed 's/^\*//' | tr '[:upper:]' '[:lower:]' | sort -u | paste -sd '|' - 2>/dev/null)
-        sqlite3 -separator '|' /mnt/wardriving/wardriving.db "SELECT mac, ssid, enc, rssi FROM networks WHERE last_seen >= datetime('now', '-3 minutes') ORDER BY rssi DESC LIMIT 30;" 2>/dev/null | awk -F'|' -v hs_macs="$HS_MACS" '
+        HS_MACS=$(grep -oE '\*[0-9a-fA-F]{12}' "$WARD_MNT"/master.hc2200 2>/dev/null | sed 's/^\*//' | tr '[:upper:]' '[:lower:]' | sort -u | paste -sd '|' - 2>/dev/null)
+        sqlite3 -separator '|' "$WARD_MNT"/wardriving.db "SELECT mac, ssid, enc, rssi FROM networks WHERE last_seen >= datetime('now', '-3 minutes') ORDER BY rssi DESC LIMIT 30;" 2>/dev/null | awk -F'|' -v hs_macs="$HS_MACS" '
         BEGIN { printf "[" }
         {
             mac=$1; ssid=$2; enc=$3; rssi=$4;
@@ -776,18 +777,18 @@ elif [ "$ACTION" = "remove_target" ]; then
     fi
 
 elif [ "$ACTION" = "check_targets" ]; then
-    if [ -f /mnt/wardriving/wardriving.db ] && [ -s /etc/wardriving_targets.txt ]; then
+    if [ -f "$WARD_MNT"/wardriving.db ] && [ -s /etc/wardriving_targets.txt ]; then
         # Sanitize MACs: keep only hex digits and colons, then build SQL
         COND=$(sed "s/[^a-fA-F0-9:]//g" /etc/wardriving_targets.txt | awk 'NF {printf "mac LIKE '"'"'%s%%'"'"' OR ", $1}' | sed 's/ OR $//')
         [ -z "$COND" ] && { echo "[]"; exit 0; }
-        sqlite3 -json /mnt/wardriving/wardriving.db "SELECT mac, ssid FROM networks WHERE ($COND) AND last_seen >= datetime('now', '-2 minutes');" 2>/dev/null || echo "[]"
+        sqlite3 -json "$WARD_MNT"/wardriving.db "SELECT mac, ssid FROM networks WHERE ($COND) AND last_seen >= datetime('now', '-2 minutes');" 2>/dev/null || echo "[]"
     else
         echo "[]"
     fi
 
 elif [ "$ACTION" = "get_exclusions" ]; then
     touch /etc/wardriving_excluded.txt /etc/wardriving_removed.txt
-    cat /mnt/wardriving/*.txt 2>/dev/null | sort -u | awk 'FILENAME == ARGV[1] {rem[$0]; next} {if (!($0 in rem)) print $0}' /etc/wardriving_removed.txt - > /tmp/new_excl
+    cat "$WARD_MNT"/*.txt 2>/dev/null | sort -u | awk 'FILENAME == ARGV[1] {rem[$0]; next} {if (!($0 in rem)) print $0}' /etc/wardriving_removed.txt - > /tmp/new_excl
     cat /etc/wardriving_excluded.txt >> /tmp/new_excl
     sort -u /tmp/new_excl > /etc/wardriving_excluded.txt
     rm -f /tmp/new_excl
@@ -824,20 +825,20 @@ elif [ "$ACTION" = "remove_exclusion" ]; then
 
 
 elif [ "$ACTION" = "history" ]; then
-    if [ ! -f /mnt/wardriving/wardriving.db ]; then
+    if [ ! -f "$WARD_MNT"/wardriving.db ]; then
         echo '{"total":0, "wpa3":0, "hs":0, "days":0, "sessions":[]}'
         exit 0
     fi
-    TOTAL=$(sqlite3 /mnt/wardriving/wardriving.db "SELECT COUNT(*) FROM networks;" 2>/dev/null)
+    TOTAL=$(sqlite3 "$WARD_MNT"/wardriving.db "SELECT COUNT(*) FROM networks;" 2>/dev/null)
     [ -z "$TOTAL" ] && TOTAL=0
-    WPA3=$(sqlite3 /mnt/wardriving/wardriving.db "SELECT COUNT(*) FROM networks WHERE enc LIKE '%SAE%';" 2>/dev/null)
+    WPA3=$(sqlite3 "$WARD_MNT"/wardriving.db "SELECT COUNT(*) FROM networks WHERE enc LIKE '%SAE%';" 2>/dev/null)
     [ -z "$WPA3" ] && WPA3=0
-    HS=$(wc -l < /mnt/wardriving/master.hc2200 2>/dev/null || echo 0)
-    DAYS=$(sqlite3 /mnt/wardriving/wardriving.db "SELECT COUNT(DISTINCT date(last_seen)) FROM networks;" 2>/dev/null)
+    HS=$(wc -l < "$WARD_MNT"/master.hc2200 2>/dev/null || echo 0)
+    DAYS=$(sqlite3 "$WARD_MNT"/wardriving.db "SELECT COUNT(DISTINCT date(last_seen)) FROM networks;" 2>/dev/null)
     [ -z "$DAYS" ] && DAYS=0
     
     # Build sessions JSON (safe: no SSIDs, only dates and counts)
-    SESSIONS=$(sqlite3 -separator '|' /mnt/wardriving/wardriving.db "SELECT date(last_seen), COUNT(*) FROM networks GROUP BY date(last_seen) ORDER BY date(last_seen) DESC LIMIT 7;" 2>/dev/null | awk -F'|' '
+    SESSIONS=$(sqlite3 -separator '|' "$WARD_MNT"/wardriving.db "SELECT date(last_seen), COUNT(*) FROM networks GROUP BY date(last_seen) ORDER BY date(last_seen) DESC LIMIT 7;" 2>/dev/null | awk -F'|' '
     BEGIN { first=1 }
     {
         if(!first) printf ","

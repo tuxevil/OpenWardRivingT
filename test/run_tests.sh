@@ -10,6 +10,9 @@ TOKEN="test_token_12345"
 
 # Setup test token
 setup() {
+    rm -f /tmp/wardriving_replay.pause /tmp/wardriving_replay.stop /tmp/wardriving_replay.seek
+    rm -f /tmp/wardriving_replay.pid /tmp/wardriving_replay_queue.pid /tmp/wardriving_replay_status.json
+    rm -rf /tmp/wardriving_replay_work /tmp/wardriving_replay_uploads
     echo "$TOKEN" > /tmp/test_wardriving_token
     # Minimal mock: create dummy master files
     mkdir -p /tmp/test_wardriving_mnt
@@ -41,6 +44,9 @@ SQL
 
 cleanup() {
     rm -rf /tmp/test_wardriving_*
+    rm -f /tmp/wardriving_replay.pause /tmp/wardriving_replay.stop /tmp/wardriving_replay.seek
+    rm -f /tmp/wardriving_replay.pid /tmp/wardriving_replay_queue.pid /tmp/wardriving_replay_status.json
+    rm -rf /tmp/wardriving_replay_work /tmp/wardriving_replay_uploads
 }
 
 assert_json() {
@@ -171,6 +177,27 @@ OUT=$(QUERY_STRING="action=map_data&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_json "map_data returns JSON" "$OUT"
 assert_contains "map_data includes nmea_b64" "$OUT" "nmea_b64"
 
+echo "  Test: action=replay_status"
+OUT=$(QUERY_STRING="action=replay_status&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_json "replay_status returns JSON" "$OUT"
+assert_contains "replay_status has state" "$OUT" "state"
+
+echo "  Test: action=networks_map"
+OUT=$(QUERY_STRING="action=networks_map&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_json "networks_map returns JSON" "$OUT"
+assert_contains "networks_map includes handshake flag" "$OUT" "has_handshake"
+
+echo "  Test: action=replay_discovered"
+mkdir -p /tmp/wardriving_replay_work
+cat > /tmp/wardriving_replay_work/discovered.tsv <<'TSV'
+00:11:22:33:44:55	TestNet	40.7128	-74.0060	-45	1
+66:77:88:99:aa:bb	ReplayOnly	40.7129	-74.0061	-61	0
+TSV
+OUT=$(QUERY_STRING="action=replay_discovered&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_json "replay_discovered returns JSON" "$OUT"
+assert_contains "replay_discovered includes handshake flag" "$OUT" "has_handshake"
+assert_contains "replay_discovered includes replay SSID" "$OUT" "ReplayOnly"
+
 if command -v sqlite3 >/dev/null 2>&1; then
     echo "  Test: action=cracked_networks"
     OUT=$(QUERY_STRING="action=cracked_networks&token=$TOKEN" sh "$CGI" 2>/dev/null)
@@ -196,6 +223,23 @@ assert_contains "upload_potfile empty guard" "$OUT" "empty upload"
 echo "  Test: upload_tiles rejects invalid archive"
 OUT=$(printf 'not a tar' | REQUEST_METHOD="POST" CONTENT_LENGTH="9" QUERY_STRING="action=upload_tiles&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_contains "upload_tiles invalid tar guard" "$OUT" "invalid tile archive"
+
+echo "  Test: replay_start rejects GET"
+OUT=$(REQUEST_METHOD="GET" QUERY_STRING="action=replay_start&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_contains "replay_start requires POST" "$OUT" "POST required"
+
+echo "  Test: replay_start rejects empty body"
+OUT=$(REQUEST_METHOD="POST" CONTENT_LENGTH="0" QUERY_STRING="action=replay_start&token=$TOKEN" sh "$CGI" 2>/dev/null < /dev/null)
+assert_contains "replay_start empty guard" "$OUT" "empty CSV"
+
+echo "  Test: replay_start rejects invalid CSV"
+OUT=$(printf 'not wigle' | REQUEST_METHOD="POST" CONTENT_LENGTH="9" QUERY_STRING="action=replay_start&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_contains "replay_start invalid CSV guard" "$OUT" "invalid WiGLE CSV"
+
+echo "  Test: replay_pause returns JSON"
+OUT=$(QUERY_STRING="action=replay_pause&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_json "replay_pause returns JSON" "$OUT"
+assert_contains "replay_pause has paused status" "$OUT" "paused"
 
 echo "  Test: frontend has escaping helper"
 if grep -q "function esc" openwrt_files/www/wardriving/index.html && grep -q "esc(n.ssid" openwrt_files/www/wardriving/index.html; then
@@ -300,6 +344,13 @@ if bash -n openwrt_files/usr/bin/wardriving_sync.sh 2>/dev/null; then
     PASS=$((PASS + 1)); echo "  ✓ wardriving_sync.sh syntax OK"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ wardriving_sync.sh syntax ERROR"
+fi
+
+echo "  Test: wardriving_replay.sh bash syntax"
+if bash -n openwrt_files/usr/bin/wardriving_replay.sh 2>/dev/null; then
+    PASS=$((PASS + 1)); echo "  ✓ wardriving_replay.sh syntax OK"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ wardriving_replay.sh syntax ERROR"
 fi
 
 cleanup

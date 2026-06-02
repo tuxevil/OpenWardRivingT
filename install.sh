@@ -74,6 +74,7 @@ find openwrt_files -maxdepth 1 -type f 2>/dev/null | while read -r src; do
     [ -f "$src" ] && cp -f "$src" "$dst"
 done
 chmod +x /usr/bin/wardriving_core.sh
+chmod +x /usr/bin/wardriving_replay.sh
 chmod +x /usr/bin/wardriving_sync.sh
 chmod +x /etc/init.d/wardriving
 chmod +x /www/cgi-bin/wardriving_api

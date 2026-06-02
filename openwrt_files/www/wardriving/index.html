@@ -156,6 +156,22 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
 /* LOG */
 .log-box{background:#000;border:1px solid var(--border);border-radius:var(--radius);padding:4px;flex:1;min-height:0;min-width:0;width:100%;box-sizing:border-box;overflow:auto;white-space:pre;font-size:clamp(5px,1.2vw,12px);line-height:1.2;color:var(--c-green)}
 
+/* REPLAY THEATER */
+.theater{height:100%;display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:8px;padding:8px;background:#000}
+.theater-stage{position:relative;border:1px solid var(--c-cyan);border-radius:8px;overflow:hidden;min-height:0;background:#050505}
+#replayMap{width:100%;height:100%;min-height:420px;background:#111}
+.theater-hud{position:absolute;left:12px;right:12px;bottom:12px;z-index:1000;background:rgba(0,0,0,0.9);border:1px solid var(--c-cyan);border-radius:8px;padding:10px;display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.theater-metric{border:1px solid var(--border);border-radius:8px;padding:8px;background:#000;min-height:58px}
+.theater-metric span{display:block;color:var(--c-dim);font-size:12px;text-transform:uppercase}
+.theater-metric b{display:block;color:var(--c-white);font-size:22px;line-height:1.2;word-break:break-word}
+.theater-side{display:flex;flex-direction:column;gap:8px;min-height:0}
+.timeline{height:12px;background:#050505;border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.timeline-fill{height:100%;width:0;background:var(--c-cyan);transition:width 0.2s}
+.event-feed{flex:1;min-height:0;overflow:auto;border:1px solid var(--border);border-radius:8px;background:#000;padding:8px}
+.event-row{border-bottom:1px solid var(--border);padding:8px 4px;color:var(--c-white);font-size:13px}
+.event-row .kind{color:var(--c-cyan);font-weight:bold;text-transform:uppercase;margin-right:6px}
+.replay-net{font-size:18px;color:var(--c-white);font-weight:bold;word-break:break-word}
+
 /* ANIMATIONS */
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .view.active{animation:fadeIn 0.2s}
@@ -163,7 +179,8 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
 /* RESPONSIVE */
 @media(max-width:1279px){:root{--left-w:220px;--right-w:250px}#header{grid-template-columns:auto repeat(4,minmax(105px,1fr)) auto;gap:6px}#header .metric .val{font-size:23px}.scores-panel .sr{font-size:15px}}
 @media(max-width:1023px){:root{--left-w:0px;--right-w:0px}#left-panel,.dash-right{display:none}.settings-grid{grid-template-columns:1fr}.file-item{grid-template-columns:1fr}}
-@media(max-width:799px){:root{--header-h:58px;--icon-nav-w:44px}#header{grid-template-columns:repeat(4,1fr);padding:4px;gap:4px}.night-toggle,#hdr_dot{display:none}#header .metric{min-height:48px;padding:3px 5px}#header .metric .val,#header .metric .unit{font-size:15px}#header .metric .icon{font-size:17px}#icon-nav .nav-icon{font-size:1.5em;padding:12px 0}.map-overlay{grid-template-columns:1fr;min-width:160px}.map-action{font-size:14px}}
+@media(max-width:1023px){.theater{grid-template-columns:1fr}.theater-hud{grid-template-columns:repeat(2,1fr);position:relative;left:auto;right:auto;bottom:auto;margin:8px}.theater-stage{min-height:520px}}
+@media(max-width:799px){:root{--header-h:58px;--icon-nav-w:44px}#header{grid-template-columns:repeat(4,1fr);padding:4px;gap:4px}.night-toggle,#hdr_dot{display:none}#header .metric{min-height:48px;padding:3px 5px}#header .metric .val,#header .metric .unit{font-size:15px}#header .metric .icon{font-size:17px}#icon-nav .nav-icon{font-size:1.5em;padding:12px 0}.map-overlay{grid-template-columns:1fr;min-width:160px}.map-action{font-size:14px}.theater{padding:4px}.theater-stage{min-height:430px}.theater-hud{grid-template-columns:1fr}.theater-metric b{font-size:18px}}
 </style>
 </head>
 <body>
@@ -188,6 +205,7 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
   <!-- ICON NAV -->
   <div id="icon-nav">
     <div class="nav-icon active" onclick="switchTab('dashboard',this)" title="Dashboard">🚗</div>
+    <div class="nav-icon" onclick="switchTab('replay',this)" title="Replay Theater">⏪</div>
     <div class="nav-icon" onclick="switchTab('captures',this)" title="Captures">📁</div>
     <div class="nav-icon" onclick="switchTab('console',this)" title="Console">🖥️</div>
     <div class="nav-icon" onclick="switchTab('settings',this)" title="Settings">⚙️</div>
@@ -236,6 +254,52 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
           <div class="scores-panel">
             <h4>📡 Redes Ahora</h4>
             <div id="scoresList"><span style="color:var(--c-dim)">Waiting...</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REPLAY THEATER -->
+    <div class="view" id="view-replay" style="width:100%;height:100%">
+      <div class="theater">
+        <div class="theater-stage">
+          <div id="replayMap"></div>
+          <div class="theater-hud">
+            <div class="theater-metric"><span>Point</span><b id="rpPoint">0 / 0</b></div>
+            <div class="theater-metric"><span>Nearby</span><b id="rpNearby">0 nets</b></div>
+            <div class="theater-metric"><span>Captures</span><b id="rpSent">0 sent</b></div>
+            <div class="theater-metric"><span>GPU</span><b id="rpGpu">IDLE</b></div>
+            <div class="theater-metric"><span>Cracks</span><b id="rpCracks">0</b></div>
+          </div>
+        </div>
+        <div class="theater-side">
+          <div class="card">
+            <h3 style="color:var(--c-cyan)">⏪ 3rd Person Time Machine</h3>
+            <input type="file" id="replayCsv" accept=".csv" style="margin-bottom:8px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+              <label style="font-size:0.8em;color:var(--c-dim)">Delay ms<input type="number" id="replayDelay" value="500" min="50" max="10000"></label>
+              <label style="font-size:0.8em;color:var(--c-dim)">Radius m<input type="number" id="replayRadius" value="75" min="1" max="1000"></label>
+            </div>
+            <div class="setting-row"><span>Clean before run</span><input type="checkbox" id="replayClean"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px">
+              <button class="btn small cyan" id="btnReplayStart" onclick="startReplayTheater()">▶ Start</button>
+              <button class="btn small amber" id="btnReplayPause" onclick="pauseReplayTheater()">Ⅱ Pause</button>
+              <button class="btn small stop" onclick="stopReplayTheater()">⏹ Stop</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+              <button class="btn small dim" onclick="seekReplayTheater(-50)">↤ Back</button>
+              <button class="btn small amber" onclick="seekReplayTheater(50)">Next ↦</button>
+            </div>
+            <div class="timeline"><div class="timeline-fill" id="rpTimeline"></div></div>
+            <div id="replayStatusText" style="margin-top:8px;color:var(--c-dim);font-size:0.85em">Upload a clean WiGLE CSV to replay the drive.</div>
+          </div>
+          <div class="card">
+            <h3 style="color:var(--c-amber)">Current Frame</h3>
+            <div class="replay-net" id="rpEvent">No replay loaded</div>
+            <div style="margin-top:8px;color:var(--c-dim);font-size:0.85em" id="rpCoords">0, 0</div>
+          </div>
+          <div class="event-feed" id="rpEvents">
+            <div class="event-row"><span class="kind">idle</span>Waiting for replay.</div>
           </div>
         </div>
       </div>
@@ -366,10 +430,11 @@ function apiJson(action,params,options){
 let isRunning=false,lastGpsFixTime=Date.now(),lastHandshakeCount=-1,lastHandshakeAt=0,lastStatusAt=0;
 let audioEnabled=localStorage.getItem('audioEnabled')==='true';
 let map,onlineLayer,offlineLayer,carMarker,firstLoc=true,watchId=null,browserGpsActive=false,followMode=true;
-let wpsMarkers={},crackedMarkers=[],heatLayer=null,replayTimer=null;
+let wpsMarkers={},crackedMarkers=[],networkMarkers=[],replayNetworkMarkers=[],heatLayer=null,replayTimer=null;
 let excludedSSIDs=[],targetMacs=[],alertedTargets=[],OUI_DB={};
 let petMood='sleep',petLastMoodChange=Date.now(),petHandshakeBurst=0,petLastHandshakes=0,petPwnagotchiDetected=false;
-let dlTimer=null;
+let dlTimer=null,replayMap=null,replayMarker=null,replayPollTimer=null,replayEvents=[],lastReplayState='idle';
+let replayDiscoveredTimer=null;
 
 // NMEA PARSERS
 function parseNMEARMC(l){if(!l||!l.match(/^\$[A-Z]{2}RMC/))return null;let p=l.split(',');if(p[2]!=='A')return null;let r=parseFloat(p[3]),lat=Math.floor(r/100)+((r/100)%1)*100/60;if(p[4]==='S')lat=-lat;let r2=parseFloat(p[5]),lon=Math.floor(r2/100)+((r2/100)%1)*100/60;if(p[6]==='W')lon=-lon;return{lat,lon,speedKmh:(parseFloat(p[7])||0)*1.852,time:p[1]};}
@@ -390,6 +455,14 @@ function initMap(){
   updateMapButtons();
 }
 initMap();
+function initReplayMap(){
+  replayMap=L.map('replayMap',{zoomControl:true}).setView([0,0],2);
+  let uo=localStorage.getItem('useOnlineMaps')==='true';
+  let layer=uo?L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OSM'}):L.tileLayer('/wardriving/captures/tiles/{z}/{x}/{y}.png',{maxZoom:18,errorTileUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='});
+  layer.addTo(replayMap);
+  replayMarker=L.circleMarker([0,0],{radius:10,fillColor:'#ffb000',color:'#fff',weight:2,opacity:1,fillOpacity:1}).addTo(replayMap).bindPopup('Replay vehicle');
+}
+setTimeout(initReplayMap,250);
 fetch('/wardriving/oui.json').then(r=>r.json()).then(d=>{OUI_DB=d}).catch(()=>{});
 
 // TABS
@@ -400,6 +473,7 @@ function switchTab(id,el){
   if(view){view.classList.add('active');view.style.display=(id==='dashboard'||id==='console')?'flex':'block';}
   if(el)el.classList.add('active');
   if(id==='dashboard')setTimeout(()=>{if(map)map.invalidateSize()},300);
+  if(id==='replay')setTimeout(()=>{if(replayMap)replayMap.invalidateSize();loadReplayStatus();},300);
   if(id==='history')loadHistory();
 }
 
@@ -557,6 +631,37 @@ function updateMap(){
   }).catch(e=>{setText('logBox','Map data failed: '+(e.message||'unknown'));});
 }
 
+function markerStyle(n){
+  if(n.is_cracked)return{color:'#00ff41',fillColor:'#00ff41',label:'🔓'};
+  if(n.has_handshake)return{color:'#ffb000',fillColor:'#ffb000',label:'🔑'};
+  return{color:'#00ffff',fillColor:'#00ffff',label:''};
+}
+function drawNetworkLayer(targetMap,items,store,isReplay){
+  if(!targetMap||!items)return store||[];
+  (store||[]).forEach(m=>targetMap.removeLayer(m));
+  let next=[];
+  items.forEach(n=>{
+    let lat=parseFloat(n.lat),lon=parseFloat(n.lon);if(isNaN(lat)||isNaN(lon)||lat===0||lon===0)return;
+    let st=markerStyle(n),count=parseInt(n.count||1),r=count>1?Math.min(18,7+count):6;
+    let label=st.label||(count>1?String(count):'');
+    let marker=L.circleMarker([lat,lon],{radius:r,fillColor:st.fillColor,color:st.color,weight:n.is_cracked?3:(n.has_handshake?2:1),opacity:0.95,fillOpacity:isReplay?0.55:0.38}).addTo(targetMap);
+    let ssids=String(n.ssids||n.ssid||'').split(',').filter(Boolean).slice(0,5).map(esc).join('<br>');
+    marker.bindPopup('<b>'+esc(label||'Network')+' '+count+' net'+(count===1?'':'s')+'</b><br>'+ssids+(n.has_handshake?'<br>Handshake: yes':'')+(n.is_cracked?'<br>Cracked: yes':''));
+    next.push(marker);
+    if(label){
+      let div=L.marker([lat,lon],{interactive:false,icon:L.divIcon({className:'net-label',html:'<div style="color:#000;background:'+st.fillColor+';border-radius:10px;min-width:18px;height:18px;text-align:center;font:bold 12px/18px sans-serif;box-shadow:0 0 8px '+st.fillColor+'">'+esc(label)+'</div>',iconSize:[20,20]})}).addTo(targetMap);
+      next.push(div);
+    }
+  });
+  return next;
+}
+function loadNetworkMap(){
+  apiJson('networks_map').then(d=>{networkMarkers=drawNetworkLayer(map,d,networkMarkers,false);}).catch(()=>{});
+}
+function loadReplayDiscovered(){
+  apiJson('replay_discovered').then(d=>{replayNetworkMarkers=drawNetworkLayer(replayMap,d,replayNetworkMarkers,true);}).catch(()=>{});
+}
+
 // MAP CONTROLS
 function toggleTiles(){let o=document.getElementById('chkOnlineTiles').checked;localStorage.setItem('useOnlineMaps',o);if(o){map.removeLayer(offlineLayer);onlineLayer.addTo(map);}else{map.removeLayer(onlineLayer);offlineLayer.addTo(map);}}
 function toggleHeatmap(){if(document.getElementById('chkHeatmap').checked){fetch('/cgi-bin/wardriving_api?action=heatmap_data').then(r=>r.json()).then(d=>{if(d.length>0)heatLayer=L.heatLayer(d,{radius:25,blur:15,maxZoom:17}).addTo(map);});}else{if(heatLayer){map.removeLayer(heatLayer);heatLayer=null;}}}
@@ -600,6 +705,82 @@ function deleteFile(fn){fetch('/cgi-bin/wardriving_api?action=delete_file&file='
 function togglePcap(){fetch('/cgi-bin/wardriving_api?action=set_pcap_retention&keep='+document.getElementById('chkKeepPcap').checked);}
 function uploadPotfile(){let f=document.getElementById('potfileInput').files[0];if(!f)return;document.getElementById('potfileStatus').innerText='Uploading...';fetch('/cgi-bin/wardriving_api?action=upload_potfile',{method:'POST',body:f}).then(()=>{document.getElementById('potfileStatus').innerText='✓ Uploaded!';loadCrackedNetworks();});}
 function loadCrackedNetworks(){apiJson('cracked_networks').then(d=>{crackedMarkers.forEach(m=>map.removeLayer(m));crackedMarkers=[];if(!d||!d.length)return;let groups={};d.forEach(n=>{let lat=parseFloat(n.lat),lon=parseFloat(n.lon);if(isNaN(lat)||isNaN(lon))return;let k=lat.toFixed(7)+','+lon.toFixed(7);if(!groups[k])groups[k]={lat,lon,ssids:[]};groups[k].ssids.push(String(n.ssid||'??'));});Object.keys(groups).forEach(k=>{let g=groups[k],count=g.ssids.length,label=count>1?'<span style="position:absolute;right:-5px;top:-7px;background:#00ff66;color:#001b0a;border-radius:9px;min-width:16px;height:16px;font:bold 11px/16px sans-serif;text-align:center;box-shadow:0 0 5px #0f0">'+count+'</span>':'';let popup='<b style="color:#0f0;">🔓 CRACKED'+(count>1?' x'+count:'')+'!</b><br>'+g.ssids.map(esc).join('<br>');let m=L.marker([g.lat,g.lon],{icon:L.divIcon({className:'cracked-icon',html:'<div style="position:relative;font-size:22px;text-shadow:0 0 5px #0f0;line-height:28px;text-align:center">🔓'+label+'</div>',iconSize:[34,34]})}).addTo(map).bindPopup(popup);crackedMarkers.push(m);});}).catch(e=>{setText('logBox','Cracked networks failed: '+(e.message||'unknown'));});}
+
+// REPLAY THEATER
+function renderReplayEvent(kind,msg){
+  replayEvents.unshift({kind,msg});
+  replayEvents=replayEvents.slice(0,40);
+  let h=replayEvents.map(e=>'<div class="event-row"><span class="kind">'+esc(e.kind)+'</span>'+esc(e.msg)+'</div>').join('');
+  setHtml('rpEvents',h||'<div class="event-row"><span class="kind">idle</span>Waiting for replay.</div>');
+}
+function updateReplayUi(d){
+  d=d||{};
+  lastReplayState=d.state||'idle';
+  let idx=parseInt(d.index||0),total=parseInt(d.total||0),pct=total?Math.min(100,Math.round(idx*100/total)):0;
+  setText('rpPoint',idx+' / '+total);
+  setText('rpNearby',(d.nearby||0)+' nets');
+  setText('rpSent',(d.sent||0)+' sent');
+  setText('rpGpu',d.gpu||'IDLE');
+  setText('rpCracks',d.cracks||0);
+  setText('rpEvent',d.event||'No replay loaded');
+  setText('rpCoords',(d.lat||0)+', '+(d.lon||0));
+  let startBtn=document.getElementById('btnReplayStart');
+  if(startBtn)startBtn.innerText=d.paused?'▶ Resume':(d.state==='running'?'▶ Running':'▶ Start');
+  let tl=document.getElementById('rpTimeline');if(tl)tl.style.width=pct+'%';
+  setText('replayStatusText',(d.state||'idle').toUpperCase()+' | queue '+(d.queue_pending||0)+'/'+(d.queue_done||0)+' | delay '+(d.effective_delay_ms||'?')+'ms | tx '+(d.tx||'IDLE'));
+  let lat=parseFloat(d.lat),lon=parseFloat(d.lon);
+  if(replayMap&&replayMarker&&!isNaN(lat)&&!isNaN(lon)&&lat!==0&&lon!==0){
+    replayMarker.setLatLng([lat,lon]);
+    replayMap.panTo([lat,lon],{animate:true,duration:0.3});
+    if(replayMap.getZoom()<15)replayMap.setZoom(16);
+  }
+  if(d.state==='running'||d.state==='paused'||d.state==='done')loadReplayDiscovered();
+  if(d.event&&window.lastReplayEvent!==d.event){
+    window.lastReplayEvent=d.event;
+    renderReplayEvent(d.state||'frame',d.event);
+  }
+  if(d.state==='running'){
+    setPipe('pipeCapture','ok','REPLAY');setPipe('pipeGpu',d.gpu==='ERR'?'err':(d.gpu==='UPLOAD'?'warn':'ok'),d.gpu||'GPU');setPipe('pipeTx',d.tx==='TX'?'warn':'ok',d.tx||'IDLE');
+  }
+}
+function loadReplayStatus(){
+  apiJson('replay_status').then(updateReplayUi).catch(e=>setText('replayStatusText','Replay status error: '+(e.message||'unknown')));
+}
+function startReplayTheater(){
+  let f=document.getElementById('replayCsv').files[0];
+  if(!f&&lastReplayState!=='paused'){showToast('Choose a WiGLE CSV first','warn');return;}
+  let delay=document.getElementById('replayDelay').value||500,radius=document.getElementById('replayRadius').value||75,clean=document.getElementById('replayClean').checked?'1':'0';
+  replayEvents=[];window.lastReplayEvent='';
+  let body=f||new Blob([]);
+  renderReplayEvent(f?'upload':'resume',f?'Uploading '+f.name:'Resuming replay');
+  setText('replayStatusText',f?'Uploading replay CSV...':'Resuming replay...');
+  if(f&&replayMap)replayNetworkMarkers=drawNetworkLayer(replayMap,[],replayNetworkMarkers,true);
+  fetch(apiUrl('replay_start',{delay,radius,clean,resume:f?'0':'1'}),{method:'POST',body}).then(r=>r.json()).then(d=>{
+    if(d.status==='started'||d.status==='resumed'){
+      renderReplayEvent(d.status,d.status+' job '+d.pid);
+      if(replayPollTimer)clearInterval(replayPollTimer);
+      replayPollTimer=setInterval(loadReplayStatus,2000);
+      if(replayDiscoveredTimer)clearInterval(replayDiscoveredTimer);
+      replayDiscoveredTimer=setInterval(loadReplayDiscovered,3000);
+      loadReplayStatus();
+      loadReplayDiscovered();
+    }else{
+      setText('replayStatusText','Error: '+(d.reason||d.error||'unknown'));
+      showToast(d.reason||d.error||'Replay failed','err');
+    }
+  }).catch(e=>{setText('replayStatusText','Replay start failed: '+(e.message||'unknown'));});
+}
+function stopReplayTheater(){
+  apiJson('replay_stop').then(()=>{renderReplayEvent('stop','Stop requested');loadReplayStatus();loadReplayDiscovered();}).catch(e=>setText('replayStatusText','Stop failed: '+(e.message||'unknown')));
+}
+function pauseReplayTheater(){
+  apiJson('replay_pause').then(()=>{renderReplayEvent('pause','Replay paused');loadReplayStatus();}).catch(e=>setText('replayStatusText','Pause failed: '+(e.message||'unknown')));
+}
+function seekReplayTheater(delta){
+  let cur=parseInt((document.getElementById('rpPoint').innerText||'0').split('/')[0])||0;
+  let idx=Math.max(0,cur+delta);
+  apiJson('replay_seek',{idx}).then(()=>{renderReplayEvent('seek','Jump requested to point '+idx);}).catch(e=>setText('replayStatusText','Seek failed: '+(e.message||'unknown')));
+}
 
 // SETTINGS
 function syncNightButton(){let b=document.getElementById('btnNightDrive'),on=document.body.classList.contains('night-mode');if(b)b.innerText=on?'☀':'☾';let c=document.getElementById('chkNight');if(c)c.checked=on;}
@@ -658,8 +839,9 @@ function evalMoodDOM(){let hs=parseInt(document.getElementById('hdr_hs').querySe
 updatePet();setInterval(updatePet,15000);setInterval(evalMoodDOM,5000);
 
 // POLL INTERVALS
-setInterval(updateStatus,5000);setInterval(updateMap,10000);setInterval(loadCrackedNetworks,15000);setInterval(refreshFreshnessAge,1000);
-updateStatus();loadFiles();loadHW();
+setInterval(updateStatus,5000);setInterval(updateMap,10000);setInterval(loadCrackedNetworks,15000);setInterval(loadNetworkMap,20000);setInterval(refreshFreshnessAge,1000);setInterval(loadReplayStatus,5000);
+updateStatus();loadFiles();loadHW();loadNetworkMap();
+loadReplayStatus();
 if(localStorage.getItem('browserGpsActive')==='true'){document.getElementById('chkBrowserGPS').checked=true;toggleBrowserGPS();}
 updateMapButtons();
 </script>

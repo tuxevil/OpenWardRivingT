@@ -32,6 +32,19 @@ blink_led() {
     fi
 }
 
+write_remote_status() {
+    _state="$1"
+    _code="$2"
+    _msg="$3"
+    _ts=$(date +%s)
+    {
+        echo "state=$_state"
+        echo "code=$_code"
+        echo "message=$_msg"
+        echo "updated=$_ts"
+    } > /tmp/wardriving_remote_status
+}
+
 USB_FULL_COUNT=0
 while true; do
 
@@ -101,6 +114,7 @@ while true; do
         PROCESSED_REMOTE=0
         if [ "$REMOTE_ENABLED" = "1" ] && [ -n "$REMOTE_URL" ]; then
             echo "[*] Sending $FILENAME to remote server ($REMOTE_URL) ..."
+            write_remote_status "uploading" "0" "sending capture"
             AUTH_HEADER=""
             [ -n "$REMOTE_SECRET" ] && AUTH_HEADER="X-OWRT-Token: $REMOTE_SECRET"
             if [ -n "$AUTH_HEADER" ]; then
@@ -110,6 +124,7 @@ while true; do
             fi
             if [ "$HTTP_CODE" = "200" ]; then
                 echo "[+] Remote server processed capture successfully."
+                write_remote_status "ok" "$HTTP_CODE" "remote processed"
                 PROCESSED_REMOTE=1
                 
                 if [ -s "/tmp/respuesta_server.jsonl" ] && grep -q '"mac"' /tmp/respuesta_server.jsonl 2>/dev/null; then
@@ -150,14 +165,21 @@ while true; do
                     fi
                     if [ "$SYNC_HTTP" = "200" ]; then
                         echo "[+] Offline hashes synced successfully."
+                        write_remote_status "synced" "$SYNC_HTTP" "hashes synced"
                         rm -f "/mnt/wardriving/master.hc2200"
                     else
                         echo "[-] Failed to sync offline hashes (Code: $SYNC_HTTP). Will retry later."
+                        write_remote_status "sync_error" "$SYNC_HTTP" "hash sync failed"
                     fi
                 fi
             else
                 echo "[-] Remote server failed (Code: $HTTP_CODE). Falling back to local processing..."
+                write_remote_status "fallback" "$HTTP_CODE" "using local processing"
             fi
+        elif [ "$REMOTE_ENABLED" = "1" ]; then
+            write_remote_status "unconfigured" "0" "missing remote url"
+        else
+            write_remote_status "local" "0" "remote disabled"
         fi
 
         if [ "$PROCESSED_REMOTE" = "0" ]; then

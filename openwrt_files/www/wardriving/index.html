@@ -19,7 +19,7 @@
   --bg-card:  #161616; --border:  #252525; --radius:  10px;
   --glow-sm:  0 0 6px; --glow-md: 0 0 14px;
   --font: "Courier New", Courier, monospace;
-  --header-h:52px; --icon-nav-w:56px; --left-w:220px; --right-w:250px;
+  --header-h:72px; --icon-nav-w:56px; --left-w:230px; --right-w:270px;
 }
 body.night-mode {
   --c-green: #ff0000;
@@ -35,39 +35,28 @@ body.night-mode {
   /* Add deep red filter to the map tiles */
 }
 body.night-mode .leaflet-tile-pane { filter: grayscale(100%) sepia(100%) hue-rotate(-50deg) saturate(500%) brightness(0.3); }
-body.night-mode {
-  --c-green: #ff0000;
-  --c-amber: #ff5500;
-  --c-cyan: #ff3333;
-  --c-magenta: #ff0000;
-  --c-white: #ffaaaa;
-  --c-dim: #cc5555;
-  --bg-deep: #050000;
-  --bg-panel: #0a0000;
-  --bg-card: #100000;
-  --border: #330000;
-  /* Add deep red filter to the map tiles */
-}
-body.night-mode .leaflet-tile-pane { filter: grayscale(100%) sepia(100%) hue-rotate(-50deg) saturate(500%) brightness(0.3); }
-}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
 body{background:var(--bg-deep);color:var(--c-green);font-family:var(--font);font-size:14px;line-height:1.4;-webkit-tap-highlight-color:transparent;user-select:none}
 
 /* HEADER */
-#header{position:fixed;top:0;left:0;right:0;height:var(--header-h);z-index:200;background:#000;border-bottom:2px solid var(--c-green);display:flex;align-items:center;padding:0 10px;gap:10px;font-size:14px;overflow:hidden;box-shadow:0 2px 12px rgba(0,255,65,0.1)}
-#header .metric{display:flex;align-items:center;gap:5px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);flex-shrink:0}
-#header .metric .icon{font-size:17px}
-#header .metric .val{font-weight:bold;color:var(--c-white);font-size:17px}
-#header .metric .unit{font-size:17px;color:var(--c-dim);margin-left:2px}
+#header{position:fixed;top:0;left:0;right:0;height:var(--header-h);z-index:200;background:#000;border-bottom:2px solid var(--c-green);display:grid;grid-template-columns:auto repeat(4,minmax(120px,1fr)) auto;align-items:center;padding:6px 10px;gap:8px;font-size:16px;overflow:hidden;box-shadow:0 2px 12px rgba(0,255,65,0.1)}
+#header .metric{display:flex;align-items:center;justify-content:center;gap:7px;padding:7px 10px;border-radius:8px;border:1px solid var(--border);min-height:56px;flex-shrink:0;background:rgba(255,255,255,0.02)}
+#header .metric .icon{font-size:24px}
+#header .metric .val{font-weight:bold;color:var(--c-white);font-size:26px;line-height:1}
+#header .metric .unit{font-size:16px;color:var(--c-dim);margin-left:2px;text-transform:uppercase}
 #header .metric.warn .val{color:var(--c-amber)}
 #header .metric.crit .val{color:var(--c-red);animation:pulse 1s infinite}
-#header .spacer{flex:1}
-#header .title{font-size:16px;font-weight:bold;letter-spacing:3px;color:var(--c-green);text-transform:uppercase;flex-shrink:0;text-shadow:var(--glow-sm) var(--c-green)}
-#header .status-dot{font-size:12px;font-weight:bold;padding:4px 10px;border-radius:6px;flex-shrink:0;letter-spacing:1px;text-transform:uppercase}
+#header .title{display:none}
+#header .status-dot{font-size:18px;font-weight:bold;padding:12px 14px;border-radius:8px;flex-shrink:0;letter-spacing:1px;text-transform:uppercase;text-align:center;min-width:116px}
 #header .status-dot.on{color:var(--c-green);border:1px solid var(--c-green);box-shadow:var(--glow-sm) var(--c-green);animation:pulse 2s infinite}
 #header .status-dot.off{color:var(--c-red);border:1px solid var(--c-red)}
+#hdr_fresh{font-size:14px;color:var(--c-dim);display:block;margin-top:3px}
+#hdr_hs.flash{animation:hsFlash 1.8s ease-out}
+#hdr_hs .delta{color:var(--c-green);font-size:18px;margin-left:4px}
+.night-toggle{min-width:58px;height:56px;border:1px solid var(--c-magenta);color:var(--c-magenta);background:#000;border-radius:8px;font-size:25px;cursor:pointer}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+@keyframes hsFlash{0%{background:var(--c-green);color:#000;box-shadow:0 0 24px var(--c-green)}100%{background:rgba(255,255,255,0.02);color:inherit;box-shadow:none}}
 
 /* MAIN LAYOUT */
 #main{position:fixed;top:var(--header-h);bottom:0;left:0;right:0;display:flex;overflow:hidden}
@@ -79,36 +68,52 @@ body{background:var(--bg-deep);color:var(--c-green);font-family:var(--font);font
 #icon-nav .nav-icon:hover{opacity:0.8}
 
 /* LEFT PANEL */
-#left-panel{width:var(--left-w);flex-shrink:0;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;padding:6px;gap:6px;border-right:1px solid var(--border);background:var(--bg-deep)}
-#left-panel .pet-mini{text-align:center;padding:8px 6px;background:var(--bg-card);border:1px solid var(--c-magenta);border-radius:var(--radius);box-shadow:var(--glow-sm) rgba(255,0,255,0.1)}
+#left-panel{width:var(--left-w);flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;padding:8px;gap:8px;border-right:1px solid var(--border);background:var(--bg-deep)}
+#left-panel .pet-mini{text-align:center;padding:6px;background:var(--bg-card);border:1px solid var(--c-magenta);border-radius:var(--radius);box-shadow:var(--glow-sm) rgba(255,0,255,0.1)}
 #left-panel .pet-mini .face{font-size:2em;color:var(--c-magenta);line-height:1.2}
-#left-panel .pet-mini .name{font-size:0.7em;color:var(--c-magenta);font-weight:bold;letter-spacing:2px}
-#left-panel .pet-mini .quote{font-size:0.6em;color:var(--c-dim);font-style:italic;margin-top:3px}
+#left-panel .pet-mini .name,#left-panel .pet-mini .quote{display:none}
 #left-panel .pet-mini .bridge{font-size:0.55em;color:var(--c-cyan);margin-top:2px;display:none}
-#left-panel .spec-compact{font-size:0.95em;color:var(--c-cyan);overflow-y:auto;flex:1;min-height:0;background:var(--bg-card);border:1px solid var(--c-cyan);border-radius:var(--radius);padding:6px;box-shadow:var(--glow-sm) rgba(0,255,255,0.1)}
-#left-panel .spec-compact .ch-row{display:flex;justify-content:space-between;padding:3px 4px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.03)}
+#left-panel .spec-compact{font-size:16px;color:var(--c-cyan);overflow:hidden;flex:1;min-height:0;background:var(--bg-card);border:1px solid var(--c-cyan);border-radius:var(--radius);padding:8px;box-shadow:var(--glow-sm) rgba(0,255,255,0.1)}
+#left-panel .spec-compact .ch-row{display:grid;grid-template-columns:48px 1fr 34px;align-items:center;gap:8px;padding:7px 4px;min-height:38px;border-bottom:1px solid rgba(255,255,255,0.04)}
 #left-panel .spec-compact .ch-row:hover{background:rgba(0,255,255,0.04)}
 #left-panel .spec-compact .ch-row .ch-n{color:var(--c-green);font-weight:bold}
-#left-panel .spec-compact .ch-row .ch-c{color:var(--c-white);background:rgba(0,255,255,0.1);padding:2px 10px;border-radius:10px;font-size:0.95em}
-#left-panel .spec-compact .ch-detail{display:none;padding:3px 4px 8px 14px;font-size:0.95em;color:var(--c-dim)}
-#left-panel .spec-compact .ch-detail.open{display:block}
+#left-panel .spec-compact .ch-row .ch-c{color:var(--c-white);font-size:18px;text-align:right}
+.bar-track{height:16px;background:#050505;border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;min-width:2px;background:var(--c-green);transition:width 0.3s}
+.bar-fill.med{background:var(--c-amber)}.bar-fill.hot{background:var(--c-red)}
 
 /* DASHBOARD */
 .dash-grid{display:flex;width:100%;height:100%;overflow:hidden}
 .dash-center{flex:1;background:#000;border:1px solid var(--c-green);position:relative;min-width:0;overflow:hidden;box-shadow:var(--glow-sm) rgba(0,255,65,0.15)}
 #map{width:100%;height:100%;background:#111}
 .dash-right{width:var(--right-w);flex-shrink:0;display:flex;flex-direction:column;padding:6px;gap:6px;overflow:hidden;border-left:1px solid var(--border);background:var(--bg-deep)}
-.map-overlay{position:absolute;bottom:8px;right:8px;z-index:1000;display:flex;flex-direction:column;gap:6px;background:rgba(0,0,0,0.9);padding:10px;border-radius:8px;border:1px solid var(--border);min-width:140px}
-.map-overlay label{font-size:0.85em;display:flex;align-items:center;gap:8px;color:var(--c-white);cursor:pointer;padding:3px 0}
+.map-overlay{position:absolute;bottom:28px;right:10px;z-index:1000;display:grid;grid-template-columns:1fr 1fr;gap:8px;background:rgba(0,0,0,0.88);padding:8px;border-radius:8px;border:1px solid var(--border);min-width:260px}
+.map-action{min-height:52px;border:1px solid var(--border);background:#000;color:var(--c-white);border-radius:8px;font-family:var(--font);font-size:16px;font-weight:bold;cursor:pointer}
+.map-action.on{border-color:var(--c-green);color:#000;background:var(--c-green)}
+.map-action.warn{border-color:var(--c-amber);color:var(--c-amber)}
+.map-action.off{border-color:var(--c-dim);color:var(--c-dim)}
+.gps-map-alert{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:1000;background:rgba(255,51,51,0.92);color:#fff;border:2px solid #fff;border-radius:8px;padding:12px 18px;font-size:22px;font-weight:bold;display:none}
+.gps-map-alert.show{display:block}
 
 /* TARGETS */
 .scores-panel{background:var(--bg-card);border:1px solid var(--c-amber);border-radius:var(--radius);padding:8px;overflow-y:auto;flex:1;min-height:0;box-shadow:var(--glow-sm) rgba(255,176,0,0.1)}
-.scores-panel h4{font-size:0.85em;color:var(--c-amber);margin-bottom:8px;text-transform:uppercase;letter-spacing:2px}
-.scores-panel .sr{padding:6px 8px;border-bottom:1px solid var(--border);font-size:0.85em}
+.scores-panel h4{font-size:18px;color:var(--c-amber);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px}
+.scores-panel .sr{padding:10px 8px;border-bottom:1px solid var(--border);font-size:16px;min-height:68px}
 .scores-panel .sr .sr-top{display:flex;justify-content:space-between;margin-bottom:2px;word-break:break-all}
 .scores-panel .sr .sr-ssid{color:var(--c-white);font-weight:bold}
 .scores-panel .sr .sr-pts{color:var(--c-cyan);flex-shrink:0;margin-left:8px}
-.scores-panel .sr .sr-info{font-size:0.75em;color:#aaaaaa}
+.scores-panel .sr .sr-info{font-size:15px;color:#aaaaaa}
+.drive-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:10px}
+.pipeline{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pipe-node{min-height:72px;border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;background:#000}
+.pipe-node .p-label{font-size:14px;color:var(--c-dim);text-transform:uppercase}
+.pipe-node .p-val{font-size:20px;font-weight:bold;color:var(--c-white);margin-top:4px}
+.pipe-node.ok{border-color:var(--c-green)}.pipe-node.ok .p-val{color:var(--c-green)}
+.pipe-node.warn{border-color:var(--c-amber)}.pipe-node.warn .p-val{color:var(--c-amber)}
+.pipe-node.err{border-color:var(--c-red)}.pipe-node.err .p-val{color:var(--c-red)}
+.last-hs{font-size:15px;color:var(--c-dim);margin-top:6px;text-align:center}
+.toast{position:fixed;top:82px;left:50%;transform:translateX(-50%);z-index:3000;background:#000;color:var(--c-white);border:2px solid var(--c-green);border-radius:8px;padding:12px 18px;font-size:18px;font-weight:bold;opacity:0;pointer-events:none;transition:opacity 0.2s}
+.toast.show{opacity:1}
 
 /* VIEWS */
 .view{display:none;width:100%;flex:1;min-height:0}
@@ -156,26 +161,25 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
 .view.active{animation:fadeIn 0.2s}
 
 /* RESPONSIVE */
-@media(max-width:1279px){:root{--left-w:180px;--right-w:200px}}
+@media(max-width:1279px){:root{--left-w:220px;--right-w:250px}#header{grid-template-columns:auto repeat(4,minmax(105px,1fr)) auto;gap:6px}#header .metric .val{font-size:23px}.scores-panel .sr{font-size:15px}}
 @media(max-width:1023px){:root{--left-w:0px;--right-w:0px}#left-panel,.dash-right{display:none}.settings-grid{grid-template-columns:1fr}.file-item{grid-template-columns:1fr}}
-@media(max-width:799px){:root{--header-h:40px;--icon-nav-w:44px}#header{font-size:10px;gap:4px}#header .metric{padding:3px 5px}#header .metric .val,#header .metric .unit{font-size:13px}#header .metric .icon{font-size:14px}#header .title{font-size:12px;letter-spacing:1px}#icon-nav .nav-icon{font-size:1.5em;padding:12px 0}}
+@media(max-width:799px){:root{--header-h:58px;--icon-nav-w:44px}#header{grid-template-columns:repeat(4,1fr);padding:4px;gap:4px}.night-toggle,#hdr_dot{display:none}#header .metric{min-height:48px;padding:3px 5px}#header .metric .val,#header .metric .unit{font-size:15px}#header .metric .icon{font-size:17px}#icon-nav .nav-icon{font-size:1.5em;padding:12px 0}.map-overlay{grid-template-columns:1fr;min-width:160px}.map-action{font-size:14px}}
 </style>
 </head>
 <body>
+<input type="checkbox" id="chkOnlineTiles" style="display:none">
+<input type="checkbox" id="chkHeatmap" style="display:none">
+<input type="checkbox" id="chkBrowserGPS" style="display:none">
 
 <!-- HEADER -->
 <div id="header">
+  <button class="night-toggle" id="btnNightDrive" onclick="toggleNightModeQuick()" title="Night Mode">☾</button>
   <div class="metric" id="hdr_gps"><span class="icon">🛰️</span><span class="val">--</span><span class="unit">sats</span></div>
   <div class="metric" id="hdr_speed"><span class="icon">🚗</span><span class="val">0</span><span class="unit">km/h</span></div>
   
-  <div class="metric" id="hdr_hs"><span class="icon">🔑</span><span class="val">0</span><span class="unit">HS</span></div>
-  <span class="spacer"></span>
-  <span class="title">🛰️ OpenWardRivingT</span>
-  <span class="spacer"></span>
+  <div class="metric" id="hdr_hs"><span class="icon">🔑</span><span class="val">0</span><span class="unit">HS</span><span class="delta" id="hdr_hs_delta"></span></div>
   <div class="metric" id="hdr_usb"><span class="icon">💾</span><span class="val">--</span></div>
-  <div class="metric" id="hdr_cpu"><span class="icon">🧠</span><span class="val">--</span></div>
-  <div class="metric" id="hdr_ram"><span class="icon">📊</span><span class="val">--</span></div>
-  <span class="status-dot off" id="hdr_dot">● STOPPED</span>
+  <span class="status-dot off" id="hdr_dot">● STOPPED<span id="hdr_fresh">waiting</span></span>
 </div>
 
 <!-- MAIN -->
@@ -204,6 +208,15 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
             <div class="bridge" id="petBridge">🐾 Linked</div>
           </div>
           <button class="btn huge" id="btnToggle" onclick="toggleWardriving()">▶ START</button>
+          <div class="drive-card">
+            <div class="pipeline">
+              <div class="pipe-node" id="pipeCapture"><div class="p-label">Capture</div><div class="p-val">WAIT</div></div>
+              <div class="pipe-node" id="pipeGpu"><div class="p-label">GPU</div><div class="p-val">LOCAL</div></div>
+              <div class="pipe-node" id="pipeTx"><div class="p-label">TX/RX</div><div class="p-val">IDLE</div></div>
+              <div class="pipe-node" id="pipeHealth"><div class="p-label">Health</div><div class="p-val">OK</div></div>
+            </div>
+            <div class="last-hs" id="lastHsText">Last HS: never</div>
+          </div>
           <div class="spec-compact">
             <div style="font-weight:bold;margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">📶 Spectrum</div>
             <div id="specList"></div>
@@ -211,16 +224,17 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
         </div>
         <div class="dash-center">
           <div id="map"></div>
+          <div class="gps-map-alert" id="gpsMapAlert">GPS SIN FIX</div>
           <div class="map-overlay">
-            <label title="Switch between online and offline maps"><input type="checkbox" id="chkOnlineTiles" onchange="toggleTiles()"> 🌐 Online Map</label>
-            <label title="WiFi signal heatmap overlay"><input type="checkbox" id="chkHeatmap" onchange="toggleHeatmap()"> 🔥 Heatmap</label>
-            <label title="Use your phone GPS for positioning"><input type="checkbox" id="chkBrowserGPS" onchange="toggleBrowserGPS()"> 📡 Phone GPS</label>
-            <button class="btn small cyan" onclick="startReplay()" style="width:100%;margin-top:4px;">▶ Replay Route</button>
+            <button class="map-action on" id="btnFollow" onclick="toggleFollowMode()">📍 FOLLOW</button>
+            <button class="map-action" id="btnBrowserGPS" onclick="toggleBrowserGPSButton()">📡 GPS</button>
+            <button class="map-action" id="btnTiles" onclick="toggleTilesButton()">🌐 MAP</button>
+            <button class="map-action off" id="btnHeatmap" onclick="toggleHeatmapButton()">🔥 HEAT</button>
           </div>
         </div>
         <div class="dash-right">
           <div class="scores-panel">
-            <h4>🏆 Top Targets</h4>
+            <h4>📡 Redes Ahora</h4>
             <div id="scoresList"><span style="color:var(--c-dim)">Waiting...</span></div>
           </div>
         </div>
@@ -349,9 +363,9 @@ function apiJson(action,params,options){
 }
 
 // GLOBALS
-let isRunning=false,lastGpsFixTime=Date.now(),lastHandshakeCount=-1;
+let isRunning=false,lastGpsFixTime=Date.now(),lastHandshakeCount=-1,lastHandshakeAt=0,lastStatusAt=0;
 let audioEnabled=localStorage.getItem('audioEnabled')==='true';
-let map,onlineLayer,offlineLayer,carMarker,firstLoc=true,watchId=null,browserGpsActive=false;
+let map,onlineLayer,offlineLayer,carMarker,firstLoc=true,watchId=null,browserGpsActive=false,followMode=true;
 let wpsMarkers={},crackedMarkers=[],heatLayer=null,replayTimer=null;
 let excludedSSIDs=[],targetMacs=[],alertedTargets=[],OUI_DB={};
 let petMood='sleep',petLastMoodChange=Date.now(),petHandshakeBurst=0,petLastHandshakes=0,petPwnagotchiDetected=false;
@@ -372,6 +386,8 @@ function initMap(){
   document.getElementById('chkOnlineTiles').checked=uo;
   if(uo)onlineLayer.addTo(map);else offlineLayer.addTo(map);
   carMarker=L.circleMarker([0,0],{radius:8,fillColor:'#00ffff',color:'#fff',weight:2,opacity:1,fillOpacity:1}).addTo(map).bindPopup('<b>Current Location</b>');
+  map.on('dragstart',()=>{followMode=false;updateFollowButton();});
+  updateMapButtons();
 }
 initMap();
 fetch('/wardriving/oui.json').then(r=>r.json()).then(d=>{OUI_DB=d}).catch(()=>{});
@@ -405,32 +421,90 @@ function toggleWardriving(){
   });
 }
 
+function ageLabel(sec){
+  sec=parseInt(sec||0);
+  if(!sec)return 'now';
+  if(sec<60)return sec+'s';
+  return Math.round(sec/60)+'m';
+}
+function setPipe(id,state,label){
+  let el=document.getElementById(id);if(!el)return;
+  el.className='pipe-node '+state;
+  let v=el.querySelector('.p-val');if(v)v.innerText=label;
+}
+function updatePipeline(d){
+  setPipe('pipeCapture',isRunning?'ok':'warn',isRunning?'LIVE':'STOP');
+  let remoteOn=String(d.remote_enabled||'0')==='1',rs=d.remote_state||'local';
+  if(!remoteOn){setPipe('pipeGpu','warn','LOCAL');setPipe('pipeTx','warn','IDLE');}
+  else if(rs==='ok'||rs==='synced'){setPipe('pipeGpu','ok','OK');setPipe('pipeTx','ok',ageLabel(Math.max(0,Math.floor(Date.now()/1000)-parseInt(d.remote_updated||0))));}
+  else if(rs==='uploading'){setPipe('pipeGpu','warn','WAIT');setPipe('pipeTx','warn','TX');}
+  else if(rs==='fallback'||rs==='sync_error'||rs==='unconfigured'){setPipe('pipeGpu','err',rs==='fallback'?'FALLBACK':'ERROR');setPipe('pipeTx','err',d.remote_code||'ERR');}
+  else{setPipe('pipeGpu','warn','WAIT');setPipe('pipeTx','warn','--');}
+  let health='OK',hstate='ok';
+  if(String(d.fix)==='0'){health='GPS';hstate='err';}
+  else if(parseInt(d.usb_pct)>90){health='USB';hstate='err';}
+  else if(parseInt(d.ram)>85){health='RAM';hstate='warn';}
+  setPipe('pipeHealth',hstate,health);
+}
+function updateGpsVisual(hasFix){
+  let alertEl=document.getElementById('gpsMapAlert');
+  if(alertEl)alertEl.className='gps-map-alert'+(hasFix?'':' show');
+  if(carMarker)carMarker.setStyle({fillColor:hasFix?'#00ffff':'#ff3333',color:hasFix?'#fff':'#ffaaaa',radius:hasFix?8:11});
+  if(!hasFix&&followMode){followMode=false;updateFollowButton();}
+}
+function updateFreshness(ok){
+  let el=document.getElementById('hdr_fresh');if(!el)return;
+  if(ok)lastStatusAt=Date.now();
+  let age=Math.floor((Date.now()-lastStatusAt)/1000);
+  if(!lastStatusAt){el.innerText='waiting';el.style.color='var(--c-dim)';return;}
+  el.innerText=ok?'updated '+ageLabel(age):'API ERROR';
+  el.style.color=!ok||age>30?'var(--c-red)':(age>10?'var(--c-amber)':'var(--c-dim)');
+}
+function refreshFreshnessAge(){
+  let el=document.getElementById('hdr_fresh');if(!el||!lastStatusAt)return;
+  let age=Math.floor((Date.now()-lastStatusAt)/1000);
+  el.innerText='updated '+ageLabel(age);
+  el.style.color=age>30?'var(--c-red)':(age>10?'var(--c-amber)':'var(--c-dim)');
+}
+function showToast(msg,kind){
+  let t=document.getElementById('toast');
+  if(!t){t=document.createElement('div');t.id='toast';t.className='toast';document.body.appendChild(t);}
+  t.innerText=msg;t.style.borderColor=kind==='err'?'var(--c-red)':(kind==='warn'?'var(--c-amber)':'var(--c-green)');
+  t.classList.add('show');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.classList.remove('show'),1800);
+}
+
 // STATUS POLL
 function updateStatus(){
   apiJson('status').then(d=>{
+    updateFreshness(true);
     isRunning=d.running;
     let btn=document.getElementById('btnToggle'),dot=document.getElementById('hdr_dot');
-    if(isRunning){btn.innerHTML='⏹ STOP';btn.className='btn huge stop';dot.className='status-dot on';dot.innerText='● LIVE';}
-    else{btn.innerHTML='▶ START';btn.className='btn huge';dot.className='status-dot off';dot.innerText='● STOPPED';}
+    if(isRunning){btn.innerHTML='⏹ STOP';btn.className='btn huge stop';dot.className='status-dot on';dot.innerHTML='● LIVE<span id="hdr_fresh">updated 0s</span>';}
+    else{btn.innerHTML='▶ START';btn.className='btn huge';dot.className='status-dot off';dot.innerHTML='● STOPPED<span id="hdr_fresh">updated 0s</span>';}
+    updateFreshness(true);
     document.getElementById('hdr_gps').querySelector('.val').innerText=(d.sats||'0');
     let gu=document.getElementById('hdr_gps').querySelector('.unit');if(gu)gu.innerText=d.fix!=='0'?'sats':'NO FIX';
     document.getElementById('hdr_gps').className='metric'+(d.fix==='0'?' crit':'');
+    updateGpsVisual(d.fix!=='0');
     let skm=Math.round((parseFloat(d.speed)||0)*1.852);
     document.getElementById('hdr_speed').querySelector('.val').innerText=skm;
     
     document.getElementById('hdr_hs').querySelector('.val').innerText=d.handshakes||'0';
     let ue=document.getElementById('hdr_usb');ue.querySelector('.val').innerText=(d.usb_pct||'?')+'%';
     ue.className='metric'+(parseInt(d.usb_pct)>90?' crit':(parseInt(d.usb_pct)>75?' warn':''));
-    document.getElementById('hdr_cpu').querySelector('.val').innerText=(d.cpu||'--');
-    document.getElementById('hdr_cpu').className='metric'+(parseFloat(d.cpu)>2?' crit':(parseFloat(d.cpu)>1?' warn':''));
-    document.getElementById('hdr_ram').querySelector('.val').innerText=(d.ram||'--')+'%';
-    document.getElementById('hdr_ram').className='metric'+(parseInt(d.ram)>85?' crit':(parseInt(d.ram)>70?' warn':''));
+    updatePipeline(d);
 
     let ch=parseInt(d.handshakes||0);
-    if(lastHandshakeCount!==-1&&ch>lastHandshakeCount&&audioEnabled&&'speechSynthesis' in window){
-      window.speechSynthesis.speak(new SpeechSynthesisUtterance('Captured '+(ch-lastHandshakeCount)+' new handshake'+(ch-lastHandshakeCount>1?'s':'')));
+    if(lastHandshakeCount!==-1&&ch>lastHandshakeCount){
+      let delta=ch-lastHandshakeCount,hs=document.getElementById('hdr_hs'),de=document.getElementById('hdr_hs_delta');
+      lastHandshakeAt=Date.now();if(de)de.innerText='+'+delta;
+      if(hs){hs.classList.add('flash');setTimeout(()=>hs.classList.remove('flash'),1800);}
+      setText('lastHsText','Last HS: now');
+      if(audioEnabled&&'speechSynthesis' in window)window.speechSynthesis.speak(new SpeechSynthesisUtterance('Captured '+delta+' new handshake'+(delta>1?'s':'')));
+      setTimeout(()=>{let dlt=document.getElementById('hdr_hs_delta');if(dlt)dlt.innerText='';},5000);
     }
     lastHandshakeCount=ch;
+    if(lastHandshakeAt)setText('lastHsText','Last HS: '+ageLabel(Math.floor((Date.now()-lastHandshakeAt)/1000))+' ago');
 
     if(d.logs){let lb=document.getElementById('logBox');lb.innerText=d.logs.replace(/\\n/g,'\n');if(lb.scrollHeight-lb.scrollTop<lb.clientHeight+100)lb.scrollTop=lb.scrollHeight;}
 
@@ -444,27 +518,31 @@ function updateStatus(){
       fd.forEach(i=>{if(!cm[i.c])cm[i.c]=[];cm[i.c].push(i.s);});
       let sh='',chs=[1,2,3,4,5,6,7,8,9,10,11];
       let emptyText=rawCount===0?'no data':(fd.length===0?'filtered':'empty');
-      chs.forEach(c=>{let ss=cm[c]||[];sh+='<div class="ch-row" onclick="this.nextElementSibling.classList.toggle(\'open\')"><span class="ch-n">CH '+c+'</span><span class="ch-c">'+ss.length+'</span></div><div class="ch-detail'+(openChs.has('CH '+c)?' open':'')+'">'+(ss.length?ss.map(s=>'<div>'+esc(s)+'</div>').join(''):'<span style="color:var(--c-dim)">'+emptyText+'</span>')+'</div>';});
+      let max=1;chs.forEach(c=>{let n=(cm[c]||[]).length;if(n>max)max=n;});
+      chs.forEach(c=>{let ss=cm[c]||[],w=Math.max(2,Math.round((ss.length/max)*100)),hot=ss.length>=10?' hot':(ss.length>=5?' med':'');if(ss.length||[1,6,11].includes(c))sh+='<div class="ch-row"><span class="ch-n">CH '+c+'</span><span class="bar-track"><span class="bar-fill'+hot+'" style="width:'+w+'%"></span></span><span class="ch-c">'+ss.length+'</span></div>';});
+      if(!sh)sh='<span style="color:var(--c-dim)">'+emptyText+'</span>';
       document.getElementById('specList').innerHTML=sh;
     }
     updateScores();
   }).catch(e=>{
+    updateFreshness(false);
     setHtml('specList',dim('status error: '+(e.message||'unknown')));
     let btn=document.getElementById('btnToggle');if(btn){btn.innerHTML='▶ START';btn.className='btn huge';}
-    let dot=document.getElementById('hdr_dot');if(dot){dot.className='status-dot off';dot.innerText='● API ERR';}
+    let dot=document.getElementById('hdr_dot');if(dot){dot.className='status-dot off';dot.innerHTML='● API ERR<span id="hdr_fresh">API ERROR</span>';}
+    setPipe('pipeHealth','err','API');
   });
 }
 
 function updateScores(){
   if(!isRunning)return;
   apiJson('scored_networks').then(d=>{
-    let h='';if(!d||!d.length){document.getElementById('scoresList').innerHTML='<span style="color:var(--c-dim)">No targets in range</span>';return;}
-    d.slice(0,12).forEach(n=>{
+    let h='';if(!d||!d.length){document.getElementById('scoresList').innerHTML='<span style="color:var(--c-dim);font-size:18px">Sin redes cerca</span>';return;}
+    d.slice(0,5).forEach(n=>{
       let v=OUI_DB[(n.mac||'').replace(/:/g,'').substring(0,6).toUpperCase()]||'';
-      let sc=100+parseInt(n.rssi||-100),co=sc>100?'var(--c-green)':(sc>60?'var(--c-amber)':'var(--c-dim)');
-      h+='<div class="sr"><div class="sr-top"><span class="sr-ssid">'+esc(n.ssid||'??')+'</span><span class="sr-pts" style="color:'+co+'">'+sc+' pts</span></div><div class="sr-info">'+esc(n.enc||'?')+' | RSSI:'+esc(n.rssi||'?')+' | '+(n.has_hs?'🔑 PMKID':'')+(v?' | '+esc(v):'')+'</div></div>';
+      let rssi=parseInt(n.rssi||-100),co=rssi>-60?'var(--c-green)':(rssi>-75?'var(--c-amber)':'var(--c-dim)');
+      h+='<div class="sr"><div class="sr-top"><span class="sr-ssid">'+esc(n.ssid||'??')+'</span><span class="sr-pts" style="color:'+co+'">'+esc(rssi)+' dBm</span></div><div class="sr-info">'+ageLabel(n.age)+' ago | '+esc(n.enc||'?')+(n.has_hs?' | 🔑 HS':'')+(v?' | '+esc(v):'')+'</div></div>';
     });
-    document.getElementById('scoresList').innerHTML=h||'<span style="color:var(--c-dim)">No targets</span>';
+    document.getElementById('scoresList').innerHTML=h||'<span style="color:var(--c-dim);font-size:18px">Sin redes cerca</span>';
   }).catch(e=>{setHtml('scoresList',dim('score error: '+(e.message||'unknown')));});
 }
 
@@ -475,7 +553,7 @@ function updateMap(){
     if(!d.nmea_b64){setText('logBox','Map data: no route/NMEA data yet.');return;}let ls=atob(d.nmea_b64).split('\n'),cl=null,cln=null;
     ls.forEach(l=>{let r=parseNMEARMC(l);if(r){cl=r.lat;cln=r.lon;window.carLat=r.lat;window.carLng=r.lon;return;}
       let w=parseNMEAWPL(l);if(w&&!wpsMarkers[w.mac]&&!isNaN(w.lat)&&!isNaN(w.lon)){wpsMarkers[w.mac]=L.circleMarker([w.lat,w.lon],{radius:5,fillColor:'#00ff00',color:'#00aa00',weight:1,opacity:1,fillOpacity:0.7}).addTo(map).bindPopup('<b>Handshake:</b><br>'+w.mac);}});
-    if(cl!==null&&!isNaN(cl)){carMarker.setLatLng([cl,cln]);if(firstLoc){map.setView([cl,cln],16);firstLoc=false;}}
+    if(cl!==null&&!isNaN(cl)){carMarker.setLatLng([cl,cln]);if(firstLoc){map.setView([cl,cln],16);firstLoc=false;}else if(followMode){map.panTo([cl,cln],{animate:true,duration:0.4});}}
   }).catch(e=>{setText('logBox','Map data failed: '+(e.message||'unknown'));});
 }
 
@@ -483,14 +561,27 @@ function updateMap(){
 function toggleTiles(){let o=document.getElementById('chkOnlineTiles').checked;localStorage.setItem('useOnlineMaps',o);if(o){map.removeLayer(offlineLayer);onlineLayer.addTo(map);}else{map.removeLayer(onlineLayer);offlineLayer.addTo(map);}}
 function toggleHeatmap(){if(document.getElementById('chkHeatmap').checked){fetch('/cgi-bin/wardriving_api?action=heatmap_data').then(r=>r.json()).then(d=>{if(d.length>0)heatLayer=L.heatLayer(d,{radius:25,blur:15,maxZoom:17}).addTo(map);});}else{if(heatLayer){map.removeLayer(heatLayer);heatLayer=null;}}}
 function startReplay(){if(replayTimer){clearInterval(replayTimer);replayTimer=null;return;}fetch('/cgi-bin/wardriving_api?action=map_data').then(r=>r.json()).then(d=>{if(!d.nmea_b64)return;let co=[],ls=atob(d.nmea_b64).split('\n');ls.forEach(l=>{let r=parseNMEARMC(l);if(r)co.push([r.lat,r.lon]);});if(!co.length)return;let i=0;replayTimer=setInterval(()=>{if(i>=co.length){clearInterval(replayTimer);replayTimer=null;return;}map.setView(co[i],16);carMarker.setLatLng(co[i]);i++;},500);});}
+function updateFollowButton(){let b=document.getElementById('btnFollow');if(!b)return;b.className='map-action '+(followMode?'on':'warn');b.innerText=followMode?'📍 FOLLOW':'⊙ FREE';}
+function toggleFollowMode(){followMode=!followMode;if(followMode&&window.carLat&&window.carLng)map.panTo([window.carLat,window.carLng],{animate:true,duration:0.3});updateFollowButton();}
+function updateMapButtons(){
+  let gps=document.getElementById('btnBrowserGPS'),tiles=document.getElementById('btnTiles'),heat=document.getElementById('btnHeatmap');
+  if(gps)gps.className='map-action '+(browserGpsActive?'on':'off');
+  if(tiles)tiles.className='map-action '+(document.getElementById('chkOnlineTiles').checked?'on':'off');
+  if(heat)heat.className='map-action '+(document.getElementById('chkHeatmap').checked?'on':'off');
+  updateFollowButton();
+}
+function toggleTilesButton(){let c=document.getElementById('chkOnlineTiles');c.checked=!c.checked;toggleTiles();updateMapButtons();}
+function toggleHeatmapButton(){let c=document.getElementById('chkHeatmap');c.checked=!c.checked;toggleHeatmap();updateMapButtons();}
+function toggleBrowserGPSButton(){let c=document.getElementById('chkBrowserGPS');c.checked=!c.checked;toggleBrowserGPS();updateMapButtons();}
 
 // BROWSER GPS
 function toggleBrowserGPS(){
   browserGpsActive=document.getElementById('chkBrowserGPS').checked;localStorage.setItem('browserGpsActive',browserGpsActive);
   if(browserGpsActive){
     if(!navigator.geolocation){document.getElementById('chkBrowserGPS').checked=false;browserGpsActive=false;return;}
-    watchId=navigator.geolocation.watchPosition(p=>{window.carLat=p.coords.latitude;window.carLng=p.coords.longitude;carMarker.setLatLng([window.carLat,window.carLng]);if(firstLoc){map.setView([window.carLat,window.carLng],16);firstLoc=false;}if(isRunning){      window.nmeaBuffer = window.nmeaBuffer || [];      window.nmeaBuffer.push(generateNMEA(p));      window.lastGpsPush = window.lastGpsPush || 0;      let now = Date.now();      if(now - window.lastGpsPush > 4000){        fetch('/cgi-bin/wardriving_api?action=gps_push',{method:'POST',body:window.nmeaBuffer.join('')});        window.nmeaBuffer = [];        window.lastGpsPush = now;      }    }},()=>{document.getElementById('chkBrowserGPS').checked=false;browserGpsActive=false;},{enableHighAccuracy:window.GPS_HIGH_ACCURACY||false,maximumAge:1000,timeout:10000});
+    watchId=navigator.geolocation.watchPosition(p=>{window.carLat=p.coords.latitude;window.carLng=p.coords.longitude;carMarker.setLatLng([window.carLat,window.carLng]);if(firstLoc){map.setView([window.carLat,window.carLng],16);firstLoc=false;}else if(followMode){map.panTo([window.carLat,window.carLng],{animate:true,duration:0.3});}if(isRunning){      window.nmeaBuffer = window.nmeaBuffer || [];      window.nmeaBuffer.push(generateNMEA(p));      window.lastGpsPush = window.lastGpsPush || 0;      let now = Date.now();      if(now - window.lastGpsPush > 4000){        fetch('/cgi-bin/wardriving_api?action=gps_push',{method:'POST',body:window.nmeaBuffer.join('')});        window.nmeaBuffer = [];        window.lastGpsPush = now;      }    }},()=>{document.getElementById('chkBrowserGPS').checked=false;browserGpsActive=false;updateMapButtons();},{enableHighAccuracy:window.GPS_HIGH_ACCURACY||false,maximumAge:1000,timeout:10000});
   }else{if(watchId!==null)navigator.geolocation.clearWatch(watchId);}
+  updateMapButtons();
 }
 function generateNMEA(pos){
   let c=pos.coords,d=new Date(pos.timestamp),pad=(n,w=2)=>n.toString().padStart(w,'0');
@@ -511,8 +602,10 @@ function uploadPotfile(){let f=document.getElementById('potfileInput').files[0];
 function loadCrackedNetworks(){apiJson('cracked_networks').then(d=>{crackedMarkers.forEach(m=>map.removeLayer(m));crackedMarkers=[];if(!d||!d.length)return;let groups={};d.forEach(n=>{let lat=parseFloat(n.lat),lon=parseFloat(n.lon);if(isNaN(lat)||isNaN(lon))return;let k=lat.toFixed(7)+','+lon.toFixed(7);if(!groups[k])groups[k]={lat,lon,ssids:[]};groups[k].ssids.push(String(n.ssid||'??'));});Object.keys(groups).forEach(k=>{let g=groups[k],count=g.ssids.length,label=count>1?'<span style="position:absolute;right:-5px;top:-7px;background:#00ff66;color:#001b0a;border-radius:9px;min-width:16px;height:16px;font:bold 11px/16px sans-serif;text-align:center;box-shadow:0 0 5px #0f0">'+count+'</span>':'';let popup='<b style="color:#0f0;">🔓 CRACKED'+(count>1?' x'+count:'')+'!</b><br>'+g.ssids.map(esc).join('<br>');let m=L.marker([g.lat,g.lon],{icon:L.divIcon({className:'cracked-icon',html:'<div style="position:relative;font-size:22px;text-shadow:0 0 5px #0f0;line-height:28px;text-align:center">🔓'+label+'</div>',iconSize:[34,34]})}).addTo(map).bindPopup(popup);crackedMarkers.push(m);});}).catch(e=>{setText('logBox','Cracked networks failed: '+(e.message||'unknown'));});}
 
 // SETTINGS
-function toggleNightMode(){let n=document.getElementById('chkNight').checked;localStorage.setItem('nightMode',n);if(n)document.body.classList.add('night-mode');else document.body.classList.remove('night-mode');}
-if(localStorage.getItem('nightMode')==='true'){document.body.classList.add('night-mode');window.addEventListener('DOMContentLoaded',()=>{let c=document.getElementById('chkNight');if(c)c.checked=true;});}
+function syncNightButton(){let b=document.getElementById('btnNightDrive'),on=document.body.classList.contains('night-mode');if(b)b.innerText=on?'☀':'☾';let c=document.getElementById('chkNight');if(c)c.checked=on;}
+function toggleNightMode(){let n=document.getElementById('chkNight').checked;localStorage.setItem('nightMode',n);if(n)document.body.classList.add('night-mode');else document.body.classList.remove('night-mode');syncNightButton();}
+function toggleNightModeQuick(){let n=!document.body.classList.contains('night-mode');localStorage.setItem('nightMode',n);if(n)document.body.classList.add('night-mode');else document.body.classList.remove('night-mode');syncNightButton();showToast(n?'Night mode on':'Night mode off');}
+if(localStorage.getItem('nightMode')==='true'){document.body.classList.add('night-mode');window.addEventListener('DOMContentLoaded',syncNightButton);}else{window.addEventListener('DOMContentLoaded',syncNightButton);}
 function toggleHighAccuracyGPS(){let e=document.getElementById('chkHighGPS').checked;window.GPS_HIGH_ACCURACY=e;localStorage.setItem('gpsHighAccuracy',e);}
 window.GPS_HIGH_ACCURACY=localStorage.getItem('gpsHighAccuracy')==='true';
 window.addEventListener('DOMContentLoaded',()=>{if(window.GPS_HIGH_ACCURACY){let c=document.getElementById('chkHighGPS');if(c)c.checked=true;}});
@@ -521,7 +614,7 @@ if(audioEnabled){let c=document.getElementById('chkAudio');if(c)c.checked=true;}
 function testAudio(){if('speechSynthesis' in window){window.speechSynthesis.speak(new SpeechSynthesisUtterance('OpenWardRivingT audio active.'));sendNotification('OpenWardRivingT','Audio enabled');}}
 function sendNotification(t,b){if('Notification' in window&&Notification.permission==='granted')new Notification(t,{body:b});}
 function loadHW(){fetch('/cgi-bin/wardriving_api?action=get_hw').then(r=>r.json()).then(d=>{let s=document.getElementById('selLED');s.innerHTML='';if(d.leds)d.leds.forEach(l=>{let o=document.createElement('option');o.value=l;o.text=l;if(l===d.current_led)o.selected=true;s.appendChild(o);});document.getElementById('selBtn').value=(d.current_button==='wifi'?'wifi':'wps');document.getElementById('selMode').value=d.mode||'active';});}
-function saveHW(){let l=document.getElementById('selLED').value,b=document.getElementById('selBtn').value,m=document.getElementById('selMode').value;fetch('/cgi-bin/wardriving_api?action=set_hw&led='+encodeURIComponent(l)+'&btn='+b+'&mode='+m).then(r=>r.json()).then(d=>{if(d.status==='saved')alert('Hardware saved!');});}
+function saveHW(){let l=document.getElementById('selLED').value,b=document.getElementById('selBtn').value,m=document.getElementById('selMode').value;fetch('/cgi-bin/wardriving_api?action=set_hw&led='+encodeURIComponent(l)+'&btn='+b+'&mode='+m).then(r=>r.json()).then(d=>{if(d.status==='saved')showToast('Hardware saved');});}
 function saveWigle(){let t=document.getElementById('wigleToken').value;if(!t)return;fetch('/cgi-bin/wardriving_api?action=save_wigle_token',{method:'POST',body:t}).then(r=>r.json()).then(d=>{if(d.status==='ok'){document.getElementById('wigleStatus').innerText='Token Saved!';setTimeout(()=>document.getElementById('wigleStatus').innerText='',3000);}});}
 function uploadWigle(){document.getElementById('wigleStatus').innerText='Uploading...';fetch('/cgi-bin/wardriving_api?action=wigle_upload').then(r=>r.json()).then(d=>{document.getElementById('wigleStatus').innerText=d.success?'✓ Uploaded!':'Error: '+(d.error||'Unknown');}).catch(()=>{document.getElementById('wigleStatus').innerText='Network Error!';});}
 function downloadBBox(){if(!map)return;let b=map.getBounds(),zMin=document.getElementById('dlZoomMin').value||12,zMax=document.getElementById('dlZoomMax').value||16;let n=b.getNorth(),s=b.getSouth(),e=b.getEast(),w=b.getWest();document.getElementById('bboxStatus').innerText='Starting...';fetch('/cgi-bin/wardriving_api?action=download_bbox&n='+n+'&s='+s+'&e='+e+'&w='+w+'&z1='+zMin+'&z2='+zMax).then(r=>r.json()).then(d=>{if(d.status==='started'){document.getElementById('bboxStatus').innerText='Downloading...';if(dlTimer)clearInterval(dlTimer);dlTimer=setInterval(()=>{fetch('/cgi-bin/wardriving_api?action=download_status').then(rr=>rr.json()).then(dd=>{if(dd.status==='DONE'){document.getElementById('bboxStatus').innerText='✓ Done!';clearInterval(dlTimer);}});},3000);}}).catch(()=>{document.getElementById('bboxStatus').innerText='Error';});}
@@ -531,7 +624,7 @@ function uploadTiles(){let f=document.getElementById('tilesFile').files[0];if(!f
 // PROCESSING SETTINGS
 function loadProcessing(){fetch('/cgi-bin/wardriving_api?action=get_processing').then(r=>r.json()).then(d=>{if(d.enabled!==undefined){document.getElementById('selProcessing').value=d.enabled;document.getElementById('remoteUrl').value=d.url||'';toggleRemoteServerUrl();}}).catch(e=>{});}
 function toggleRemoteServerUrl(){document.getElementById('remoteUrlContainer').style.display=document.getElementById('selProcessing').value==='1'?'block':'none';}
-function saveProcessing(){let en=document.getElementById('selProcessing').value,url=encodeURIComponent(document.getElementById('remoteUrl').value);fetch('/cgi-bin/wardriving_api?action=set_processing&en='+en+'&url='+url).then(r=>r.json()).then(d=>{if(d.status==='saved')alert('Processing config saved!');});}
+function saveProcessing(){let en=document.getElementById('selProcessing').value,url=encodeURIComponent(document.getElementById('remoteUrl').value);fetch('/cgi-bin/wardriving_api?action=set_processing&en='+en+'&url='+url).then(r=>r.json()).then(d=>{if(d.status==='saved')showToast('Processing saved');});}
 loadProcessing();
 
 // EXCLUSIONS & TARGETS
@@ -565,9 +658,10 @@ function evalMoodDOM(){let hs=parseInt(document.getElementById('hdr_hs').querySe
 updatePet();setInterval(updatePet,15000);setInterval(evalMoodDOM,5000);
 
 // POLL INTERVALS
-setInterval(updateStatus,5000);setInterval(updateMap,10000);setInterval(loadCrackedNetworks,15000);
+setInterval(updateStatus,5000);setInterval(updateMap,10000);setInterval(loadCrackedNetworks,15000);setInterval(refreshFreshnessAge,1000);
 updateStatus();loadFiles();loadHW();
 if(localStorage.getItem('browserGpsActive')==='true'){document.getElementById('chkBrowserGPS').checked=true;toggleBrowserGPS();}
+updateMapButtons();
 </script>
 </body>
 </html>

@@ -244,6 +244,23 @@ _EOF
     CHANNELS_JSON=$(echo "$LOG_DATA" | awk '/^[ \t]*[0-9]+ [0-9]{2}:[0-9]{2}:[0-9]{2}/ {chan=$1; essid=$NF; if(length(essid)>2 && essid!~/:/ && essid !~ /^[0-9a-fA-F]{12}$/){ k=chan"\t"essid; if(!seen[k]++){ if(!f) printf "["; else printf ","; printf "{\"c\":%s, \"s\":\"%s\"}", chan, essid; f=1 } }} END{if(!f) printf "["; print "]"}')
     [ -z "$CHANNELS_JSON" ] && CHANNELS_JSON="[]"
     if [ "$CHANNELS_JSON" = "[]]" ]; then CHANNELS_JSON="[]"; fi
+
+    REMOTE_ENABLED="0"
+    [ -f /etc/wardriving_remote_enabled ] && REMOTE_ENABLED=$(cat /etc/wardriving_remote_enabled)
+    REMOTE_STATE="local"
+    REMOTE_CODE="0"
+    REMOTE_MSG="remote disabled"
+    REMOTE_UPDATED="0"
+    if [ -f /tmp/wardriving_remote_status ]; then
+        REMOTE_STATE=$(awk -F= '$1=="state"{print $2; exit}' /tmp/wardriving_remote_status | tr -cd 'a-zA-Z0-9_-')
+        REMOTE_CODE=$(awk -F= '$1=="code"{print $2; exit}' /tmp/wardriving_remote_status | tr -cd '0-9')
+        REMOTE_MSG=$(awk -F= '$1=="message"{print $2; exit}' /tmp/wardriving_remote_status | tr -cd 'A-Za-z0-9 _.-')
+        REMOTE_UPDATED=$(awk -F= '$1=="updated"{print $2; exit}' /tmp/wardriving_remote_status | tr -cd '0-9')
+    fi
+    [ -z "$REMOTE_STATE" ] && REMOTE_STATE="unknown"
+    [ -z "$REMOTE_CODE" ] && REMOTE_CODE="0"
+    [ -z "$REMOTE_MSG" ] && REMOTE_MSG="waiting"
+    [ -z "$REMOTE_UPDATED" ] && REMOTE_UPDATED="0"
     
     cat << JSON
 {
@@ -259,6 +276,11 @@ _EOF
     "fix": "$FIX",
     "space_free": "$SPACE_FREE",
     "gps_status": "$GPS_STAT",
+    "remote_enabled": "$REMOTE_ENABLED",
+    "remote_state": "$REMOTE_STATE",
+    "remote_code": "$REMOTE_CODE",
+    "remote_message": "$REMOTE_MSG",
+    "remote_updated": "$REMOTE_UPDATED",
     "logs": "$LAST_LOG",
     "channels_data": $CHANNELS_JSON
 }
@@ -723,10 +745,10 @@ elif [ "$ACTION" = "scored_networks" ]; then
         # Pre-compute handshake MACs to avoid system() calls in awk loop
         # Pre-compute handshake MACs (busybox-compatible grep -oE, no PCRE)
         HS_MACS=$(grep -oE '\*[0-9a-fA-F]{12}' "$WARD_MNT"/master.hc2200 2>/dev/null | sed 's/^\*//' | tr '[:upper:]' '[:lower:]' | sort -u | paste -sd '|' - 2>/dev/null)
-        sqlite3 -separator '|' "$WARD_MNT"/wardriving.db "SELECT mac, ssid, enc, rssi FROM networks WHERE last_seen >= datetime('now', '-3 minutes') ORDER BY rssi DESC LIMIT 30;" 2>/dev/null | awk -F'|' -v hs_macs="$HS_MACS" '
+        sqlite3 -separator '|' "$WARD_MNT"/wardriving.db "SELECT mac, ssid, enc, rssi, CAST((julianday('now') - julianday(last_seen)) * 86400 AS INTEGER) AS age_seconds FROM networks WHERE last_seen >= datetime('now', '-90 seconds') ORDER BY rssi DESC LIMIT 12;" 2>/dev/null | awk -F'|' -v hs_macs="$HS_MACS" '
         BEGIN { printf "[" }
         {
-            mac=$1; ssid=$2; enc=$3; rssi=$4;
+            mac=$1; ssid=$2; enc=$3; rssi=$4; age=$5;
             # Proper JSON escaping in awk
             gsub(/\\/, "\\\\", ssid);
             gsub("\x22", "\\\"", ssid);
@@ -743,7 +765,7 @@ elif [ "$ACTION" = "scored_networks" ]; then
             if (hs_macs ~ mac_hex) has_hs = "true"
             
             if(NR>1) printf ",";
-            printf "{\"mac\":\"%s\",\"ssid\":\"%s\",\"enc\":\"%s\",\"rssi\":%s,\"has_hs\":%s}", mac, ssid, enc, rssi, has_hs
+            printf "{\"mac\":\"%s\",\"ssid\":\"%s\",\"enc\":\"%s\",\"rssi\":%s,\"age\":%s,\"has_hs\":%s}", mac, ssid, enc, rssi, age, has_hs
         }
         END { print "]" }'
     else

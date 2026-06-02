@@ -112,6 +112,14 @@ body{background:var(--bg-deep);color:var(--c-green);font-family:var(--font);font
 .pipe-node.warn{border-color:var(--c-amber)}.pipe-node.warn .p-val{color:var(--c-amber)}
 .pipe-node.err{border-color:var(--c-red)}.pipe-node.err .p-val{color:var(--c-red)}
 .last-hs{font-size:15px;color:var(--c-dim);margin-top:6px;text-align:center}
+.mode-card{padding:8px}
+.mode-title{font-size:14px;color:var(--c-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;text-align:center}
+.mode-segments{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.mode-btn{min-height:52px;border:1px solid var(--border);border-radius:8px;background:#000;color:var(--c-dim);font-family:var(--font);font-size:13px;font-weight:bold;letter-spacing:0;cursor:pointer;padding:0 4px}
+.mode-btn.active{border-color:var(--c-green);background:var(--c-green);color:#000;box-shadow:var(--glow-sm) var(--c-green)}
+.mode-btn.passive.active{border-color:var(--c-cyan);background:var(--c-cyan);box-shadow:var(--glow-sm) var(--c-cyan)}
+.mode-btn.smart.active{border-color:var(--c-amber);background:var(--c-amber);box-shadow:var(--glow-sm) var(--c-amber)}
+.mode-hint{font-size:15px;color:var(--c-dim);margin-top:8px;min-height:20px;text-align:center}
 .toast{position:fixed;top:82px;left:50%;transform:translateX(-50%);z-index:3000;background:#000;color:var(--c-white);border:2px solid var(--c-green);border-radius:8px;padding:12px 18px;font-size:18px;font-weight:bold;opacity:0;pointer-events:none;transition:opacity 0.2s}
 .toast.show{opacity:1}
 
@@ -226,14 +234,14 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
             <div class="bridge" id="petBridge">🐾 Linked</div>
           </div>
           <button class="btn huge" id="btnToggle" onclick="toggleWardriving()">▶ START</button>
-          <div class="drive-card">
-            <label style="font-size:0.78em;color:var(--c-dim);text-transform:uppercase;letter-spacing:1px">Operation Mode</label>
-            <select id="dashMode" onchange="setOperationMode(this.value)" style="margin-top:6px">
-              <option value="active">Active (Clients)</option>
-              <option value="passive">Passive (AP Survey)</option>
-              <option value="smart">Smart (Targeted)</option>
-            </select>
-            <div id="modeHint" style="font-size:0.78em;color:var(--c-dim);margin-top:6px">Active lens: clients/stations.</div>
+          <div class="drive-card mode-card">
+            <div class="mode-title">Operation Mode</div>
+            <div class="mode-segments" id="dashMode">
+              <button class="mode-btn active" data-mode="active" onclick="setOperationMode('active')">ACTIVE</button>
+              <button class="mode-btn passive" data-mode="passive" onclick="setOperationMode('passive')">PASSIVE</button>
+              <button class="mode-btn smart" data-mode="smart" onclick="setOperationMode('smart')">SMART</button>
+            </div>
+            <div id="modeHint" class="mode-hint">Active: clients</div>
           </div>
           <div class="drive-card">
             <div class="pipeline">
@@ -747,14 +755,14 @@ function drawClientLayer(targetMap,items,store){
   return next;
 }
 function modeHint(mode){
-  if(mode==='passive')return 'Passive lens: AP/SSID survey.';
-  if(mode==='smart')return 'Smart lens: targeted clients/stations.';
-  return 'Active lens: clients/stations.';
+  if(mode==='passive')return 'AP survey';
+  if(mode==='smart')return 'Target list';
+  return 'Clients';
 }
 function syncModeUi(mode){
   currentMode=mode||'active';
   let a=document.getElementById('dashMode'),b=document.getElementById('selMode');
-  if(a&&a.value!==currentMode)a.value=currentMode;
+  if(a)a.querySelectorAll('.mode-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.mode===currentMode));
   if(b&&b.value!==currentMode)b.value=currentMode;
   setText('modeHint',modeHint(currentMode));
 }

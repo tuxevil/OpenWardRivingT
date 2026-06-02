@@ -19,18 +19,15 @@ touch "$ATTACKED_MACS"
 # Extraemos las MAC de los APs que vienen en este archivo
 awk -F'*' '{print $4}' "$HC2200_FILE" | sort -u > "/tmp/incoming_macs.txt"
 
-# Filtramos: Solo nos quedamos con los hashes cuyas MACs NO hemos atacado antes
+# Filtramos: Solo nos quedamos con los hashes cuyas MACs NO hemos crackeado antes
 grep -vFf "$ATTACKED_MACS" "$HC2200_FILE" > "/tmp/new_targets.hc2200"
 
 if [ ! -s "/tmp/new_targets.hc2200" ]; then
-    echo "[*] No hay handshakes nuevos (ya procesamos estas redes hoy). Ignorando."
+    echo "[*] No hay handshakes pendientes (ya crackeamos estas redes). Ignorando."
     rm -f "$HC2200_FILE" "/tmp/incoming_macs.txt" "/tmp/new_targets.hc2200"
     exec 9>&-
     exit 0
 fi
-
-# Agregamos estas nuevas MACs al historial para no volver a atacarlas hoy
-awk -F'*' '{print $4}' "/tmp/new_targets.hc2200" >> "$ATTACKED_MACS"
 # ------------------------------
 
 find "$DICT_DIR" -maxdepth 1 -type f -print 2>/dev/null | sort -V | while IFS= read -r dict; do
@@ -46,6 +43,17 @@ find "$DICT_DIR" -maxdepth 1 -type f -print 2>/dev/null | sort -V | while IFS= r
         if [ -s "/tmp/current_cracked.txt" ]; then
             cat "/tmp/current_cracked.txt" >> "$PENDING_SYNC"
             sort -u "$PENDING_SYNC" -o "$PENDING_SYNC" 2>/dev/null
+            awk '
+                /^WPA\*/ {
+                    split($0, a, "*");
+                    if (length(a[4]) == 12) print tolower(a[4]);
+                }
+                /^[0-9a-fA-F]{32}:[0-9a-fA-F]{12}:/ {
+                    split($0, a, ":");
+                    print tolower(a[2]);
+                }
+            ' "/tmp/current_cracked.txt" >> "$ATTACKED_MACS"
+            sort -u "$ATTACKED_MACS" -o "$ATTACKED_MACS" 2>/dev/null
         fi
         
         if [ -s "$PENDING_SYNC" ]; then

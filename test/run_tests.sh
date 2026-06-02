@@ -160,6 +160,7 @@ echo "=== NMEA Parser Tests ==="
 
 # Test NMEA RMC parsing (from shared parse_nmea_rmc function)
 echo "  Test: Valid GPRMC sentence"
+# shellcheck disable=SC2016 # Literal NMEA sentence must keep the leading '$'.
 RMC='$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A'
 RESULT=$(echo "$RMC" | awk -F',' '
 $1 ~ /^\$[A-Z]{2}RMC/ && $3 == "A" {
@@ -173,6 +174,7 @@ assert_status "NMEA lat parse" "48.1173" "$(echo "$RESULT" | awk '{printf "%.4f"
 assert_status "NMEA lon parse" "11.5167" "$(echo "$RESULT" | awk '{printf "%.4f", $2}')"
 
 echo "  Test: Invalid fix (V status)"
+# shellcheck disable=SC2016 # Literal NMEA sentence must keep the leading '$'.
 RMC_BAD='$GPRMC,123519,V,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A'
 RESULT=$(echo "$RMC_BAD" | awk -F',' '
 $1 ~ /^\$[A-Z]{2}RMC/ && $3 == "A" {
@@ -181,6 +183,7 @@ $1 ~ /^\$[A-Z]{2}RMC/ && $3 == "A" {
 assert_status "invalid fix skipped" "" "$RESULT"
 
 echo "  Test: Southern hemisphere"
+# shellcheck disable=SC2016 # Literal NMEA sentence must keep the leading '$'.
 RMC_SOUTH='$GPRMC,123519,A,3344.500,S,15112.700,E,010.0,180.0,230394,,,A*00'
 RESULT=$(echo "$RMC_SOUTH" | awk -F',' '
 $1 ~ /^\$[A-Z]{2}RMC/ && $3 == "A" {

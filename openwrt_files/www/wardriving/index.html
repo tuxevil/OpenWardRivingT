@@ -444,6 +444,7 @@ let isRunning=false,lastGpsFixTime=Date.now(),lastHandshakeCount=-1,lastHandshak
 let audioEnabled=localStorage.getItem('audioEnabled')==='true';
 let map,onlineLayer,offlineLayer,carMarker,firstLoc=true,watchId=null,browserGpsActive=false,followMode=true;
 let wpsMarkers={},crackedMarkers=[],networkMarkers=[],clientMarkers=[],replayNetworkMarkers=[],heatLayer=null,replayTimer=null;
+let networkLayerItems=[],clientLayerItems=[];
 let currentMode='active';
 let replayDiscoveredItems={};
 let excludedSSIDs=[],targetMacs=[],alertedTargets=[],OUI_DB={};
@@ -468,6 +469,7 @@ function initMap(){
   if(uo)onlineLayer.addTo(map);else offlineLayer.addTo(map);
   carMarker=L.circleMarker([0,0],{radius:8,fillColor:'#00ffff',color:'#fff',weight:2,opacity:1,fillOpacity:1}).addTo(map).bindPopup('<b>Current Location</b>');
   map.on('dragstart',()=>{followMode=false;updateFollowButton();});
+  map.on('zoomend',refreshVisibleLayers);
   updateMapButtons();
 }
 initMap();
@@ -654,6 +656,45 @@ function markerStyle(n){
   if(n.has_handshake)return{color:'#ffb000',fillColor:'#ffb000',label:'🔑'};
   return{color:'#00ffff',fillColor:'#00ffff',label:''};
 }
+function clusterPixelSize(targetMap){
+  let z=targetMap&&targetMap.getZoom?targetMap.getZoom():16;
+  if(z>=18)return 1;
+  if(z>=16)return 42;
+  if(z>=14)return 56;
+  if(z>=12)return 76;
+  return 100;
+}
+function joinSamples(a,b,limit){
+  let out=[],seen={};
+  String(a||'').split(',').concat(String(b||'').split(',')).forEach(s=>{s=s.trim();if(s&&!seen[s]&&out.length<limit){seen[s]=1;out.push(s);}});
+  return out.join(',');
+}
+function clusterMapItems(targetMap,items,kind){
+  if(!targetMap||!items)return[];
+  let cell=clusterPixelSize(targetMap);
+  if(cell<=1)return items;
+  let groups={},order=[];
+  items.forEach(n=>{
+    let lat=parseFloat(n.lat),lon=parseFloat(n.lon);if(isNaN(lat)||isNaN(lon)||lat===0||lon===0)return;
+    let p=targetMap.project([lat,lon],targetMap.getZoom()),key=Math.floor(p.x/cell)+','+Math.floor(p.y/cell);
+    if(!groups[key]){groups[key]=Object.assign({},n,{latSum:0,lonSum:0,weight:0,count:0,client_count:0,ap_count:0,associated:0});order.push(key);}
+    let g=groups[key],w=parseInt(n.count||n.client_count||1);if(!w||w<1)w=1;
+    g.latSum+=lat*w;g.lonSum+=lon*w;g.weight+=w;g.count+=parseInt(n.count||1);
+    g.rssi=Math.max(parseInt(g.rssi||-999),parseInt(n.rssi||-999));
+    g.has_handshake=!!(g.has_handshake||n.has_handshake);g.is_cracked=!!(g.is_cracked||n.is_cracked);
+    g.ssids=joinSamples(g.ssids,n.ssids||n.ssid,6);
+    if(kind==='clients'){g.client_count+=parseInt(n.client_count||n.count||1);g.ap_count+=parseInt(n.ap_count||1);g.associated+=parseInt(n.associated||0);g.channels=joinSamples(g.channels,n.channels,8);g.kind='clients';}
+  });
+  return order.map(k=>{let g=groups[k];g.lat=g.latSum/g.weight;g.lon=g.lonSum/g.weight;delete g.latSum;delete g.lonSum;delete g.weight;return g;});
+}
+function refreshVisibleLayers(){
+  if(!map)return;
+  if(currentMode==='passive'){
+    networkMarkers=drawNetworkLayer(map,clusterMapItems(map,networkLayerItems,'networks'),networkMarkers,false);
+  }else{
+    clientMarkers=drawClientLayer(map,clusterMapItems(map,clientLayerItems,'clients'),clientMarkers);
+  }
+}
 function drawNetworkLayer(targetMap,items,store,isReplay){
   if(!targetMap||!items)return store||[];
   (store||[]).forEach(m=>targetMap.removeLayer(m));
@@ -676,12 +717,15 @@ function drawNetworkLayer(targetMap,items,store,isReplay){
 }
 function loadNetworkMap(){
   if(currentMode==='passive'){
+    clientLayerItems=[];
     clientMarkers=drawClientLayer(map,[],clientMarkers);
-    apiJson('networks_map').then(d=>{networkMarkers=drawNetworkLayer(map,d,networkMarkers,false);}).catch(()=>{});
+    apiJson('networks_map').then(d=>{networkLayerItems=d||[];networkMarkers=drawNetworkLayer(map,clusterMapItems(map,networkLayerItems,'networks'),networkMarkers,false);}).catch(()=>{});
   }else{
+    networkLayerItems=[];
     networkMarkers=drawNetworkLayer(map,[],networkMarkers,false);
     apiJson('clients_map').then(d=>{
-      clientMarkers=drawClientLayer(map,d,clientMarkers);
+      clientLayerItems=d||[];
+      clientMarkers=drawClientLayer(map,clusterMapItems(map,clientLayerItems,'clients'),clientMarkers);
       setText('modeHint',(currentMode==='smart'?'Smart':'Active')+' lens: '+((d&&d.length)?'client groups '+d.length:'no clients mapped yet'));
     }).catch(()=>{});
   }

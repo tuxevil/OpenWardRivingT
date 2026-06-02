@@ -310,6 +310,13 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ dashboard mode/client layer missing"
 fi
 
+echo "  Test: frontend map markers cluster by zoom"
+if grep -q "function clusterMapItems" openwrt_files/www/wardriving/index.html && grep -q "clusterPixelSize" openwrt_files/www/wardriving/index.html && grep -q "zoomend.*refreshVisibleLayers" openwrt_files/www/wardriving/index.html; then
+    PASS=$((PASS + 1)); echo "  ✓ zoom-aware map clustering present"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ zoom-aware map clustering missing"
+fi
+
 echo "  Test: frontend pushes browser GPS while stopped"
 if grep -q "action=gps_push" openwrt_files/www/wardriving/index.html && ! grep -q "if(isRunning).*gps_push" openwrt_files/www/wardriving/index.html; then
     PASS=$((PASS + 1)); echo "  ✓ browser GPS push is independent of capture state"

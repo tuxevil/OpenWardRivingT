@@ -25,6 +25,7 @@ It uses a completely serverless backend approach: the "backend" is a collection 
   - Integrates with `sqlite3` to push captured networks into `/mnt/wardriving/wardriving.db`.
   - Dedupes hashes into `/mnt/wardriving/master.hc2200`.
   - Supports optional GPU offload. The safe contract requests authenticated JSONL (`X-OWRT-Contract: jsonl`) and validates rows locally before SQLite insert. Legacy remote SQL execution is disabled unless `/etc/wardriving_remote_allow_sql` exists.
+  - In the test topology, the GPU is reached at `10.128.128.254`; if WireGuard is used, route that host as `10.128.128.254/32` rather than the whole `10.128.128.0/24` when WAN also lives on `10.128.128.0/24`.
   - **Performance Note**: Capture rollover is CPU-heavy. We run these heavy tasks with `nice -n 10` so they don't freeze the router's UI.
 
 - **`openwrt_files/etc/init.d/wardriving`**: The Service Manager.
@@ -43,3 +44,5 @@ Feeding GPS from the browser to `hcxdumptool` is non-trivial and relies on a del
 - **Rollover CPU Spikes**: The core script periodically stops capture to process the `.pcapng` file. This can take several seconds of high CPU. During this time, API responses might be slightly delayed. This is normal.
 - **Ash vs Bash**: OpenWrt uses BusyBox `ash`. Scripts MUST be POSIX compliant. Do not use bash arrays (`()`) or bash substring replacements (`${var//...}`). Use `awk` or `sed` heavily.
 - **ShellCheck CI**: The GitHub Actions CI runs ShellCheck configured with specific exclusions (`-e SC3043,SC3048,etc.`) because `ash` supports `local` and `SIGTERM`, even though pure POSIX `sh` does not.
+- **Package Manager Drift**: OpenWrt 24/25 may use `apk` instead of `opkg`. Operational docs and install paths must mention both, and router package-update failures should include route/DNS checks before assuming feed errors.
+- **Modern SCP**: New `scp` clients use SFTP by default. Routers should include `openssh-sftp-server`; otherwise deployments may need legacy `scp -O`.

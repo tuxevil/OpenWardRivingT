@@ -82,8 +82,13 @@ bd close <id>         # Complete work
 
 ### Layer 5: Init & Install
 - `/etc/init.d/wardriving`: OpenWrt init script (START=99)
-- `install.sh`: Auto-detects apk/opkg, configures USB fstab, WiFi AP, cron sync
+- `install.sh`: Auto-detects apk/opkg, installs capture tools plus `openssh-sftp-server`, configures USB fstab, WiFi AP, cron sync
 - `uninstall.sh`: Clean removal with config wipe
+
+### Test Router Operations
+- OpenWrt 24/25 images can use `apk` instead of `opkg`; use `apk update` / `apk add` when `opkg` is absent.
+- Modern `scp` requires the router-side SFTP subsystem. Install `openssh-sftp-server` so file copies work without `scp -O`.
+- In the current test topology, WireGuard is only needed for GPU access at `10.128.128.254`. Route/allow `10.128.128.254/32`; do not route all of `10.128.128.0/24` through WireGuard if WAN also uses that subnet, or package updates and default routing can break.
 
 ### Data Flow
 ```

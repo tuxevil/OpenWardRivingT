@@ -7,11 +7,11 @@ echo "[*] Installing required dependencies..."
 if command -v apk >/dev/null 2>&1; then
     echo "[*] Detected 'apk' package manager (OpenWrt 24.x+)"
     apk update
-    apk add sqlite3-cli hcxdumptool hcxtools socat block-mount kmod-fs-ext4 kmod-usb-storage e2fsprogs rsync openssh-client
+    apk add sqlite3-cli hcxdumptool hcxtools socat block-mount kmod-fs-ext4 kmod-usb-storage e2fsprogs rsync openssh-client openssh-sftp-server
 elif command -v opkg >/dev/null 2>&1; then
     echo "[*] Detected 'opkg' package manager (OpenWrt 23.x or older)"
     opkg update
-    opkg install sqlite3-cli hcxdumptool hcxtools socat block-mount kmod-fs-ext4 kmod-usb-storage e2fsprogs rsync openssh-client
+    opkg install sqlite3-cli hcxdumptool hcxtools socat block-mount kmod-fs-ext4 kmod-usb-storage e2fsprogs rsync openssh-client openssh-sftp-server
 else
     echo "[-] ERROR: Neither apk nor opkg package manager found!"
     exit 1

@@ -39,7 +39,10 @@ The automated installer will automatically detect your package manager (`apk` fo
 - `hcxdumptool` (v6.3+) & `hcxtools` (for capturing and parsing)
 - `socat` (for NMEA GPS tunneling)
 - `block-mount`, `e2fsprogs`, and `kmod-usb-storage` (for USB ext4 auto-mounting)
+- `openssh-client` and `openssh-sftp-server` (for modern `scp`/SFTP uploads without forcing legacy `scp -O`)
 - `uhttpd` (built-in OpenWrt web server)
+
+OpenWrt 24/25 images may not include `opkg`; use `apk update` and `apk add ...` on those builds. If package updates fail while WireGuard is enabled, check for route overlap before blaming the package feeds.
 
 ## 🚀 Easy Installation
 1. SSH into your OpenWrt router.
@@ -76,6 +79,8 @@ OWRT_ROUTER_TOKEN=<router-api-token-used-for-potfile-sync>
 ```
 
 The router now requests an authenticated JSONL response from the GPU server and validates rows locally before inserting into SQLite. Legacy remote SQL execution is disabled by default; create `/etc/wardriving_remote_allow_sql` only if you intentionally need compatibility with an old GPU server.
+
+If the router reaches the GPU over WireGuard, route only the GPU host when that address overlaps with the router's WAN network. For the test topology, `10.128.128.254/32` should be allowed/routed through WireGuard, not the whole `10.128.128.0/24`; advertising the whole `/24` can steal the WAN gateway route and break `apk update`.
 
 ## 🐾 Pwnagotchi Bridge & Virtual Pet
 As an homage to the legendary [evilsocket/pwnagotchi](https://github.com/evilsocket/pwnagotchi) project, the dashboard features its very own JavaScript-based virtual pet.

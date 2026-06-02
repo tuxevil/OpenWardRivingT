@@ -4,6 +4,7 @@ ACTION=$(echo "$QUERY_STRING" | grep -o "action=[^&]*" | cut -d= -f2)
 TOKEN=$(echo "$QUERY_STRING" | grep -o "token=[^&]*" | cut -d= -f2)
 TOKEN_FILE="${WARDRIVING_TOKEN_FILE:-/etc/wardriving_api_token}"
 WARD_MNT="${WARDRIVING_MNT:-/mnt/wardriving}"
+MODE_FILE="${WARDRIVING_MODE_FILE:-/etc/wardriving_mode.txt}"
 
 json_error() {
     echo "{\"status\": \"error\", \"reason\": \"$1\"}"
@@ -66,7 +67,7 @@ encode_base64() {
 
 # Actions that mutate state or expose sensitive data
 case "$ACTION" in
-    start|stop|delete_file|set_hw|set_processing|set_pcap_retention|save_wigle_token|wigle_upload|upload_tiles|upload_potfile|pwnagotchi_sync|replay_start|replay_status|replay_seek|replay_pause|replay_stop|replay_report|replay_discovered|networks_map|add_target|remove_target|add_exclusion|remove_exclusion|download_all|download_bbox|export_gpx|export_kml|export_hashcat|cracked_networks|map_data|heatmap_data|download_status|list_files|get_processing|get_targets|check_targets|get_exclusions|history|scored_networks|pwnagotchi_status|gps_push|get_hw)
+    start|stop|delete_file|set_mode|get_mode|set_hw|set_processing|set_pcap_retention|save_wigle_token|wigle_upload|upload_tiles|upload_potfile|pwnagotchi_sync|replay_start|replay_status|replay_seek|replay_pause|replay_stop|replay_report|replay_discovered|networks_map|clients_map|add_target|remove_target|add_exclusion|remove_exclusion|download_all|download_bbox|export_gpx|export_kml|export_hashcat|cracked_networks|map_data|heatmap_data|download_status|list_files|get_processing|get_targets|check_targets|get_exclusions|history|scored_networks|pwnagotchi_status|gps_push|get_hw)
         if [ ! -f "$TOKEN_FILE" ] || [ "$TOKEN" != "$(cat "$TOKEN_FILE")" ]; then
             echo "Content-Type: application/json"
             echo ""
@@ -261,10 +262,14 @@ _EOF
     [ -z "$REMOTE_CODE" ] && REMOTE_CODE="0"
     [ -z "$REMOTE_MSG" ] && REMOTE_MSG="waiting"
     [ -z "$REMOTE_UPDATED" ] && REMOTE_UPDATED="0"
+    CUR_MODE="active"
+    if [ -f "$MODE_FILE" ]; then CUR_MODE=$(cat "$MODE_FILE" | tr -cd 'a-z'); fi
+    case "$CUR_MODE" in active|passive|smart) ;; *) CUR_MODE="active" ;; esac
     
     cat << JSON
 {
     "running": $IS_RUNNING,
+    "mode": "$CUR_MODE",
     "handshakes": "$HANDSHAKES",
     "space_used": "$SPACE_USED",
     "usb_pct": "$USB_PCT",
@@ -546,6 +551,38 @@ elif [ "$ACTION" = "networks_map" ]; then
         print "]"
     }' /tmp/map_hs_macs.txt /tmp/map_cracked_macs.txt -
 
+elif [ "$ACTION" = "clients_map" ]; then
+    if [ ! -f "$WARD_MNT"/wardriving.db ]; then
+        echo "[]"
+        exit 0
+    fi
+    sqlite3 -separator '|' "$WARD_MNT"/wardriving.db "CREATE TABLE IF NOT EXISTS clients (client_mac TEXT, ap_mac TEXT, ssid TEXT, channel INTEGER, lat REAL, lon REAL, first_seen DATETIME, last_seen DATETIME, rssi INTEGER, frame_type TEXT, seen_mode TEXT, PRIMARY KEY(client_mac, ap_mac)); SELECT lower(replace(client_mac,':','')), lower(replace(ap_mac,':','')), ssid, lat, lon, rssi, channel, frame_type FROM clients WHERE lat IS NOT NULL AND lon IS NOT NULL AND lat != 'NULL' AND lon != 'NULL' ORDER BY last_seen DESC LIMIT 4000;" 2>/dev/null | awk -F'|' '
+    {
+        client=$1; ap=$2; ssid=$3; lat=$4+0; lon=$5+0; rssi=$6+0; chan=$7+0; ftype=$8
+        if (lat == 0 || lon == 0 || client == "" || ap == "") next
+        key=sprintf("%.4f,%.4f", lat, lon)
+        if (!(key in seen)) { order[++n]=key; glat[key]=lat; glon[key]=lon; maxr[key]=rssi }
+        seen[key]++
+        clients[key SUBSEP client]=1
+        aps[key SUBSEP ap]=1
+        if (rssi > maxr[key]) maxr[key]=rssi
+        if (samples[key] == "") samples[key]=ssid; else if (split(samples[key], a, ",") < 5 && ssid != "" && index(samples[key], ssid)==0) samples[key]=samples[key] "," ssid
+        if (channels[key] == "") channels[key]=chan; else if (chan && index("," channels[key] ",", "," chan ",")==0) channels[key]=channels[key] "," chan
+        if (ftype ~ /auth|assoc/) assoc[key]++
+    }
+    function esc(s){gsub(/\\/,"\\\\",s); gsub(/"/,"\\\"",s); return s}
+    END {
+        printf "["
+        for (i=1; i<=n; i++) {
+            k=order[i]; cc=0; ac=0
+            for (x in clients) { split(x,p,SUBSEP); if (p[1]==k) cc++ }
+            for (x in aps) { split(x,p,SUBSEP); if (p[1]==k) ac++ }
+            if (i>1) printf ","
+            printf "{\"lat\":%.6f,\"lon\":%.6f,\"count\":%d,\"client_count\":%d,\"ap_count\":%d,\"associated\":%d,\"rssi\":%d,\"ssids\":\"%s\",\"channels\":\"%s\",\"kind\":\"clients\"}", glat[k], glon[k], seen[k], cc, ac, assoc[k]+0, maxr[k], esc(samples[k]), esc(channels[k])
+        }
+        print "]"
+    }'
+
 elif [ "$ACTION" = "cracked_networks" ]; then
     echo "["
     if [ -f "$WARD_MNT"/hashcat.potfile ] && [ -f "$WARD_MNT"/wardriving.db ]; then
@@ -806,6 +843,25 @@ elif [ "$ACTION" = "delete_file" ]; then
         echo '{"status": "error"}'
     fi
     
+elif [ "$ACTION" = "get_mode" ]; then
+    CUR_MODE="active"
+    if [ -f "$MODE_FILE" ]; then CUR_MODE=$(cat "$MODE_FILE" | tr -cd 'a-z'); fi
+    case "$CUR_MODE" in active|passive|smart) ;; *) CUR_MODE="active" ;; esac
+    echo "{\"mode\":\"$CUR_MODE\"}"
+
+elif [ "$ACTION" = "set_mode" ]; then
+    MODE=$(echo "$QUERY_STRING" | grep -o "mode=[^&]*" | cut -d= -f2 | tr -cd 'a-z')
+    case "$MODE" in active|passive|smart) ;; *) json_error "invalid mode"; exit 0 ;; esac
+    OLD_MODE="active"
+    if [ -f "$MODE_FILE" ]; then OLD_MODE=$(cat "$MODE_FILE" | tr -cd 'a-z'); fi
+    echo "$MODE" > "$MODE_FILE"
+    RESTARTED="false"
+    if [ "$MODE" != "$OLD_MODE" ] && pgrep -f "hcxdumptool.*wlan0mon" >/dev/null 2>&1; then
+        pkill -TERM -f "hcxdumptool.*wlan0mon" 2>/dev/null || true
+        RESTARTED="true"
+    fi
+    echo "{\"status\":\"saved\",\"mode\":\"$MODE\",\"capture_restarted\":$RESTARTED}"
+
 elif [ "$ACTION" = "get_hw" ]; then
     LEDS=$(ls -1 /sys/class/leds/ 2>/dev/null | awk 'BEGIN{printf "["} {if (NR>1) printf ","; printf "\"%s\"", $1} END{print "]"}')
     CUR_LED=$(grep "/sys/class/leds/" /etc/init.d/wardriving | head -n 1 | sed -n 's|.*/sys/class/leds/\([^/]*\)/.*|\1|p')
@@ -815,7 +871,7 @@ elif [ "$ACTION" = "get_hw" ]; then
     if grep -q "wardriving_core" /etc/rc.button/rfkill 2>/dev/null; then CUR_BTN="wifi"; fi
     
     CUR_MODE="active"
-    if [ -f /etc/wardriving_mode.txt ]; then CUR_MODE=$(cat /etc/wardriving_mode.txt); fi
+    if [ -f "$MODE_FILE" ]; then CUR_MODE=$(cat "$MODE_FILE"); fi
     KEEP="false"; [ -f /etc/wardriving_keep_pcap.txt ] && KEEP="true"
     echo "{\"leds\": $LEDS, \"current_led\": \"$CUR_LED\", \"current_button\": \"$CUR_BTN\", \"mode\": \"$CUR_MODE\", \"keep_pcap\": \"$KEEP\"}"
 
@@ -843,8 +899,9 @@ elif [ "$ACTION" = "set_pcap_retention" ]; then
 elif [ "$ACTION" = "set_hw" ]; then
     LED=$(echo "$QUERY_STRING" | grep -o "led=[^&]*" | cut -d= -f2 | sed 's/%3A/:/g' | sed 's/[^a-zA-Z0-9:._-]//g')
     BTN=$(echo "$QUERY_STRING" | grep -o "btn=[^&]*" | cut -d= -f2)
-    MODE=$(echo "$QUERY_STRING" | grep -o "mode=[^&]*" | cut -d= -f2)
-    echo "$MODE" > /etc/wardriving_mode.txt
+    MODE=$(echo "$QUERY_STRING" | grep -o "mode=[^&]*" | cut -d= -f2 | tr -cd 'a-z')
+    case "$MODE" in active|passive|smart) ;; *) MODE="active" ;; esac
+    echo "$MODE" > "$MODE_FILE"
     
     # Atomic sed: write to temp, then mv
     TMP_INIT=$(mktemp /tmp/wardriving_init_XXXXXX)

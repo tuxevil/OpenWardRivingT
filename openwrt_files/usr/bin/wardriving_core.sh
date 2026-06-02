@@ -157,6 +157,8 @@ while true; do
                     sqlite3 /mnt/wardriving/wardriving.db "PRAGMA journal_mode=WAL; CREATE INDEX IF NOT EXISTS idx_last_seen ON networks(last_seen);" > /dev/null 2>&1
                     sqlite3 /mnt/wardriving/wardriving.db < "/tmp/respuesta_server.jsonl"
                 fi
+                /usr/bin/wardriving_clients.sh "$FILENAME" "/tmp/client_csv_${TIMESTAMP}.txt" /mnt/wardriving/wardriving.db 2>/dev/null || true
+                rm -f "/tmp/client_csv_${TIMESTAMP}.txt"
                 rm -f "/tmp/respuesta_server.jsonl"
                 rm -f "$FILENAME" "$NMEAFILE"
                 # Sync offline hashes si existen
@@ -190,6 +192,7 @@ while true; do
         if [ "$PROCESSED_REMOTE" = "0" ]; then
             echo "[*] Converting $FILENAME to $HC2200FILE"
             nice -n 10 hcxpcapngtool -o "$HC2200FILE" -E "$TMP_ESSID" --csv="/tmp/csv_${TIMESTAMP}.txt" "$FILENAME" > /dev/null 2>&1
+            /usr/bin/wardriving_clients.sh "$FILENAME" "/tmp/csv_${TIMESTAMP}.txt" /mnt/wardriving/wardriving.db 2>/dev/null || true
             
             # SQLite Integration
             if command -v sqlite3 >/dev/null 2>&1 && [ -s "/tmp/csv_${TIMESTAMP}.txt" ]; then

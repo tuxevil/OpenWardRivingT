@@ -9,8 +9,14 @@
 <title>OpenWardRivingT</title>
 <link rel="manifest" href="manifest.json">
 <link rel="stylesheet" href="leaflet.css">
-<script src="leaflet.js"></script>
-<script src="leaflet-heat.js"></script>
+<script src="leaflet.js">if("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js").then(reg => console.log("SW registered")).catch(err => console.log("SW error", err));
+}
+</script>
+<script src="leaflet-heat.js">if("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js").then(reg => console.log("SW registered")).catch(err => console.log("SW error", err));
+}
+</script>
 <style>
 :root {
   --c-green:  #00ff41; --c-amber: #ffb000; --c-cyan: #00ffff;
@@ -1063,6 +1069,9 @@ updateStatus();loadFiles();loadHW();loadNetworkMap();
 loadReplayStatus();
 if(localStorage.getItem('browserGpsActive')==='true'){document.getElementById('chkBrowserGPS').checked=true;toggleBrowserGPS();}
 updateMapButtons();
+if("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js").then(reg => console.log("SW registered")).catch(err => console.log("SW error", err));
+}
 </script>
 </body>
 </html>

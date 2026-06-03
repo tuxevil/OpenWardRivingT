@@ -152,6 +152,12 @@ while true; do
                         sqlite3 /mnt/wardriving/wardriving.db "INSERT INTO networks (mac, ssid, enc, channel, lat, lon, first_seen, last_seen, rssi) VALUES ('$MAC', '$SSID', '$ENC', $CHAN, $LAT, $LON, datetime('now'), datetime('now'), $RSSI) ON CONFLICT(mac) DO UPDATE SET ssid=EXCLUDED.ssid, enc=EXCLUDED.enc, channel=EXCLUDED.channel, lat=EXCLUDED.lat, lon=EXCLUDED.lon, last_seen=EXCLUDED.last_seen, rssi=EXCLUDED.rssi;"
                     done < /tmp/respuesta_server.jsonl
                 elif [ -s "/tmp/respuesta_server.jsonl" ] && [ -f /etc/wardriving_remote_allow_sql ]; then
+                    # WARNING: SECURITY RISK — legacy mode executes raw SQL received from the GPU server.
+                    # Only enable this flag (/etc/wardriving_remote_allow_sql) if you fully trust and
+                    # control the GPU server AND the network path to it (e.g. over WireGuard).
+                    # A compromised or MITMed GPU server can execute arbitrary SQL against this database.
+                    # Prefer the default JSONL contract which validates each row before insertion.
+                    logger -t "openwardrivingt" "WARNING: remote SQL legacy mode active — ensure GPU server and network are trusted"
                     echo "[!] Remote SQL legacy mode enabled. Executing returned SQL."
                     sqlite3 /mnt/wardriving/wardriving.db "CREATE TABLE IF NOT EXISTS networks (mac TEXT PRIMARY KEY, ssid TEXT, enc TEXT, channel INTEGER, lat REAL, lon REAL, first_seen DATETIME, last_seen DATETIME, rssi INTEGER);"
                     sqlite3 /mnt/wardriving/wardriving.db "PRAGMA journal_mode=WAL; CREATE INDEX IF NOT EXISTS idx_last_seen ON networks(last_seen);" > /dev/null 2>&1

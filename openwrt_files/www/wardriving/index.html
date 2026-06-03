@@ -196,21 +196,17 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
 <body>
 <svg style="width:0;height:0;position:absolute;z-index:-1;" aria-hidden="true">
   <defs>
-    <!-- PCB Green: Matrix solved specifically for OSM road colors to output fluo green intensities -->
+    <!-- PCB Green: Fluo roads + mapped background -->
     <filter id="pcb-matrix-green" color-interpolation-filters="sRGB">
-      <feColorMatrix type="matrix" values="
-        0 0 0 0 0
-        13.68 -0.36 -2.02 0 -10.79
-        0 0 0 0 0
-        0 0 0 1 0" />
+      <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  13.68 -0.36 -2.02 0 -10.79  0 0 0 0 0  0 0 0 1 0" result="roads" />
+      <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  -0.16 -0.16 -0.16 0 0.50  0 0 0 0 0  0 0 0 1 0" result="bg" />
+      <feBlend mode="screen" in="roads" in2="bg" />
     </filter>
-    <!-- PCB Red: Same chromatic extraction, outputting to red channel -->
+    <!-- PCB Red: Night mode -->
     <filter id="pcb-matrix-red" color-interpolation-filters="sRGB">
-      <feColorMatrix type="matrix" values="
-        13.68 -0.36 -2.02 0 -10.79
-        0 0 0 0 0
-        0 0 0 0 0
-        0 0 0 1 0" />
+      <feColorMatrix in="SourceGraphic" type="matrix" values="13.68 -0.36 -2.02 0 -10.79  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="roads" />
+      <feColorMatrix in="SourceGraphic" type="matrix" values="-0.16 -0.16 -0.16 0 0.50  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="bg" />
+      <feBlend mode="screen" in="roads" in2="bg" />
     </filter>
   </defs>
 </svg>

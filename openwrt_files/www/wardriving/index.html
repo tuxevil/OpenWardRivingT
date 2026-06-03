@@ -237,11 +237,11 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
           <div class="drive-card mode-card">
             <div class="mode-title">Operation Mode</div>
             <div class="mode-segments" id="dashMode">
-              <button class="mode-btn active" data-mode="active" onclick="setOperationMode('active')">ACTIVE</button>
-              <button class="mode-btn passive" data-mode="passive" onclick="setOperationMode('passive')">PASSIVE</button>
+              <button class="mode-btn passive active" data-mode="passive" onclick="setOperationMode('passive')">PASSIVE</button>
               <button class="mode-btn smart" data-mode="smart" onclick="setOperationMode('smart')">SMART</button>
+              <button class="mode-btn" data-mode="active" onclick="setOperationMode('active')">ACTIVE</button>
             </div>
-            <div id="modeHint" class="mode-hint">Active: clients</div>
+            <div id="modeHint" class="mode-hint">AP survey</div>
           </div>
           <div class="drive-card">
             <div class="pipeline">
@@ -369,7 +369,7 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
         <div class="card"><h3 style="color:var(--c-green)">⚙️ Hardware</h3>
           <label style="font-size:0.8em;color:var(--c-dim)">Status LED</label><select id="selLED" style="margin-bottom:8px"></select>
           <label style="font-size:0.8em;color:var(--c-dim)">Physical Button</label><select id="selBtn" style="margin-bottom:8px"><option value="wps">WPS Button</option><option value="wifi">WiFi Button</option></select>
-          <label style="font-size:0.8em;color:var(--c-dim)">Operation Mode</label><select id="selMode" style="margin-bottom:8px"><option value="active">Active (Full Injection)</option><option value="passive">Passive (Silent Survey)</option><option value="smart">Smart (Targeted Only)</option></select>
+          <label style="font-size:0.8em;color:var(--c-dim)">Operation Mode</label><select id="selMode" style="margin-bottom:8px"><option value="passive">Passive (Silent Survey)</option><option value="smart">Smart (Targeted Only)</option><option value="active">Active (Full Injection)</option></select>
           <button class="btn small" onclick="saveHW()">💾 Save Hardware</button>
         </div>
         
@@ -453,7 +453,7 @@ let audioEnabled=localStorage.getItem('audioEnabled')==='true';
 let map,onlineLayer,offlineLayer,carMarker,firstLoc=true,watchId=null,browserGpsActive=false,followMode=true;
 let wpsMarkers={},crackedMarkers=[],networkMarkers=[],clientMarkers=[],replayNetworkMarkers=[],heatLayer=null,replayTimer=null;
 let networkLayerItems=[],clientLayerItems=[];
-let currentMode='active';
+let currentMode='passive';
 let replayDiscoveredItems={};
 let excludedSSIDs=[],targetMacs=[],alertedTargets=[],OUI_DB={};
 let petMood='sleep',petLastMoodChange=Date.now(),petHandshakeBurst=0,petLastHandshakes=0,petPwnagotchiDetected=false;
@@ -760,13 +760,14 @@ function modeHint(mode){
   return 'Clients';
 }
 function syncModeUi(mode){
-  currentMode=mode||'active';
+  currentMode=mode||'passive';
   let a=document.getElementById('dashMode'),b=document.getElementById('selMode');
   if(a)a.querySelectorAll('.mode-btn').forEach(btn=>btn.classList.toggle('active',btn.dataset.mode===currentMode));
   if(b&&b.value!==currentMode)b.value=currentMode;
   setText('modeHint',modeHint(currentMode));
 }
 function setOperationMode(mode){
+  if(mode==='active'&&!confirm('⚠️ Activating ACTIVE mode will enable full injection and deauth. Continue?'))return;
   syncModeUi(mode);
   apiJson('set_mode',{mode}).then(d=>{syncModeUi(d.mode||mode);showToast('Mode: '+(d.mode||mode)+(d.capture_restarted?' (capture restarted)':''));loadNetworkMap();}).catch(e=>showToast('Mode change failed: '+(e.message||'unknown'),'err'));
 }
@@ -947,7 +948,7 @@ function toggleAudio(){audioEnabled=document.getElementById('chkAudio').checked;
 if(audioEnabled){let c=document.getElementById('chkAudio');if(c)c.checked=true;}
 function testAudio(){if('speechSynthesis' in window){window.speechSynthesis.speak(new SpeechSynthesisUtterance('OpenWardRivingT audio active.'));sendNotification('OpenWardRivingT','Audio enabled');}}
 function sendNotification(t,b){if('Notification' in window&&Notification.permission==='granted')new Notification(t,{body:b});}
-function loadHW(){fetch('/cgi-bin/wardriving_api?action=get_hw').then(r=>r.json()).then(d=>{let s=document.getElementById('selLED');s.innerHTML='';if(d.leds)d.leds.forEach(l=>{let o=document.createElement('option');o.value=l;o.text=l;if(l===d.current_led)o.selected=true;s.appendChild(o);});document.getElementById('selBtn').value=(d.current_button==='wifi'?'wifi':'wps');syncModeUi(d.mode||'active');});}
+function loadHW(){fetch('/cgi-bin/wardriving_api?action=get_hw').then(r=>r.json()).then(d=>{let s=document.getElementById('selLED');s.innerHTML='';if(d.leds)d.leds.forEach(l=>{let o=document.createElement('option');o.value=l;o.text=l;if(l===d.current_led)o.selected=true;s.appendChild(o);});document.getElementById('selBtn').value=(d.current_button==='wifi'?'wifi':'wps');syncModeUi(d.mode||'passive');});}
 function saveHW(){let l=document.getElementById('selLED').value,b=document.getElementById('selBtn').value,m=document.getElementById('selMode').value;fetch('/cgi-bin/wardriving_api?action=set_hw&led='+encodeURIComponent(l)+'&btn='+b+'&mode='+m).then(r=>r.json()).then(d=>{syncModeUi(m);if(d.status==='saved')showToast('Hardware saved');});}
 function saveWigle(){let t=document.getElementById('wigleToken').value;if(!t)return;fetch('/cgi-bin/wardriving_api?action=save_wigle_token',{method:'POST',body:t}).then(r=>r.json()).then(d=>{if(d.status==='ok'){document.getElementById('wigleStatus').innerText='Token Saved!';setTimeout(()=>document.getElementById('wigleStatus').innerText='',3000);}});}
 function uploadWigle(){document.getElementById('wigleStatus').innerText='Uploading...';fetch('/cgi-bin/wardriving_api?action=wigle_upload').then(r=>r.json()).then(d=>{document.getElementById('wigleStatus').innerText=d.success?'✓ Uploaded!':'Error: '+(d.error||'Unknown');}).catch(()=>{document.getElementById('wigleStatus').innerText='Network Error!';});}

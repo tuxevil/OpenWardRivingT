@@ -199,19 +199,16 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
     <!-- GREEN PCB -->
     <filter id="pcb-matrix-green" color-interpolation-filters="sRGB">
       <feComponentTransfer in="SourceGraphic" result="mapped">
-        <feFuncR type="discrete" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1" />
-        <feFuncG type="discrete" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1" />
-        <feFuncB type="discrete" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.0 1.0 1.0 1.0 1.0 1.0 0.8 0.8 0.8 0.8 0.6 0.6 0.6 0.6 0.6 0.6 0 0 0 0 0 0 0 0 0.4" />
+        <feFuncR type="table" tableValues="0 0 0 0 0 0 0 0 0 1 1" />
+        <feFuncG type="table" tableValues="0 0 0 0 0 0 1 1 1 1 1" />
+        <feFuncB type="table" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 1.0 1.0 0.9 0.8 0.5 0.0 0.0 0.0 0.8" />
       </feComponentTransfer>
       <feColorMatrix in="mapped" type="matrix" values="1 0 0 0 0  1 0 0 0 0  1 0 0 0 0  0 0 0 1 0" result="mask_r" />
       <feColorMatrix in="mapped" type="matrix" values="0 1 0 0 0  0 1 0 0 0  0 1 0 0 0  0 0 0 1 0" result="mask_g" />
       <feColorMatrix in="mapped" type="matrix" values="0 0 1 0 0  0 0 1 0 0  0 0 1 0 0  0 0 0 1 0" result="glow_b" />
-      
       <feComposite in="mask_r" in2="mask_g" operator="arithmetic" k1="1" k2="0" k3="0" k4="0" result="mask_rg" />
       <feComposite in="mask_rg" in2="glow_b" operator="arithmetic" k1="1" k2="0" k3="0" k4="0" result="final_glow" />
-      
       <feColorMatrix in="final_glow" type="matrix" values="0 0 0 0 0  1 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="road_layer" />
-      
       <feColorMatrix in="SourceGraphic" type="matrix" values="
         -0.0435 -0.1465 -0.0148 0 0.1048
         -0.3239 -1.0896 -0.1100 0 1.4235
@@ -223,19 +220,16 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
     <!-- RED PCB (Night Mode) -->
     <filter id="pcb-matrix-red" color-interpolation-filters="sRGB">
       <feComponentTransfer in="SourceGraphic" result="mapped">
-        <feFuncR type="discrete" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1" />
-        <feFuncG type="discrete" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1" />
-        <feFuncB type="discrete" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.0 1.0 1.0 1.0 1.0 1.0 0.8 0.8 0.8 0.8 0.6 0.6 0.6 0.6 0.6 0.6 0 0 0 0 0 0 0 0 0.4" />
+        <feFuncR type="table" tableValues="0 0 0 0 0 0 0 0 0 1 1" />
+        <feFuncG type="table" tableValues="0 0 0 0 0 0 1 1 1 1 1" />
+        <feFuncB type="table" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 1.0 1.0 0.9 0.8 0.5 0.0 0.0 0.0 0.8" />
       </feComponentTransfer>
       <feColorMatrix in="mapped" type="matrix" values="1 0 0 0 0  1 0 0 0 0  1 0 0 0 0  0 0 0 1 0" result="mask_r" />
       <feColorMatrix in="mapped" type="matrix" values="0 1 0 0 0  0 1 0 0 0  0 1 0 0 0  0 0 0 1 0" result="mask_g" />
       <feColorMatrix in="mapped" type="matrix" values="0 0 1 0 0  0 0 1 0 0  0 0 1 0 0  0 0 0 1 0" result="glow_b" />
-      
       <feComposite in="mask_r" in2="mask_g" operator="arithmetic" k1="1" k2="0" k3="0" k4="0" result="mask_rg" />
       <feComposite in="mask_rg" in2="glow_b" operator="arithmetic" k1="1" k2="0" k3="0" k4="0" result="final_glow" />
-      
       <feColorMatrix in="final_glow" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="road_layer" />
-      
       <feColorMatrix in="SourceGraphic" type="matrix" values="
         -0.3239 -1.0896 -0.1100 0 1.4235
         -0.0435 -0.1465 -0.0148 0 0.1048

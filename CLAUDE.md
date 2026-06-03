@@ -136,7 +136,7 @@ echo '$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A' | aw
 - **USB safety**: Always check `mount | grep /mnt/wardriving` before writing to flash.
 
 ### CGI Patterns
-- **Auth**: Extract token, check against `/etc/wardriving_api_token` for write actions and sensitive read/export actions
+- **Auth**: Extract token, check against `/etc/wardriving_api_token` for write actions and sensitive read/export actions. `action=status` is the **only** public (token-free) endpoint — explicitly documented to clarify attack surface.
 - **Response**: Always emit `Content-Type` header + blank line before body
 - **JSON**: Build manually with `cat << JSON` heredocs. Validate with `python3 -m json.tool`
 - **NMEA parsing**: Extract to shared `parse_nmea()` function. Do NOT copy-paste the awk block.

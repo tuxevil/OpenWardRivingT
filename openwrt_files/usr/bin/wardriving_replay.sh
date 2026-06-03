@@ -147,7 +147,7 @@ build_capture_index() {
     mkdir -p "$MAC_DIR"
     find "$WARD_MNT" "$WARD_MNT/backup_old_captures" -maxdepth 1 -type f -name '*.pcapng' 2>/dev/null | while IFS= read -r cap; do
         tmp="$WORK/$(basename "$cap").csv"
-        if [ ! -s "$tmp" ] || [ "$cap" -nt "$tmp" ]; then
+        if [ ! -s "$tmp" ] || [ "$(date -r "$cap" +%s 2>/dev/null || echo 0)" -gt "$(date -r "$tmp" +%s 2>/dev/null || echo 0)" ]; then
             hcxpcapngtool --csv "$tmp" "$cap" >/dev/null 2>&1 || true
         fi
         [ -s "$tmp" ] || continue
@@ -346,7 +346,7 @@ if [ ! -s "$CAP_INDEX" ]; then
     build_capture_index
 fi
 
-if [ ! -s "$ROWS" ] || [ "$CSV_FILE" -nt "$ROWS" ]; then
+if [ ! -s "$ROWS" ] || [ "$(date -r "$CSV_FILE" +%s 2>/dev/null || echo 0)" -gt "$(date -r "$ROWS" +%s 2>/dev/null || echo 0)" ]; then
     parse_wigle_csv
 fi
 

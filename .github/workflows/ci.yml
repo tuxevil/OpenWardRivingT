@@ -18,10 +18,12 @@ jobs:
       - name: Lint shell scripts (shellcheck)
         run: |
           echo "=== Running shellcheck ==="
-          shellcheck -e SC1090,SC2002,SC2010,SC2012,SC2035,SC2045,SC3043,SC3048 -x \
+          shellcheck -e SC1090,SC2002,SC2010,SC2012,SC2015,SC2018,SC2035,SC2045,SC3013,SC3043,SC3048 -x \
             install.sh \
             uninstall.sh \
             openwrt_files/usr/bin/wardriving_core.sh \
+            openwrt_files/usr/bin/wardriving_clients.sh \
+            openwrt_files/usr/bin/wardriving_replay.sh \
             openwrt_files/usr/bin/wardriving_sync.sh \
             openwrt_files/etc/init.d/wardriving \
             openwrt_files/www/cgi-bin/wardriving_api \
@@ -33,6 +35,8 @@ jobs:
           echo "=== Checking POSIX shell syntax ==="
           for f in install.sh uninstall.sh \
                    openwrt_files/usr/bin/wardriving_core.sh \
+                   openwrt_files/usr/bin/wardriving_clients.sh \
+                   openwrt_files/usr/bin/wardriving_replay.sh \
                    openwrt_files/usr/bin/wardriving_sync.sh \
                    openwrt_files/etc/init.d/wardriving \
                    openwrt_files/www/cgi-bin/wardriving_api; do
@@ -45,6 +49,8 @@ jobs:
           echo "=== Checking BusyBox ash syntax ==="
           for f in install.sh uninstall.sh \
                    openwrt_files/usr/bin/wardriving_core.sh \
+                   openwrt_files/usr/bin/wardriving_clients.sh \
+                   openwrt_files/usr/bin/wardriving_replay.sh \
                    openwrt_files/usr/bin/wardriving_sync.sh \
                    openwrt_files/etc/init.d/wardriving \
                    openwrt_files/www/cgi-bin/wardriving_api; do

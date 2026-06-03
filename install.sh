@@ -121,6 +121,12 @@ echo "*/5 * * * * /usr/bin/wardriving_sync.sh" >> /etc/crontabs/root
 wifi up radio1 2>/dev/null
 /etc/init.d/wardriving enable
 
+# Restart daemon if already running so it picks up the new files
+if /etc/init.d/wardriving running 2>/dev/null; then
+    echo "[*] Restarting wardriving daemon to apply updated files..."
+    /etc/init.d/wardriving restart 2>/dev/null
+fi
+
 echo "[*] Installation Complete!"
 echo "[*] Connect your tablet/phone to the 5GHz network (Check /root/wardriving_wifi_pass.txt for password)"
 echo "[*] Go to http://192.168.1.1/wardriving/index.html (or your router's IP)"

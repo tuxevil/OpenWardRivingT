@@ -656,7 +656,16 @@ elif [ "$ACTION" = "upload_tiles" ]; then
 elif [ "$ACTION" = "save_wigle_token" ]; then
     require_post
     check_content_length 4096 "WiGLE token"
-    dd bs=4k count=1 of=/etc/wardriving_wigle_token 2>/dev/null
+    WIGLE_RAW=$(dd bs=4k count=1 2>/dev/null | tr -d '\r\n\t ')
+    # Validate: WiGLE API tokens are Base64-encoded "user:apikey" strings (only base64 chars)
+    case "$WIGLE_RAW" in
+        *[!A-Za-z0-9+/=]*|'')
+            json_error "invalid WiGLE token format"
+            exit 0
+            ;;
+    esac
+    [ "${#WIGLE_RAW}" -lt 10 ] && { json_error "token too short"; exit 0; }
+    printf '%s' "$WIGLE_RAW" > /etc/wardriving_wigle_token
     chmod 600 /etc/wardriving_wigle_token
     echo '{"status": "ok"}'
 
@@ -740,7 +749,7 @@ elif [ "$ACTION" = "download_bbox" ]; then
     DL_SCRIPT="/tmp/download_tiles_$$.sh"
     cat << 'SCRIPTEOF' > "$DL_SCRIPT"
 #!/bin/sh
-N="$1"; S="$2"; E="$3"; W="$4"; ZMIN="$5"; ZMAX="$6"
+N="$1"; S="$2"; E="$3"; W="$4"; ZMIN="$5"; ZMAX="$6"; WARD_MNT="$7"
 # Basic tile calculation function
 lat2tile() {
     lat=$1; zoom=$2
@@ -772,7 +781,7 @@ echo "DONE" > /tmp/dl_status.txt
 SCRIPTEOF
     chmod +x "$DL_SCRIPT"
     echo "RUNNING" > /tmp/dl_status.txt
-    "$DL_SCRIPT" "$N" "$S" "$E" "$W" "$ZMIN" "$ZMAX" >/tmp/dl_log_$$.txt 2>&1 &
+    "$DL_SCRIPT" "$N" "$S" "$E" "$W" "$ZMIN" "$ZMAX" "$WARD_MNT" >/tmp/dl_log_$$.txt 2>&1 &
     # Self-cleanup after execution
     ( wait; rm -f "$DL_SCRIPT" ) &
     

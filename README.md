@@ -67,6 +67,15 @@ In the "Settings" tab of the web application, you can upload a `.tar.gz` file co
 ## 🔐 API & Remote Processing Security
 The installer generates `/etc/wardriving_api_token` and injects it into the dashboard so normal UI actions continue to work without extra steps. Sensitive exports and data endpoints require that token; the lightweight `status` endpoint remains available for health checks.
 
+### Endpoint Authentication Summary
+
+| Endpoint | Auth Required | Notes |
+|---|---|---|
+| `action=status` | ❌ No | Public health check — exposes running state only |
+| All other actions | ✅ Yes | Token required via `token=` query param |
+
+> **Security note**: `action=status` is the **only** unauthenticated endpoint. It intentionally exposes minimal information (running state, network counts) so monitoring tools can poll without a secret. All write operations and sensitive data exports (captures, hashes, GPS data, history) require a valid API token.
+
 For GPU offload, configure the same shared secret on both sides:
 
 ```bash

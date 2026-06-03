@@ -196,17 +196,46 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
 <body>
 <svg style="width:0;height:0;position:absolute;z-index:-1;" aria-hidden="true">
   <defs>
-    <!-- PCB Green: Fluo roads + mapped background -->
+    <!-- GREEN PCB -->
     <filter id="pcb-matrix-green" color-interpolation-filters="sRGB">
-      <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  13.68 -0.36 -2.02 0 -10.79  0 0 0 0 0  0 0 0 1 0" result="roads" />
-      <feColorMatrix in="SourceGraphic" type="matrix" values="0 0 0 0 0  -0.16 -0.16 -0.16 0 0.50  0 0 0 0 0  0 0 0 1 0" result="bg" />
-      <feBlend mode="screen" in="roads" in2="bg" />
+      <feComponentTransfer in="SourceGraphic" result="mapped">
+        <feFuncR type="discrete" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1" />
+        <feFuncG type="linear" slope="-2.0" intercept="2.4" />
+        <feFuncB type="discrete" tableValues="1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 1" />
+      </feComponentTransfer>
+      <feColorMatrix in="mapped" type="matrix" values="1 0 0 0 0  1 0 0 0 0  1 0 0 0 0  0 0 0 1 0" result="mask_r" />
+      <feColorMatrix in="mapped" type="matrix" values="0 0 1 0 0  0 0 1 0 0  0 0 1 0 0  0 0 0 1 0" result="mask_b" />
+      <feComposite in="mask_r" in2="mask_b" operator="arithmetic" k1="1" k2="0" k3="0" k4="0" result="mask_total" />
+      <feColorMatrix in="mapped" type="matrix" values="0 1 0 0 0  0 1 0 0 0  0 1 0 0 0  0 0 0 1 0" result="glow_val" />
+      <feComposite in="mask_total" in2="glow_val" operator="arithmetic" k1="1" k2="0" k3="0" k4="0" result="final_glow" />
+      <feColorMatrix in="final_glow" type="matrix" values="0 0 0 0 0  1 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="road_layer" />
+      <feColorMatrix in="SourceGraphic" type="matrix" values="
+        -0.0435 -0.1465 -0.0148 0 0.1048
+        -0.3239 -1.0896 -0.1100 0 1.4235
+        -0.0996 -0.3351 -0.0338 0 0.3685
+        0 0 0 1 0" result="bg_layer" />
+      <feBlend mode="screen" in="road_layer" in2="bg_layer" />
     </filter>
-    <!-- PCB Red: Night mode -->
+
+    <!-- RED PCB (Night Mode) -->
     <filter id="pcb-matrix-red" color-interpolation-filters="sRGB">
-      <feColorMatrix in="SourceGraphic" type="matrix" values="13.68 -0.36 -2.02 0 -10.79  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="roads" />
-      <feColorMatrix in="SourceGraphic" type="matrix" values="-0.16 -0.16 -0.16 0 0.50  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="bg" />
-      <feBlend mode="screen" in="roads" in2="bg" />
+      <feComponentTransfer in="SourceGraphic" result="mapped">
+        <feFuncR type="discrete" tableValues="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1" />
+        <feFuncG type="linear" slope="-2.0" intercept="2.4" />
+        <feFuncB type="discrete" tableValues="1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 0 0 0 0 0 0 1" />
+      </feComponentTransfer>
+      <feColorMatrix in="mapped" type="matrix" values="1 0 0 0 0  1 0 0 0 0  1 0 0 0 0  0 0 0 1 0" result="mask_r" />
+      <feColorMatrix in="mapped" type="matrix" values="0 0 1 0 0  0 0 1 0 0  0 0 1 0 0  0 0 0 1 0" result="mask_b" />
+      <feComposite in="mask_r" in2="mask_b" operator="arithmetic" k1="1" k2="0" k3="0" k4="0" result="mask_total" />
+      <feColorMatrix in="mapped" type="matrix" values="0 1 0 0 0  0 1 0 0 0  0 1 0 0 0  0 0 0 1 0" result="glow_val" />
+      <feComposite in="mask_total" in2="glow_val" operator="arithmetic" k1="1" k2="0" k3="0" k4="0" result="final_glow" />
+      <feColorMatrix in="final_glow" type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" result="road_layer" />
+      <feColorMatrix in="SourceGraphic" type="matrix" values="
+        -0.3239 -1.0896 -0.1100 0 1.4235
+        -0.0435 -0.1465 -0.0148 0 0.1048
+        -0.0996 -0.3351 -0.0338 0 0.3685
+        0 0 0 1 0" result="bg_layer" />
+      <feBlend mode="screen" in="road_layer" in2="bg_layer" />
     </filter>
   </defs>
 </svg>

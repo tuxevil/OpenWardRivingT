@@ -72,7 +72,7 @@ bd close <id>         # Complete work
 - Public endpoint: status
 - Sensitive read/export endpoints: map_data, heatmap_data, scored_networks, history, list_files, cracked_networks, export_*.
 - Write endpoints: start, stop, delete_file, set_hw, set_processing, wigle_upload, upload_tiles, upload_potfile, pwnagotchi_sync.
-- Remote GPU processing uses authenticated JSONL by default. Legacy remote SQL execution requires `/etc/wardriving_remote_allow_sql`.
+- Remote GPU processing uses authenticated JSONL only. The router validates each row before SQLite insert.
 
 ### Layer 4: Web Dashboard (`index.html`)
 - Single-page app, 4-column responsive layout (car head unit optimized)

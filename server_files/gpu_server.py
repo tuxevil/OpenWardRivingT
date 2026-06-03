@@ -70,21 +70,6 @@ def parse_csv_rows(csv_path):
             })
     return rows
 
-def rows_to_legacy_sql(rows):
-    statements = []
-    for row in rows:
-        ssid = row["ssid"].replace("'", "''")
-        enc = row["enc"].replace("'", "''")
-        lat = "NULL" if row["lat"] is None else row["lat"]
-        lon = "NULL" if row["lon"] is None else row["lon"]
-        statements.append(
-            "INSERT INTO networks (mac, ssid, enc, channel, lat, lon, rssi, first_seen, last_seen) "
-            f"VALUES ('{row['mac']}', '{ssid}', '{enc}', {row['channel']}, {lat}, {lon}, {row['rssi']}, "
-            "datetime('now'), datetime('now')) ON CONFLICT(mac) DO UPDATE SET "
-            "rssi=EXCLUDED.rssi, last_seen=datetime('now');"
-        )
-    return "\n".join(statements)
-
 def rows_to_jsonl(rows):
     lines = []
     for row in rows:
@@ -130,9 +115,7 @@ def receive_pcap():
     if os.path.exists(pcap_path): os.remove(pcap_path)
     if os.path.exists(csv_path): os.remove(csv_path)
 
-    if request.headers.get("X-OWRT-Contract") == "jsonl":
-        return Response(rows_to_jsonl(rows), mimetype="application/x-ndjson")
-    return rows_to_legacy_sql(rows), 200
+    return Response(rows_to_jsonl(rows), mimetype="application/x-ndjson")
 
 
 @app.route('/upload_hc2200', methods=['POST'])

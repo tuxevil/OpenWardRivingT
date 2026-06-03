@@ -87,7 +87,7 @@ OWRT_GPU_SHARED_SECRET=replace-with-a-long-random-secret
 OWRT_ROUTER_TOKEN=<router-api-token-used-for-potfile-sync>
 ```
 
-The router now requests an authenticated JSONL response from the GPU server and validates rows locally before inserting into SQLite. Legacy remote SQL execution is disabled by default; create `/etc/wardriving_remote_allow_sql` only if you intentionally need compatibility with an old GPU server.
+The router requests an authenticated JSONL response from the GPU server and validates rows locally before inserting into SQLite.
 
 If the router reaches the GPU over WireGuard, route only the GPU host when that address overlaps with the router's WAN network. For the test topology, `10.128.128.254/32` should be allowed/routed through WireGuard, not the whole `10.128.128.0/24`; advertising the whole `/24` can steal the WAN gateway route and break `apk update`.
 

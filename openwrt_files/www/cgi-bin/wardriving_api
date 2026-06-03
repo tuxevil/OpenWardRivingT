@@ -588,8 +588,8 @@ elif [ "$ACTION" = "cracked_networks" ]; then
     if [ -f "$WARD_MNT"/hashcat.potfile ] && [ -f "$WARD_MNT"/wardriving.db ]; then
         awk '{ if ($0 ~ /^WPA\*/) { split($0, arr, "*"); print arr[4] } else if ($0 ~ /^[0-9a-fA-F]{32}:[0-9a-fA-F]{12}:/) { split($0, arr, ":"); print arr[2] } }' "$WARD_MNT"/hashcat.potfile | sed 's/../&:/g; s/:$//' | tr '[:upper:]' '[:lower:]' | sort -u > /tmp/cracked_macs.txt
         
-        # Extract cracked networks from both normal rows and legacy-shifted rows
-        # produced by the old remote SQL contract (real MAC in ssid, real SSID in enc).
+        # Extract cracked networks. The UNION also covers rows where mac/ssid were
+        # swapped in old database migrations, ensuring backward compat with existing DBs.
         if [ -s /tmp/cracked_macs.txt ]; then
             COND=$(awk '{printf "\"%s\",", $1}' /tmp/cracked_macs.txt | sed 's/,$//')
             sqlite3 -separator '|' "$WARD_MNT"/wardriving.db "

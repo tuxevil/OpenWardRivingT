@@ -3,4 +3,5 @@
 .dolt/
 *.db
 .beads-credential-key
-/tmp
+/tmp*.pyc
+__pycache__/

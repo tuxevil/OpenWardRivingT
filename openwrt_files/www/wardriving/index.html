@@ -35,8 +35,8 @@ body.night-mode {
   /* Add deep red filter to the map tiles */
 }
 /* Estilo PCB (Circuito Impreso) para el mapa por defecto */
-.leaflet-tile-pane { filter: invert(100%) grayscale(100%) sepia(100%) hue-rotate(80deg) saturate(400%) brightness(0.8) contrast(1.2) url('#lift-black-green'); }
-body.night-mode .leaflet-tile-pane { filter: invert(100%) grayscale(100%) sepia(100%) hue-rotate(-50deg) saturate(400%) brightness(0.8) contrast(1.2) url('#lift-black-red'); }
+.leaflet-tile-pane { filter: invert(100%) grayscale(100%) sepia(100%) hue-rotate(80deg) saturate(400%) brightness(0.8) contrast(1.2); }
+body.night-mode .leaflet-tile-pane { filter: grayscale(100%) sepia(100%) hue-rotate(-50deg) saturate(500%) brightness(0.3); }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden}
 body{background:var(--bg-deep);color:var(--c-green);font-family:var(--font);font-size:14px;line-height:1.4;-webkit-tap-highlight-color:transparent;user-select:none}
@@ -194,24 +194,6 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
 </style>
 </head>
 <body>
-<svg style="width:0;height:0;position:absolute;z-index:-1;" aria-hidden="true">
-  <defs>
-    <filter id="lift-black-green" color-interpolation-filters="sRGB">
-      <feComponentTransfer>
-        <feFuncR type="identity" />
-        <feFuncB type="identity" />
-        <feFuncG type="table" tableValues="0.8 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0" />
-      </feComponentTransfer>
-    </filter>
-    <filter id="lift-black-red" color-interpolation-filters="sRGB">
-      <feComponentTransfer>
-        <feFuncR type="table" tableValues="0.8 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0" />
-        <feFuncG type="identity" />
-        <feFuncB type="identity" />
-      </feComponentTransfer>
-    </filter>
-  </defs>
-</svg>
 <input type="checkbox" id="chkOnlineTiles" style="display:none">
 <input type="checkbox" id="chkHeatmap" style="display:none">
 <input type="checkbox" id="chkBrowserGPS" style="display:none">

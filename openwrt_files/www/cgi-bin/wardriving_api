@@ -586,11 +586,12 @@ elif [ "$ACTION" = "clients_map" ]; then
 elif [ "$ACTION" = "cracked_networks" ]; then
     echo "["
     if [ -f "$WARD_MNT"/hashcat.potfile ] && [ -f "$WARD_MNT"/wardriving.db ]; then
-        awk '{ if ($0 ~ /^WPA\*/) { split($0, arr, "*"); print arr[4] } else if ($0 ~ /^[0-9a-fA-F]{32}:[0-9a-fA-F]{12}:/) { split($0, arr, ":"); print arr[2] } }' "$WARD_MNT"/hashcat.potfile | sed 's/../&:/g; s/:$//' | tr '[:upper:]' '[:lower:]' | sort -u > /tmp/cracked_macs.txt
+        awk '{ if ($0 ~ /^WPA\*/) { split($0, arr, "*"); print arr[4] } else if ($0 ~ /^[0-9a-fA-F]{32}:[0-9a-fA-F]{12}:/) { split($0, arr, ":"); print arr[2] } }' "$WARD_MNT"/hashcat.potfile | awk '{gsub(/../,"&:"); sub(/:$/,""); print tolower($0)}' | sort -u > /tmp/cracked_macs.txt
         
         # Extract cracked networks. The UNION also covers rows where mac/ssid were
         # swapped in old database migrations, ensuring backward compat with existing DBs.
         if [ -s /tmp/cracked_macs.txt ]; then
+            awk -F: '{ssid=$4; pwd=""; for(i=5;i<=NF;i++){if(i>5)pwd=pwd":"; pwd=pwd $i}; print ssid"|"pwd}' "$WARD_MNT"/hashcat.potfile | sort -t'|' -k1,1 -u > /tmp/ssid_pwd.txt
             COND=$(awk '{printf "\"%s\",", $1}' /tmp/cracked_macs.txt | sed 's/,$//')
             sqlite3 -separator '|' "$WARD_MNT"/wardriving.db "
                 SELECT lat, lon, ssid FROM networks
@@ -599,11 +600,17 @@ elif [ "$ACTION" = "cracked_networks" ]; then
                 SELECT lat, lon, enc FROM networks
                 WHERE lower(ssid) IN ($COND) AND lat IS NOT NULL AND lon IS NOT NULL
             " 2>/dev/null | awk -F'|' '
-            BEGIN { first=1 }
+            BEGIN {
+                while((getline line < "/tmp/ssid_pwd.txt") > 0) {
+                    n=index(line,"|"); s=substr(line,1,n-1); p=substr(line,n+1); pwd[s]=p
+                }
+                first=1
+            }
             {
                 if(!first) printf ","
                 ssid=$3; gsub(/\\/, "\\\\", ssid); gsub("\x22", "\\\"", ssid);
-                printf "{\"lat\":%s, \"lon\":%s, \"ssid\":\"%s\"}", $1, $2, ssid
+                p=pwd[ssid]; gsub(/\\/, "\\\\", p); gsub("\x22", "\\\"", p);
+                printf "{\"lat\":%s, \"lon\":%s, \"ssid\":\"%s\", \"password\":\"%s\"}", $1, $2, ssid, p
                 first=0
             }'
         fi

@@ -468,7 +468,7 @@ input[type=checkbox]:checked::after{left:22px;background:#000}
 </div><!-- /main -->
 
 <script>
-// API_TOKEN_PLACEHOLDER
+window.API_TOKEN = '8qVLrQmXACkghv8lkKhH0u3pFJ2LHR8L';
 if(typeof window.API_TOKEN==='undefined')window.API_TOKEN='';
 const _origFetch=window.fetch;
 window.fetch=function(url,options){
@@ -887,7 +887,25 @@ function loadFiles(){apiJson('list_files').then(d=>{let h='';if(!d||!d.length){d
 function deleteFile(fn){fetch('/cgi-bin/wardriving_api?action=delete_file&file='+fn).then(()=>{loadFiles();updateStatus();});}
 function togglePcap(){fetch('/cgi-bin/wardriving_api?action=set_pcap_retention&keep='+document.getElementById('chkKeepPcap').checked);}
 function uploadPotfile(){let f=document.getElementById('potfileInput').files[0];if(!f)return;document.getElementById('potfileStatus').innerText='Uploading...';fetch('/cgi-bin/wardriving_api?action=upload_potfile',{method:'POST',body:f}).then(()=>{document.getElementById('potfileStatus').innerText='✓ Uploaded!';loadCrackedNetworks();});}
-function loadCrackedNetworks(){apiJson('cracked_networks').then(d=>{crackedMarkers.forEach(m=>map.removeLayer(m));crackedMarkers=[];if(!d||!d.length)return;let groups={};d.forEach(n=>{let lat=parseFloat(n.lat),lon=parseFloat(n.lon);if(isNaN(lat)||isNaN(lon))return;let k=lat.toFixed(7)+','+lon.toFixed(7);if(!groups[k])groups[k]={lat,lon,ssids:[]};groups[k].ssids.push(String(n.ssid||'??'));});Object.keys(groups).forEach(k=>{let g=groups[k],count=g.ssids.length,label=count>1?'<span style="position:absolute;right:-5px;top:-7px;background:#00ff66;color:#001b0a;border-radius:9px;min-width:16px;height:16px;font:bold 11px/16px sans-serif;text-align:center;box-shadow:0 0 5px #0f0">'+count+'</span>':'';let popup='<b style="color:#0f0;">🔓 CRACKED'+(count>1?' x'+count:'')+'!</b><br>'+g.ssids.map(esc).join('<br>');let m=L.marker([g.lat,g.lon],{icon:L.divIcon({className:'cracked-icon',html:'<div style="position:relative;font-size:22px;text-shadow:0 0 5px #0f0;line-height:28px;text-align:center">🔓'+label+'</div>',iconSize:[34,34]})}).addTo(map).bindPopup(popup);crackedMarkers.push(m);});}).catch(e=>{setText('logBox','Cracked networks failed: '+(e.message||'unknown'));});}
+function loadCrackedNetworks(){
+  let openLatLon=null;
+  crackedMarkers.forEach(m=>{if(m.isPopupOpen())openLatLon=m.getLatLng().lat.toFixed(7)+','+m.getLatLng().lng.toFixed(7);});
+  apiJson('cracked_networks').then(d=>{
+    crackedMarkers.forEach(m=>map.removeLayer(m));crackedMarkers=[];
+    if(!d||!d.length)return;
+    let groups={};
+    d.forEach(n=>{let lat=parseFloat(n.lat),lon=parseFloat(n.lon);if(isNaN(lat)||isNaN(lon))return;let k=lat.toFixed(7)+','+lon.toFixed(7);if(!groups[k])groups[k]={lat,lon,nets:[]};groups[k].nets.push({ssid:String(n.ssid||'??'),pwd:String(n.password||'')});});
+    Object.keys(groups).forEach(k=>{
+      let g=groups[k],count=g.nets.length;
+      let badge=count>1?'<span style="position:absolute;right:-5px;top:-7px;background:#00ff66;color:#001b0a;border-radius:9px;min-width:16px;height:16px;font:bold 11px/16px sans-serif;text-align:center;box-shadow:0 0 5px #0f0">'+count+'</span>':'';
+      let rows=g.nets.map(n=>'<div style="margin:6px 0;font-size:18px">📶 <b>'+esc(n.ssid)+'</b>'+(n.pwd?'<br><b style="font-size:18px">🔑 '+esc(n.pwd)+'</b>':'')+'</div>').join('');
+      let popup='<div style="font-size:18px"><b style="font-size:18px">🔓 CRACKED'+(count>1?' x'+count:'')+'!</b><br>'+rows+'</div>';
+      let m=L.marker([g.lat,g.lon],{icon:L.divIcon({className:'cracked-icon',html:'<div style="position:relative;font-size:22px;text-shadow:0 0 5px #0f0;line-height:28px;text-align:center">🔓'+badge+'</div>',iconSize:[34,34]})}).addTo(map).bindPopup(popup,{maxWidth:340,minWidth:220});
+      if(openLatLon&&openLatLon===k)m.openPopup();
+      crackedMarkers.push(m);
+    });
+  }).catch(e=>{setText('logBox','Cracked networks failed: '+(e.message||'unknown'));});
+}
 
 // REPLAY THEATER
 function renderReplayEvent(kind,msg){

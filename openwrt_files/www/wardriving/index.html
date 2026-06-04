@@ -692,7 +692,7 @@ function updateScores(){
   if(!isRunning)return;
   apiJson('scored_networks').then(d=>{
     let h='';if(!d||!d.length){document.getElementById('scoresList').innerHTML='<span style="color:var(--c-dim);font-size:18px">Sin redes cerca</span>';return;}
-    d.slice(0,5).forEach(n=>{
+    d.forEach(n=>{
       let v=OUI_DB[(n.mac||'').replace(/:/g,'').substring(0,6).toUpperCase()]||'';
       let rssi=parseInt(n.rssi||-100),co=rssi>-60?'var(--c-green)':(rssi>-75?'var(--c-amber)':'var(--c-dim)');
       h+='<div class="sr"><div class="sr-top"><span class="sr-ssid">'+esc(n.ssid||'??')+'</span><span class="sr-pts" style="color:'+co+'">'+esc(rssi)+' dBm</span></div><div class="sr-info">'+ageLabel(n.age)+' ago | '+esc(n.enc||'?')+(n.has_hs?' | 🔑 HS':'')+(v?' | '+esc(v):'')+'</div></div>';

@@ -220,7 +220,7 @@ function updateStatus(){
 
 function updateScores(channelsData){
   let rows=Array.isArray(channelsData)?channelsData:[];
-  function encRank(v){v=String(v||'?');if(v.indexOf('WPA3')>=0)return 4;if(v.indexOf('WPA2')>=0)return 3;if(v.indexOf('WPA')>=0)return 2;if(v==='OPEN'||v==='WEP')return 1;return 0;}
+  function encRank(v){v=String(v||'?');if(v.indexOf('WPA3')>=0)return 5;if(v.indexOf('WPA2')>=0)return 4;if(v.indexOf('WPA')>=0)return 3;if(v==='PSK')return 2;if(v==='OPEN'||v==='WEP')return 1;return 0;}
   let grouped={},order=[];
   rows.forEach(n=>{
     let ssid=String(n.s||'').trim(),chan=parseInt(n.c||0);

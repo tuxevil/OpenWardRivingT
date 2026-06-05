@@ -389,7 +389,7 @@ else
 fi
 
 echo "  Test: Redes Ahora shows live encryption"
-if grep -q '\\"e\\"' openwrt_files/usr/lib/wardriving/handlers/status.sh && grep -Fq 'return substr(line, 23, 1) == "+" ? "PSK" : "?"' openwrt_files/usr/lib/wardriving/handlers/status.sh && grep -q "sr-enc" openwrt_files/www/wardriving/app.js && grep -q "ENC ?" openwrt_files/www/wardriving/app.js; then
+if grep -q '\\"e\\"' openwrt_files/usr/lib/wardriving/handlers/status.sh && grep -Fq 'return substr(line, 23, 1) == "+" ? "PSK" : "?"' openwrt_files/usr/lib/wardriving/handlers/status.sh && grep -q "v==='PSK'" openwrt_files/www/wardriving/app.js && grep -q "sr-enc" openwrt_files/www/wardriving/app.js && grep -q "ENC ?" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ live networks include encryption badge"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ live network encryption badge missing"

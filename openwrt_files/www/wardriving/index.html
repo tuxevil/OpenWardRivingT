@@ -67,7 +67,10 @@
 
 <!-- HEADER -->
 <div id="header">
-  <button class="night-toggle" id="btnNightDrive" onclick="toggleNightModeQuick()" title="Night Mode">☾</button>
+  <div class="header-controls">
+    <button class="header-toggle night-toggle" id="btnNightDrive" onclick="toggleNightModeQuick()" title="Night Mode">☾</button>
+    <button class="header-toggle fullscreen-toggle" id="btnFullscreen" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
+  </div>
   <div class="metric" id="hdr_gps"><span class="icon">🛰️</span><span class="val">--</span><span class="unit">sats</span></div>
   <div class="metric" id="hdr_speed"><span class="icon">🚗</span><span class="val">0</span><span class="unit">km/h</span></div>
   

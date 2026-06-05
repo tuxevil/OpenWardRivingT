@@ -367,6 +367,13 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ frontend split references missing"
 fi
 
+echo "  Test: dashboard fullscreen button"
+if grep -q "btnFullscreen" openwrt_files/www/wardriving/index.html && grep -q "function toggleFullscreen" openwrt_files/www/wardriving/app.js && grep -q "requestFullscreen" openwrt_files/www/wardriving/app.js && grep -q "fullscreen-toggle" openwrt_files/www/wardriving/app.css; then
+    PASS=$((PASS + 1)); echo "  ✓ fullscreen control is wired in header"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ fullscreen control missing"
+fi
+
 echo "  Test: frontend processing settings are split"
 if grep -q "selExtractionMode" openwrt_files/www/wardriving/index.html && grep -q "selGpuCracking" openwrt_files/www/wardriving/index.html && grep -q "extraction_mode" openwrt_files/www/wardriving/app.js && grep -q "gpu_cracking_enabled" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ frontend exposes extraction and cracking settings separately"

@@ -559,6 +559,12 @@ function syncNightButton(){let b=document.getElementById('btnNightDrive'),on=doc
 function toggleNightMode(){let n=document.getElementById('chkNight').checked;localStorage.setItem('nightMode',n);if(n)document.body.classList.add('night-mode');else document.body.classList.remove('night-mode');syncNightButton();}
 function toggleNightModeQuick(){let n=!document.body.classList.contains('night-mode');localStorage.setItem('nightMode',n);if(n)document.body.classList.add('night-mode');else document.body.classList.remove('night-mode');syncNightButton();showToast(n?'Night mode on':'Night mode off');}
 if(localStorage.getItem('nightMode')==='true'){document.body.classList.add('night-mode');window.addEventListener('DOMContentLoaded',syncNightButton);}else{window.addEventListener('DOMContentLoaded',syncNightButton);}
+function isFullscreen(){return !!(document.fullscreenElement||document.webkitFullscreenElement);}
+function syncFullscreenButton(){let b=document.getElementById('btnFullscreen');if(!b)return;let on=isFullscreen();b.classList.toggle('active',on);b.innerText=on?'↙':'⛶';b.title=on?'Exit fullscreen':'Fullscreen';}
+function toggleFullscreen(){let root=document.documentElement;if(isFullscreen()){let exit=document.exitFullscreen||document.webkitExitFullscreen;if(exit){let r=exit.call(document);if(r&&r.catch)r.catch(()=>showToast('Fullscreen exit failed','warn'));}else showToast('Fullscreen unavailable','warn');return;}let req=root.requestFullscreen||root.webkitRequestFullscreen;if(req){let r=req.call(root);if(r&&r.catch)r.catch(()=>showToast('Fullscreen blocked','warn'));}else showToast('Fullscreen unavailable','warn');}
+document.addEventListener('fullscreenchange',syncFullscreenButton);
+document.addEventListener('webkitfullscreenchange',syncFullscreenButton);
+window.addEventListener('DOMContentLoaded',syncFullscreenButton);
 function toggleHighAccuracyGPS(){let e=document.getElementById('chkHighGPS').checked;window.GPS_HIGH_ACCURACY=e;localStorage.setItem('gpsHighAccuracy',e);}
 window.GPS_HIGH_ACCURACY=localStorage.getItem('gpsHighAccuracy')==='true';
 window.addEventListener('DOMContentLoaded',()=>{if(window.GPS_HIGH_ACCURACY){let c=document.getElementById('chkHighGPS');if(c)c.checked=true;}});

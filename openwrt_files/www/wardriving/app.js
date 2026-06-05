@@ -607,7 +607,7 @@ function loadHistory(){fetch('/cgi-bin/wardriving_api?action=history').then(r=>r
 
 // PWNAGOTCHI
 function fetchPwnagotchi(){fetch('/cgi-bin/wardriving_api?action=pwnagotchi_status').then(r=>r.json()).then(d=>{let c=document.getElementById('pwnagotchiStatus');if(!d||!d.uptime){c.innerHTML='<span style="color:var(--c-dim)">No pwnagotchi detected</span>';petPwnagotchiDetected=false;return;}petPwnagotchiDetected=true;c.innerHTML='Uptime:<b>'+esc(Math.floor(d.uptime/60))+'m</b> | Mode:<b>'+esc(d.mode||'AUTO')+'</b> | Hands:<b>'+esc(d.handshakes||0)+'</b> | Pwns:<b>'+esc(d.pwnd_tot||0)+'</b>';updatePet();}).catch(()=>{document.getElementById('pwnagotchiStatus').innerHTML='<span style="color:var(--c-dim)">No pwnagotchi detected</span>';petPwnagotchiDetected=false;});}
-setInterval(fetchPwnagotchi,10000);fetchPwnagotchi();
+setInterval(()=>pollVisible(fetchPwnagotchi),10000);fetchPwnagotchi();
 
 // PET ENGINE
 const PF={sleep:['(⇀‿‿↼)','(≖‿‿≖)','(－_－)zZZ'],awake:['(◕‿‿◕)','(◉‿‿◉)','(⊙‿‿⊙)'],bored:['(-__-)','(—__—)','(￣ω￣)'],happy:['(•‿‿•)','(^‿‿^)','(◕‿◕)'],excited:['(ᵔ◡◡ᵔ)','(✜‿‿✜)','(★‿★)'],intense:['(°▃▃°)','(°ロ°)','(⚆ᗝ⚆)'],sad:['(╥﹏╥)','(ಥ﹏ಥ)','(｡•́︿•̀｡)'],grateful:['(♥‿‿♥)','(♡‿‿♡)','(♥ω♥)'],cool:['(⌐■_■)','(단__단)','(▀̿Ĺ̯▀̿ ̿)'],lonely:['(ب__ب)','(︶︹︺)','(๑•́ ₃ •̀๑)']};
@@ -619,7 +619,12 @@ function evalMoodDOM(){let hs=parseInt(document.getElementById('hdr_hs').querySe
 updatePet();setInterval(updatePet,15000);setInterval(evalMoodDOM,5000);
 
 // POLL INTERVALS
-setInterval(updateStatus,5000);setInterval(updateMap,10000);setInterval(loadCrackedNetworks,15000);setInterval(loadNetworkMap,20000);setInterval(refreshFreshnessAge,1000);setInterval(loadReplayStatus,5000);
+let lastHiddenStatusPoll=0;
+function isTabHidden(){return typeof document.hidden==='boolean'&&document.hidden;}
+function pollStatus(){let now=Date.now();if(isTabHidden()&&now-lastHiddenStatusPoll<20000)return;lastHiddenStatusPoll=now;updateStatus();}
+function pollVisible(fn){if(!isTabHidden())fn();}
+document.addEventListener('visibilitychange',()=>{if(!isTabHidden()){updateStatus();updateMap();loadCrackedNetworks();loadNetworkMap();loadReplayStatus();fetchPwnagotchi();}});
+setInterval(pollStatus,5000);setInterval(()=>pollVisible(updateMap),10000);setInterval(()=>pollVisible(loadCrackedNetworks),15000);setInterval(()=>pollVisible(loadNetworkMap),20000);setInterval(refreshFreshnessAge,1000);setInterval(()=>pollVisible(loadReplayStatus),5000);
 updateStatus();loadFiles();loadHW();loadNetworkMap();
 loadReplayStatus();
 if(localStorage.getItem('browserGpsActive')==='true'){document.getElementById('chkBrowserGPS').checked=true;toggleBrowserGPS();}

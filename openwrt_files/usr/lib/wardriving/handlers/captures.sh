@@ -92,6 +92,8 @@ fi
 cat /tmp/uploaded.potfile >> "$WARD_MNT"/hashcat.potfile
 sort -u "$WARD_MNT"/hashcat.potfile -o "$WARD_MNT"/hashcat.potfile 2>/dev/null
 rm -f /tmp/uploaded.potfile
+api_cache_clear cracked_networks
+api_cache_clear networks_map
 echo '{"status": "ok"}'
 }
 
@@ -135,24 +137,31 @@ fi
 }
 
 handle_cracked_networks() {
+if api_cache_emit cracked_networks 20; then
+    exit 0
+fi
+OUT=$(mktemp /tmp/wardriving_cracked_XXXXXX) || { echo "[]"; exit 0; }
+CRACKED_MACS="/tmp/cracked_macs_$$.txt"
+SSID_PWD="/tmp/ssid_pwd_$$.txt"
+{
 echo "["
 if [ -f "$WARD_MNT"/hashcat.potfile ] && [ -f "$WARD_MNT"/wardriving.db ]; then
-    awk '{ if ($0 ~ /^WPA\*/) { split($0, arr, "*"); print arr[4] } else if ($0 ~ /^[0-9a-fA-F]{32}:[0-9a-fA-F]{12}:/) { split($0, arr, ":"); print arr[2] } }' "$WARD_MNT"/hashcat.potfile | awk '{gsub(/../,"&:"); sub(/:$/,""); print tolower($0)}' | sort -u > /tmp/cracked_macs.txt
+    awk '{ if ($0 ~ /^WPA\*/) { split($0, arr, "*"); print arr[4] } else if ($0 ~ /^[0-9a-fA-F]{32}:[0-9a-fA-F]{12}:/) { split($0, arr, ":"); print arr[2] } }' "$WARD_MNT"/hashcat.potfile | awk '{gsub(/../,"&:"); sub(/:$/,""); print tolower($0)}' | sort -u > "$CRACKED_MACS"
     
     # Extract cracked networks. The UNION also covers rows where mac/ssid were
     # swapped in old database migrations, ensuring backward compat with existing DBs.
-    if [ -s /tmp/cracked_macs.txt ]; then
-        awk -F: '{ssid=$4; pwd=""; for(i=5;i<=NF;i++){if(i>5)pwd=pwd":"; pwd=pwd $i}; print ssid"|"pwd}' "$WARD_MNT"/hashcat.potfile | sort -t'|' -k1,1 -u > /tmp/ssid_pwd.txt
-        COND=$(awk '{printf "\"%s\",", $1}' /tmp/cracked_macs.txt | sed 's/,$//')
+    if [ -s "$CRACKED_MACS" ]; then
+        awk -F: '{ssid=$4; pwd=""; for(i=5;i<=NF;i++){if(i>5)pwd=pwd":"; pwd=pwd $i}; print ssid"|"pwd}' "$WARD_MNT"/hashcat.potfile | sort -t'|' -k1,1 -u > "$SSID_PWD"
+        COND=$(awk '{printf "\"%s\",", $1}' "$CRACKED_MACS" | sed 's/,$//')
         sqlite3 -separator '|' "$WARD_MNT"/wardriving.db "
             SELECT lat, lon, ssid FROM networks
             WHERE lower(mac) IN ($COND) AND lat IS NOT NULL AND lon IS NOT NULL
             UNION
             SELECT lat, lon, enc FROM networks
             WHERE lower(ssid) IN ($COND) AND lat IS NOT NULL AND lon IS NOT NULL
-        " 2>/dev/null | awk -F'|' '
+        " 2>/dev/null | awk -F'|' -v ssid_pwd="$SSID_PWD" '
         BEGIN {
-            while((getline line < "/tmp/ssid_pwd.txt") > 0) {
+            while((getline line < ssid_pwd) > 0) {
                 n=index(line,"|"); s=substr(line,1,n-1); p=substr(line,n+1); pwd[s]=p
             }
             first=1
@@ -167,6 +176,10 @@ if [ -f "$WARD_MNT"/hashcat.potfile ] && [ -f "$WARD_MNT"/wardriving.db ]; then
     fi
 fi
 echo "]"
+} > "$OUT"
+api_cache_store cracked_networks "$OUT" || true
+cat "$OUT"
+rm -f "$OUT" "$CRACKED_MACS" "$SSID_PWD"
 exit 0
 }
 
@@ -240,6 +253,11 @@ exit 0
 }
 
 handle_heatmap_data() {
+if api_cache_emit heatmap_data 30; then
+    return
+fi
+OUT=$(mktemp /tmp/wardriving_heatmap_XXXXXX) || { echo "[]"; return; }
+{
 if [ -f "$WARD_MNT"/wardriving.db ]; then
     sqlite3 -separator ',' "$WARD_MNT"/wardriving.db "SELECT lat, lon, rssi FROM networks WHERE lat IS NOT NULL;" 2>/dev/null | awk -F',' '
     BEGIN { printf "[" }
@@ -254,9 +272,18 @@ if [ -f "$WARD_MNT"/wardriving.db ]; then
 else
     echo "[]"
 fi
+} > "$OUT"
+api_cache_store heatmap_data "$OUT" || true
+cat "$OUT"
+rm -f "$OUT"
 }
 
 handle_map_data() {
+if api_cache_emit map_data 5; then
+    return
+fi
+OUT=$(mktemp /tmp/wardriving_map_data_XXXXXX) || { echo '{"nmea_b64": ""}'; return; }
+{
 LATEST_NMEA=$(ls -1t "$WARD_MNT"/*.nmea 2>/dev/null | head -n 1)
 if [ -f "$LATEST_NMEA" ]; then
     NMEA_B64=$(tail -n 20 "$LATEST_NMEA" | encode_base64 | tr -d '\n')
@@ -264,6 +291,10 @@ if [ -f "$LATEST_NMEA" ]; then
 else
     echo '{"nmea_b64": ""}'
 fi
+} > "$OUT"
+api_cache_store map_data "$OUT" || true
+cat "$OUT"
+rm -f "$OUT"
 }
 
 handle_download_status() {

@@ -9,6 +9,7 @@ TOKEN_FILE="${WARDRIVING_TOKEN_FILE:-/etc/wardriving_api_token}"
 WARD_MNT="${WARDRIVING_MNT:-/mnt/wardriving}"
 # shellcheck disable=SC2034 # Used by sourced handler modules.
 MODE_FILE="${WARDRIVING_MODE_FILE:-/etc/wardriving_mode.txt}"
+API_CACHE_DIR="${WARDRIVING_API_CACHE_DIR:-/tmp/wardriving_api_cache}"
 
 query_param() {
     _qp_key="$1"
@@ -102,6 +103,56 @@ encode_base64() {
     else
         return 1
     fi
+}
+
+api_cache_path() {
+    _cache_key="$1"
+    case "$_cache_key" in
+        *[!A-Za-z0-9_-]*|'') return 1 ;;
+    esac
+    mkdir -p "$API_CACHE_DIR" 2>/dev/null || return 1
+    printf "%s/%s.json" "$API_CACHE_DIR" "$_cache_key"
+}
+
+api_cache_emit() {
+    _cache_key="$1"
+    _cache_ttl="$2"
+    _cache_file=$(api_cache_path "$_cache_key") || return 1
+    [ -s "$_cache_file" ] || return 1
+    [ -f "$_cache_file.ts" ] || return 1
+    _cache_now=$(date +%s)
+    _cache_ts=$(cat "$_cache_file.ts" 2>/dev/null | tr -cd '0-9')
+    case "$_cache_ttl" in *[!0-9]*|'') return 1 ;; esac
+    case "$_cache_now" in *[!0-9]*|'') return 1 ;; esac
+    case "$_cache_ts" in
+        *[!0-9]*|'') return 1 ;;
+    esac
+    [ "$(( _cache_now - _cache_ts ))" -le "$_cache_ttl" ] || return 1
+    cat "$_cache_file"
+    return 0
+}
+
+api_cache_store() {
+    _cache_key="$1"
+    _cache_src="$2"
+    _cache_file=$(api_cache_path "$_cache_key") || return 1
+    [ -s "$_cache_src" ] || return 1
+    _cache_tmp="${_cache_file}.$$"
+    _cache_ts_tmp="${_cache_file}.ts.$$"
+    cat "$_cache_src" > "$_cache_tmp" || { rm -f "$_cache_tmp"; return 1; }
+    date +%s > "$_cache_ts_tmp" || { rm -f "$_cache_tmp" "$_cache_ts_tmp"; return 1; }
+    mv -f "$_cache_tmp" "$_cache_file" || { rm -f "$_cache_tmp" "$_cache_ts_tmp"; return 1; }
+    mv -f "$_cache_ts_tmp" "$_cache_file.ts" || { rm -f "$_cache_ts_tmp"; return 1; }
+}
+
+api_cache_clear() {
+    _cache_key="$1"
+    _cache_file=$(api_cache_path "$_cache_key") || return 0
+    rm -f "$_cache_file" "$_cache_file.ts"
+}
+
+api_cache_clear_all() {
+    rm -rf "$API_CACHE_DIR"
 }
 
 parse_nmea_rmc() {

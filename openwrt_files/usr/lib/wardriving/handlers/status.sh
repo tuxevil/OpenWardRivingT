@@ -2,6 +2,10 @@
 # shellcheck shell=sh
 
 handle_status() {
+if api_cache_emit status 2; then
+    return
+fi
+OUT=$(mktemp /tmp/wardriving_status_json_XXXXXX) || OUT=""
 if [ -f /var/run/wardriving_core.pid ]; then
     CORE_PID=$(cat /var/run/wardriving_core.pid)
     kill -0 "$CORE_PID" 2>/dev/null && IS_RUNNING="true" || IS_RUNNING="false"
@@ -119,7 +123,8 @@ CUR_MODE="active"
 if [ -f "$MODE_FILE" ]; then CUR_MODE=$(cat "$MODE_FILE" | tr -cd 'a-z'); fi
 case "$CUR_MODE" in active|passive|smart) ;; *) CUR_MODE="active" ;; esac
 
-cat << JSON
+if [ -n "$OUT" ]; then
+	cat > "$OUT" << JSON
 {
 "running": $IS_RUNNING,
 "mode": "$CUR_MODE",
@@ -146,6 +151,38 @@ cat << JSON
 "channels_data": $CHANNELS_JSON
 }
 JSON
+    api_cache_store status "$OUT" || true
+    cat "$OUT"
+    rm -f "$OUT"
+else
+	cat << JSON
+{
+"running": $IS_RUNNING,
+"mode": "$CUR_MODE",
+"handshakes": "$HANDSHAKES",
+"space_used": "$SPACE_USED",
+"usb_pct": "$USB_PCT",
+"cpu": "$CPU_LOAD",
+"ram": "$RAM_PCT",
+"sats": "$SATS",
+"speed": "$SPEED",
+"deauths": "$DEAUTHS",
+"fix": "$FIX",
+"space_free": "$SPACE_FREE",
+"gps_status": "$GPS_STAT",
+"gps_source": "$GPS_SOURCE",
+"remote_enabled": "$REMOTE_ENABLED",
+"extraction_mode": "$EXTRACTION_MODE",
+"gpu_cracking_enabled": "$GPU_CRACKING_ENABLED",
+"remote_state": "$REMOTE_STATE",
+"remote_code": "$REMOTE_CODE",
+"remote_message": "$REMOTE_MSG",
+"remote_updated": "$REMOTE_UPDATED",
+"logs": "$LAST_LOG",
+"channels_data": $CHANNELS_JSON
+}
+JSON
+fi
 }
 
 handle_gps_push() {

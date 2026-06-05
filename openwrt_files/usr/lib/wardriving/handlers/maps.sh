@@ -6,11 +6,17 @@ if [ ! -f "$WARD_MNT"/wardriving.db ]; then
     echo "[]"
     exit 0
 fi
-grep -oE '\*[0-9a-fA-F]{12}' "$WARD_MNT"/master.hc2200 2>/dev/null | sed 's/^\*//' | tr '[:upper:]' '[:lower:]' | sort -u > /tmp/map_hs_macs.txt
+if api_cache_emit networks_map 15; then
+    exit 0
+fi
+OUT=$(mktemp /tmp/wardriving_networks_map_XXXXXX) || { echo "[]"; exit 0; }
+HS_MACS="/tmp/map_hs_macs_$$.txt"
+CRACKED_MACS="/tmp/map_cracked_macs_$$.txt"
+grep -oE '\*[0-9a-fA-F]{12}' "$WARD_MNT"/master.hc2200 2>/dev/null | sed 's/^\*//' | tr '[:upper:]' '[:lower:]' | sort -u > "$HS_MACS"
 if [ -f "$WARD_MNT"/hashcat.potfile ]; then
-    awk '{ if ($0 ~ /^WPA\*/) { split($0, arr, "*"); print arr[4] } else if ($0 ~ /^[0-9a-fA-F]{32}:[0-9a-fA-F]{12}:/) { split($0, arr, ":"); print arr[2] } }' "$WARD_MNT"/hashcat.potfile | tr '[:upper:]' '[:lower:]' | sort -u > /tmp/map_cracked_macs.txt
+    awk '{ if ($0 ~ /^WPA\*/) { split($0, arr, "*"); print arr[4] } else if ($0 ~ /^[0-9a-fA-F]{32}:[0-9a-fA-F]{12}:/) { split($0, arr, ":"); print arr[2] } }' "$WARD_MNT"/hashcat.potfile | tr '[:upper:]' '[:lower:]' | sort -u > "$CRACKED_MACS"
 else
-    : > /tmp/map_cracked_macs.txt
+    : > "$CRACKED_MACS"
 fi
 sqlite3 -separator '|' "$WARD_MNT"/wardriving.db "SELECT lower(replace(mac,':','')), ssid, lat, lon, rssi FROM networks WHERE lat IS NOT NULL AND lon IS NOT NULL AND lat != 'NULL' AND lon != 'NULL' LIMIT 3000;" 2>/dev/null | awk -F'|' '
 FILENAME==ARGV[1] {hs[$1]=1; next}
@@ -34,7 +40,10 @@ END {
         printf "{\"lat\":%.6f,\"lon\":%.6f,\"count\":%d,\"has_handshake\":%s,\"is_cracked\":%s,\"rssi\":%d,\"ssids\":\"%s\"}", glat[k], glon[k], seen[k], (gh[k]?"true":"false"), (gc[k]?"true":"false"), maxr[k], esc(samples[k])
     }
     print "]"
-}' /tmp/map_hs_macs.txt /tmp/map_cracked_macs.txt -
+}' "$HS_MACS" "$CRACKED_MACS" - > "$OUT"
+api_cache_store networks_map "$OUT" || true
+cat "$OUT"
+rm -f "$OUT" "$HS_MACS" "$CRACKED_MACS"
 }
 
 handle_clients_map() {
@@ -42,6 +51,10 @@ if [ ! -f "$WARD_MNT"/wardriving.db ]; then
     echo "[]"
     exit 0
 fi
+if api_cache_emit clients_map 15; then
+    exit 0
+fi
+OUT=$(mktemp /tmp/wardriving_clients_map_XXXXXX) || { echo "[]"; exit 0; }
 sqlite3 -separator '|' "$WARD_MNT"/wardriving.db "CREATE TABLE IF NOT EXISTS clients (client_mac TEXT, ap_mac TEXT, ssid TEXT, channel INTEGER, lat REAL, lon REAL, first_seen DATETIME, last_seen DATETIME, rssi INTEGER, frame_type TEXT, seen_mode TEXT, PRIMARY KEY(client_mac, ap_mac)); SELECT lower(replace(client_mac,':','')), lower(replace(ap_mac,':','')), ssid, lat, lon, rssi, channel, frame_type FROM clients WHERE lat IS NOT NULL AND lon IS NOT NULL AND lat != 'NULL' AND lon != 'NULL' ORDER BY last_seen DESC LIMIT 4000;" 2>/dev/null | awk -F'|' '
 {
     client=$1; ap=$2; ssid=$3; lat=$4+0; lon=$5+0; rssi=$6+0; chan=$7+0; ftype=$8
@@ -67,10 +80,18 @@ END {
         printf "{\"lat\":%.6f,\"lon\":%.6f,\"count\":%d,\"client_count\":%d,\"ap_count\":%d,\"associated\":%d,\"rssi\":%d,\"ssids\":\"%s\",\"channels\":\"%s\",\"kind\":\"clients\"}", glat[k], glon[k], seen[k], cc, ac, assoc[k]+0, maxr[k], esc(samples[k]), esc(channels[k])
     }
     print "]"
-}'
+}' > "$OUT"
+api_cache_store clients_map "$OUT" || true
+cat "$OUT"
+rm -f "$OUT"
 }
 
 handle_scored_networks() {
+if api_cache_emit scored_networks 5; then
+    return
+fi
+OUT=$(mktemp /tmp/wardriving_scored_XXXXXX) || { echo "[]"; return; }
+{
 if [ -f "$WARD_MNT"/wardriving.db ]; then
     # Pre-compute handshake MACs to avoid system() calls in awk loop
     # Pre-compute handshake MACs (busybox-compatible grep -oE, no PCRE)
@@ -102,6 +123,10 @@ if [ -f "$WARD_MNT"/wardriving.db ]; then
 else
     echo "[]"
 fi
+} > "$OUT"
+api_cache_store scored_networks "$OUT" || true
+cat "$OUT"
+rm -f "$OUT"
 }
 
 handle_history() {
@@ -109,6 +134,10 @@ if [ ! -f "$WARD_MNT"/wardriving.db ]; then
     echo '{"total":0, "wpa3":0, "hs":0, "days":0, "sessions":[]}'
     exit 0
 fi
+if api_cache_emit history 60; then
+    exit 0
+fi
+OUT=$(mktemp /tmp/wardriving_history_XXXXXX) || { echo '{"total":0, "wpa3":0, "hs":0, "days":0, "sessions":[]}'; exit 0; }
 TOTAL=$(sqlite3 "$WARD_MNT"/wardriving.db "SELECT COUNT(*) FROM networks;" 2>/dev/null)
 [ -z "$TOTAL" ] && TOTAL=0
 WPA3=$(sqlite3 "$WARD_MNT"/wardriving.db "SELECT COUNT(*) FROM networks WHERE enc LIKE '%SAE%';" 2>/dev/null)
@@ -126,8 +155,11 @@ BEGIN { first=1 }
     first=0
 }')
 
-cat << JSON
+cat > "$OUT" << JSON
 {"total":$TOTAL, "wpa3":$WPA3, "hs":$HS, "days":$DAYS, "sessions":[$SESSIONS]}
 JSON
+api_cache_store history "$OUT" || true
+cat "$OUT"
+rm -f "$OUT"
 exit 0
 }

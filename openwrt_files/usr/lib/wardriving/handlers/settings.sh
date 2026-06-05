@@ -11,6 +11,7 @@ if [ ! -x "$INIT_SCRIPT" ]; then
     return
 fi
 if "$INIT_SCRIPT" start >/tmp/wardriving_init_start.log 2>&1; then
+    api_cache_clear_all
     echo '{"status": "started"}'
 else
     json_error "wardriving init start failed"
@@ -23,6 +24,7 @@ if [ ! -x "$INIT_SCRIPT" ]; then
     return
 fi
 if "$INIT_SCRIPT" stop >/tmp/wardriving_init_stop.log 2>&1; then
+    api_cache_clear_all
     echo '{"status": "stopped"}'
 else
     json_error "wardriving init stop failed"
@@ -42,6 +44,7 @@ case "$MODE" in active|passive|smart) ;; *) json_error "invalid mode"; exit 0 ;;
 OLD_MODE="active"
 if [ -f "$MODE_FILE" ]; then OLD_MODE=$(cat "$MODE_FILE" | tr -cd 'a-z'); fi
 echo "$MODE" > "$MODE_FILE"
+api_cache_clear_all
 RESTARTED="false"
 if [ "$MODE" != "$OLD_MODE" ] && pgrep -f "hcxdumptool.*wlan0mon" >/dev/null 2>&1; then
     pkill -TERM -f "hcxdumptool.*wlan0mon" 2>/dev/null || true
@@ -96,6 +99,7 @@ fi
 write_processing_setting "$EXTRACTION_MODE_FILE" "$MODE" || { json_error "could not save extraction mode"; exit 0; }
 write_processing_setting "$GPU_CRACKING_FILE" "$CRACKING" || { json_error "could not save gpu cracking"; exit 0; }
 write_processing_setting "$REMOTE_URL_FILE" "$S_URL" || { json_error "could not save remote url"; exit 0; }
+api_cache_clear_all
 if [ "$MODE" = "remote" ] || [ "$CRACKING" = "1" ]; then
     write_processing_setting "$REMOTE_ENABLED_FILE" "1" || true
 else

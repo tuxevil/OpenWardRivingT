@@ -16,6 +16,7 @@ setup() {
     rm -rf /tmp/test_wardriving_mnt
     rm -f /tmp/test_wardriving_mode /tmp/test_wardriving_extraction_mode /tmp/test_wardriving_gpu_cracking
     rm -f /tmp/test_wardriving_remote_enabled /tmp/test_wardriving_remote_url /tmp/test_wardriving_remote_secret
+    rm -rf /tmp/test_wardriving_api_cache
     echo "$TOKEN" > /tmp/test_wardriving_token
     echo "active" > /tmp/test_wardriving_mode
     cat > /tmp/test_wardriving_init <<'INIT'
@@ -77,6 +78,7 @@ SQL
 
 cleanup() {
     rm -rf /tmp/test_wardriving_*
+    rm -rf /tmp/test_wardriving_api_cache
     rm -f /tmp/wardriving_replay.pause /tmp/wardriving_replay.stop /tmp/wardriving_replay.seek
     rm -f /tmp/wardriving_replay.pid /tmp/wardriving_replay_queue.pid /tmp/wardriving_replay_status.json
     rm -rf /tmp/wardriving_replay_work /tmp/wardriving_replay_uploads
@@ -140,6 +142,7 @@ export WARDRIVING_GPU_CRACKING_FILE=/tmp/test_wardriving_gpu_cracking
 export WARDRIVING_REMOTE_ENABLED_FILE=/tmp/test_wardriving_remote_enabled
 export WARDRIVING_REMOTE_URL_FILE=/tmp/test_wardriving_remote_url
 export WARDRIVING_REMOTE_SECRET_FILE=/tmp/test_wardriving_remote_secret
+export WARDRIVING_API_CACHE_DIR=/tmp/test_wardriving_api_cache
 
 echo ""
 echo "=== CGI Tests ==="
@@ -472,6 +475,13 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ browser GPS push still depends on running state"
 fi
 
+echo "  Test: hidden dashboard tabs throttle polling"
+if grep -q "document.hidden" openwrt_files/www/wardriving/app.js && grep -q "visibilitychange" openwrt_files/www/wardriving/app.js && grep -q "pollVisible(loadNetworkMap)" openwrt_files/www/wardriving/app.js; then
+    PASS=$((PASS + 1)); echo "  ✓ hidden tabs pause heavy dashboard polling"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ dashboard polling does not respect tab visibility"
+fi
+
 echo "  Test: gps_push does not block without vGPS reader"
 if grep -q "socat.*vGPS" openwrt_files/usr/lib/wardriving/handlers/status.sh && grep -q "printf.*vGPS_fifo" openwrt_files/usr/lib/wardriving/handlers/status.sh; then
     PASS=$((PASS + 1)); echo "  ✓ gps_push gates FIFO writes on active socat reader"
@@ -641,6 +651,20 @@ if ! grep -q "PROCESSED_REMOTE" openwrt_files/usr/bin/wardriving_core.sh && grep
     PASS=$((PASS + 1)); echo "  ✓ core separates remote extraction from local fallback"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ core still has old remote processing gate"
+fi
+
+echo "  Test: API cache helpers are BusyBox-safe"
+if grep -q "API_CACHE_DIR" openwrt_files/usr/lib/wardriving/common.sh && grep -q "api_cache_emit()" openwrt_files/usr/lib/wardriving/common.sh && grep -q "api_cache_store()" openwrt_files/usr/lib/wardriving/common.sh && ! grep -q "stat -c" openwrt_files/usr/lib/wardriving/common.sh; then
+    PASS=$((PASS + 1)); echo "  ✓ API cache uses timestamp files instead of stat"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ API cache helper missing or not BusyBox-safe"
+fi
+
+echo "  Test: heavy dashboard endpoints use short server cache"
+if grep -q "api_cache_emit status 2" openwrt_files/usr/lib/wardriving/handlers/status.sh && grep -q "api_cache_emit map_data 5" openwrt_files/usr/lib/wardriving/handlers/captures.sh && grep -q "api_cache_emit cracked_networks 20" openwrt_files/usr/lib/wardriving/handlers/captures.sh && grep -q "api_cache_emit networks_map 15" openwrt_files/usr/lib/wardriving/handlers/maps.sh && grep -q "api_cache_emit clients_map 15" openwrt_files/usr/lib/wardriving/handlers/maps.sh; then
+    PASS=$((PASS + 1)); echo "  ✓ repeated dashboard polls reuse short-lived JSON cache"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ heavy dashboard endpoint cache missing"
 fi
 
 echo "  Test: remote hash sync preserves local master"

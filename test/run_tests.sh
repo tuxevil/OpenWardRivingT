@@ -381,6 +381,13 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ live networks still depend on scored_networks"
 fi
 
+echo "  Test: Redes Ahora hides implementation wording"
+if ! grep -q "in hcxdumptool" openwrt_files/www/wardriving/app.js && grep -q "visto " openwrt_files/www/wardriving/app.js; then
+    PASS=$((PASS + 1)); echo "  ✓ live networks copy is user-facing"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ live networks copy still exposes implementation wording"
+fi
+
 echo "  Test: frontend treats remote extraction success as GPU OK"
 if grep -q "rs==='ok'||rs==='synced'||rs==='extracted'" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ pipeline accepts extracted remote state"

@@ -231,7 +231,8 @@ function updateScores(channelsData){
   if(!items.length){setHtml('scoresList','<span style="color:var(--c-dim);font-size:18px">Sin redes cerca</span>');return;}
   let h='';
   items.forEach(n=>{
-    h+='<div class="sr"><div class="sr-top"><span class="sr-ssid">'+esc(n.ssid)+'</span><span class="sr-pts" style="color:var(--c-green)">LIVE</span></div><div class="sr-info">CH '+esc(n.chan||'?')+' | seen '+esc(n.count)+'x in hcxdumptool</div></div>';
+    let countLabel=n.count>1?' | visto '+esc(n.count)+' veces':'';
+    h+='<div class="sr"><div class="sr-top"><span class="sr-ssid">'+esc(n.ssid)+'</span><span class="sr-pts" style="color:var(--c-green)">LIVE</span></div><div class="sr-info">CH '+esc(n.chan||'?')+countLabel+'</div></div>';
   });
   setHtml('scoresList',h);
 }

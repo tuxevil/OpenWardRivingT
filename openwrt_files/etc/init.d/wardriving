@@ -4,8 +4,42 @@
 START=99
 STOP=10
 
+stop_capture_processes() {
+    # Graceful shutdown: kill core script first, which traps and cleans children
+    if [ -f /var/run/wardriving_core.pid ]; then
+        PID=$(cat /var/run/wardriving_core.pid)
+        kill -15 "$PID" 2>/dev/null
+        sleep 2
+        # Force if still alive
+        kill -9 "$PID" 2>/dev/null
+        rm -f /var/run/wardriving_core.pid
+    fi
+
+    # Cleanup any remaining wardriving processes.
+    for pid in $(pgrep -f "wardriving_core.sh" 2>/dev/null); do
+        [ "$pid" != "$$" ] && kill -15 "$pid" 2>/dev/null
+    done
+    sleep 1
+    for pid in $(pgrep -f "wardriving_core.sh" 2>/dev/null); do
+        [ "$pid" != "$$" ] && kill -9 "$pid" 2>/dev/null
+    done
+
+    for pid in $(pgrep -f "hcxdumptool.*wlan0mon" 2>/dev/null); do
+        kill -15 "$pid" 2>/dev/null
+    done
+    sleep 1
+    for pid in $(pgrep -f "hcxdumptool.*wlan0mon" 2>/dev/null); do
+        kill -9 "$pid" 2>/dev/null
+    done
+
+    for pid in $(pgrep -f "socat.*vGPS" 2>/dev/null); do
+        kill -15 "$pid" 2>/dev/null
+    done
+}
+
 start() {
     logger -t "openwardrivingt" "Starting Wardriving Service"
+    stop_capture_processes
     
     wifi down radio0
     sleep 1
@@ -33,39 +67,7 @@ start() {
 
 stop() {
     logger -t "openwardrivingt" "Stopping Wardriving Service"
-    
-    # Graceful shutdown: kill core script first, which traps and cleans children
-    if [ -f /var/run/wardriving_core.pid ]; then
-        PID=$(cat /var/run/wardriving_core.pid)
-        kill -15 "$PID" 2>/dev/null
-        sleep 2
-        # Force if still alive
-        kill -9 "$PID" 2>/dev/null
-        rm -f /var/run/wardriving_core.pid
-    fi
-    
-    # Cleanup any remaining wardriving processes by stored PID
-    for pid in $(pgrep -f "wardriving_core.sh" 2>/dev/null); do
-        [ "$pid" != "$$" ] && kill -15 "$pid" 2>/dev/null
-    done
-    sleep 1
-    for pid in $(pgrep -f "wardriving_core.sh" 2>/dev/null); do
-        [ "$pid" != "$$" ] && kill -9 "$pid" 2>/dev/null
-    done
-    
-    # Only kill hcxdumptool instances that are children of wardriving
-    for pid in $(pgrep -f "hcxdumptool.*wlan0mon" 2>/dev/null); do
-        kill -15 "$pid" 2>/dev/null
-    done
-    sleep 1
-    for pid in $(pgrep -f "hcxdumptool.*wlan0mon" 2>/dev/null); do
-        kill -9 "$pid" 2>/dev/null
-    done
-    
-    # Only kill the vGPS socat (listening on 2947)
-    for pid in $(pgrep -f "socat.*vGPS" 2>/dev/null); do
-        kill -15 "$pid" 2>/dev/null
-    done
+    stop_capture_processes
     
     sync
     

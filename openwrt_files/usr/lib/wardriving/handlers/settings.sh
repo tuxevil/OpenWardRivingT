@@ -1,14 +1,32 @@
 #!/bin/sh
 # shellcheck shell=sh
 
+INIT_SCRIPT="${WARDRIVING_INIT_SCRIPT:-/etc/init.d/wardriving}"
+WPS_BUTTON_SCRIPT="${WARDRIVING_WPS_BUTTON_SCRIPT:-/etc/rc.button/wps}"
+RFKILL_BUTTON_SCRIPT="${WARDRIVING_RFKILL_BUTTON_SCRIPT:-/etc/rc.button/rfkill}"
+
 handle_start() {
-/etc/init.d/wardriving start >/dev/null 2>&1
-echo '{"status": "started"}'
+if [ ! -x "$INIT_SCRIPT" ]; then
+    json_error "wardriving init script is not executable"
+    return
+fi
+if "$INIT_SCRIPT" start >/tmp/wardriving_init_start.log 2>&1; then
+    echo '{"status": "started"}'
+else
+    json_error "wardriving init start failed"
+fi
 }
 
 handle_stop() {
-/etc/init.d/wardriving stop >/dev/null 2>&1
-echo '{"status": "stopped"}'
+if [ ! -x "$INIT_SCRIPT" ]; then
+    json_error "wardriving init script is not executable"
+    return
+fi
+if "$INIT_SCRIPT" stop >/tmp/wardriving_init_stop.log 2>&1; then
+    echo '{"status": "stopped"}'
+else
+    json_error "wardriving init stop failed"
+fi
 }
 
 handle_get_mode() {
@@ -34,11 +52,11 @@ echo "{\"status\":\"saved\",\"mode\":\"$MODE\",\"capture_restarted\":$RESTARTED}
 
 handle_get_hw() {
 LEDS=$(ls -1 /sys/class/leds/ 2>/dev/null | awk 'BEGIN{printf "["} {if (NR>1) printf ","; printf "\"%s\"", $1} END{print "]"}')
-CUR_LED=$(grep "/sys/class/leds/" /etc/init.d/wardriving | head -n 1 | sed -n 's|.*/sys/class/leds/\([^/]*\)/.*|\1|p')
+CUR_LED=$(grep "/sys/class/leds/" "$INIT_SCRIPT" 2>/dev/null | head -n 1 | sed -n 's|.*/sys/class/leds/\([^/]*\)/.*|\1|p')
 [ -z "$CUR_LED" ] && CUR_LED="green:wps"
 CUR_BTN="none"
-if grep -q "wardriving_core" /etc/rc.button/wps 2>/dev/null; then CUR_BTN="wps"; fi
-if grep -q "wardriving_core" /etc/rc.button/rfkill 2>/dev/null; then CUR_BTN="wifi"; fi
+if grep -q "wardriving_core" "$WPS_BUTTON_SCRIPT" 2>/dev/null; then CUR_BTN="wps"; fi
+if grep -q "wardriving_core" "$RFKILL_BUTTON_SCRIPT" 2>/dev/null; then CUR_BTN="wifi"; fi
 
 CUR_MODE="active"
 if [ -f "$MODE_FILE" ]; then CUR_MODE=$(cat "$MODE_FILE"); fi
@@ -73,11 +91,19 @@ LED=$(echo "$QUERY_STRING" | grep -o "led=[^&]*" | cut -d= -f2 | sed 's/%3A/:/g'
 BTN=$(echo "$QUERY_STRING" | grep -o "btn=[^&]*" | cut -d= -f2)
 MODE=$(echo "$QUERY_STRING" | grep -o "mode=[^&]*" | cut -d= -f2 | tr -cd 'a-z')
 case "$MODE" in active|passive|smart) ;; *) MODE="active" ;; esac
+[ -z "$LED" ] && { json_error "invalid led"; exit 0; }
 echo "$MODE" > "$MODE_FILE"
 
 # Atomic sed: write to temp, then mv
 TMP_INIT=$(mktemp /tmp/wardriving_init_XXXXXX)
-sed "s|/sys/class/leds/[^/]*/|/sys/class/leds/$LED/|g" /etc/init.d/wardriving > "$TMP_INIT" && mv "$TMP_INIT" /etc/init.d/wardriving
+if sed "s|/sys/class/leds/[^/]*/|/sys/class/leds/$LED/|g" "$INIT_SCRIPT" > "$TMP_INIT"; then
+    chmod +x "$TMP_INIT"
+    mv "$TMP_INIT" "$INIT_SCRIPT"
+else
+    rm -f "$TMP_INIT"
+    json_error "init update failed"
+    exit 0
+fi
 rm -f "$TMP_INIT"
 
 # Always restore defaults first (atomic via temp + mv)
@@ -90,7 +116,8 @@ for script in /etc/rc.wps/*; do
 	"$script" && break
 done
 EOF_RESTORE
-mv "$TMP_WPS" /etc/rc.button/wps
+chmod +x "$TMP_WPS"
+mv "$TMP_WPS" "$WPS_BUTTON_SCRIPT"
 rm -f "$TMP_WPS"
 
 TMP_RFKILL=$(mktemp /tmp/wardriving_rfkill_XXXXXX)
@@ -113,7 +140,8 @@ config_foreach wifi_rfkill_set wifi-device
 uci commit wireless; wifi up
 return 0
 EOF_RESTORE
-mv "$TMP_RFKILL" /etc/rc.button/rfkill
+chmod +x "$TMP_RFKILL"
+mv "$TMP_RFKILL" "$RFKILL_BUTTON_SCRIPT"
 rm -f "$TMP_RFKILL"
 
 if [ "$BTN" = "wps" ]; then
@@ -128,7 +156,7 @@ else
 fi
 EOF2
     chmod +x "$TMP_BTN"
-    mv "$TMP_BTN" /etc/rc.button/wps
+    mv "$TMP_BTN" "$WPS_BUTTON_SCRIPT"
     rm -f "$TMP_BTN"
 elif [ "$BTN" = "wifi" ]; then
     TMP_BTN=$(mktemp /tmp/wardriving_btn_XXXXXX)
@@ -142,7 +170,7 @@ else
 fi
 EOF2
     chmod +x "$TMP_BTN"
-    mv "$TMP_BTN" /etc/rc.button/rfkill
+    mv "$TMP_BTN" "$RFKILL_BUTTON_SCRIPT"
     rm -f "$TMP_BTN"
 fi
 echo '{"status": "saved"}'

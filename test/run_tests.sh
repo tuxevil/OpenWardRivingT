@@ -16,6 +16,20 @@ setup() {
     rm -f /tmp/test_wardriving_mode
     echo "$TOKEN" > /tmp/test_wardriving_token
     echo "active" > /tmp/test_wardriving_mode
+    cat > /tmp/test_wardriving_init <<'INIT'
+#!/bin/sh
+case "$1" in
+    start|stop|status)
+        echo "$1" >> /tmp/test_wardriving_service_calls
+        exit 0
+        ;;
+esac
+echo "timer" > "/sys/class/leds/green:wps/trigger"
+echo "none" > "/sys/class/leds/green:wps/trigger"
+INIT
+    chmod +x /tmp/test_wardriving_init
+    : > /tmp/test_wardriving_wps
+    : > /tmp/test_wardriving_rfkill
     # Minimal mock: create dummy master files
     mkdir -p /tmp/test_wardriving_mnt
     echo "WPA*02*0011*22334455*4a1f5e6c7d8e9a0b1c2d3e4f5a6b7c8d*70617373776F7264* ***" > /tmp/test_wardriving_mnt/master.hc2200
@@ -116,6 +130,9 @@ export WARDRIVING_TOKEN_FILE=/tmp/test_wardriving_token
 export WARDRIVING_MNT=/tmp/test_wardriving_mnt
 export WARDRIVING_MODE_FILE=/tmp/test_wardriving_mode
 export WARDRIVING_LIB_DIR="$PWD/openwrt_files/usr/lib/wardriving"
+export WARDRIVING_INIT_SCRIPT=/tmp/test_wardriving_init
+export WARDRIVING_WPS_BUTTON_SCRIPT=/tmp/test_wardriving_wps
+export WARDRIVING_RFKILL_BUTTON_SCRIPT=/tmp/test_wardriving_rfkill
 
 echo ""
 echo "=== CGI Tests ==="
@@ -200,6 +217,26 @@ echo "  Test: action=set_mode"
 OUT=$(QUERY_STRING="action=set_mode&mode=passive&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_json "set_mode returns JSON" "$OUT"
 assert_contains "set_mode saved passive" "$OUT" "\"mode\":\"passive\""
+
+echo "  Test: action=set_hw preserves executable service controls"
+OUT=$(QUERY_STRING="action=set_hw&led=green%3Awps&btn=wps&mode=passive&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_json "set_hw returns JSON" "$OUT"
+assert_contains "set_hw saved hardware" "$OUT" "\"status\": \"saved\""
+if [ -x "$WARDRIVING_INIT_SCRIPT" ] && [ -x "$WARDRIVING_WPS_BUTTON_SCRIPT" ] && [ -x "$WARDRIVING_RFKILL_BUTTON_SCRIPT" ]; then
+    PASS=$((PASS + 1)); echo "  ✓ set_hw keeps init and button scripts executable"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ set_hw removed executable permissions"
+fi
+
+echo "  Test: action=start detects broken init permissions"
+OUT=$(QUERY_STRING="action=start&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_json "start returns JSON" "$OUT"
+assert_contains "start reports started" "$OUT" "\"status\": \"started\""
+chmod 600 "$WARDRIVING_INIT_SCRIPT"
+OUT=$(QUERY_STRING="action=start&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_json "start permission failure returns JSON" "$OUT"
+assert_contains "start reports non-executable init" "$OUT" "init script is not executable"
+chmod +x "$WARDRIVING_INIT_SCRIPT"
 
 echo "  Test: action=map_data"
 OUT=$(QUERY_STRING="action=map_data&token=$TOKEN" sh "$CGI" 2>/dev/null)
@@ -441,6 +478,12 @@ if bash -n openwrt_files/etc/init.d/wardriving 2>/dev/null; then
     PASS=$((PASS + 1)); echo "  ✓ init.d/wardriving syntax OK"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ init.d/wardriving syntax ERROR"
+fi
+echo "  Test: init.d/wardriving start is idempotent"
+if grep -q "stop_capture_processes()" openwrt_files/etc/init.d/wardriving && sed -n '/^start()/,/wifi down radio0/p' openwrt_files/etc/init.d/wardriving | grep -q "stop_capture_processes"; then
+    PASS=$((PASS + 1)); echo "  ✓ init start cleans stale capture processes"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ init start stale-process cleanup missing"
 fi
 
 # Test: wardriving_sync.sh syntax

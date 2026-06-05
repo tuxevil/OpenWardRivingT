@@ -25,10 +25,12 @@ LATEST_NMEA=$(ls -1t "$WARD_MNT"/*.nmea 2>/dev/null | head -n 1)
 SATS="0"
 DEAUTHS="N/A"
 FIX="0"
+GPS_SOURCE="none"
 if [ -f "$LATEST_NMEA" ]; then
     read -r FIX SATS SPEED <<_EOF
 $(tail -n 30 "$LATEST_NMEA" | awk -F',' '/^\$G[PN]GGA/{f=$7; s=$8} /^\$[A-Z]{2}RMC/{sp=$8} END{print (f?f:0), (s?s:0), (sp?sp:0)}')
 _EOF
+    GPS_SOURCE="nmea"
 fi
 GPS_STAT="WAITING"
 if [ -f /tmp/vGPS_last ]; then
@@ -36,6 +38,7 @@ if [ -f /tmp/vGPS_last ]; then
     NOW=$(date +%s)
     if [ "$((NOW - LAST_MOD))" -lt 15 ]; then
         GPS_STAT="CONNECTED"
+        GPS_SOURCE="browser"
         read -r FIX SATS SPEED <<_EOF
 $(awk -F',' '/^\$G[PN]GGA/{f=$7; s=$8} /^\$[A-Z]{2}RMC/{sp=$8} END{print (f?f:0), (s?s:0), (sp?sp:0)}' /tmp/vGPS_last 2>/dev/null)
 _EOF
@@ -125,6 +128,7 @@ cat << JSON
 "fix": "$FIX",
 "space_free": "$SPACE_FREE",
 "gps_status": "$GPS_STAT",
+"gps_source": "$GPS_SOURCE",
 "remote_enabled": "$REMOTE_ENABLED",
 "extraction_mode": "$EXTRACTION_MODE",
 "gpu_cracking_enabled": "$GPU_CRACKING_ENABLED",

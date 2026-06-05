@@ -165,8 +165,9 @@ function updateStatus(){
     if(isRunning){btn.innerHTML='⏹ STOP';btn.className='btn huge stop';dot.className='status-dot on';dot.innerHTML='● LIVE<span id="hdr_fresh">updated 0s</span>';}
     else{btn.innerHTML='▶ START';btn.className='btn huge';dot.className='status-dot off';dot.innerHTML='● STOPPED<span id="hdr_fresh">updated 0s</span>';}
     updateFreshness(true);
-    document.getElementById('hdr_gps').querySelector('.val').innerText=(d.sats||'0');
-    let gu=document.getElementById('hdr_gps').querySelector('.unit');if(gu)gu.innerText=d.fix!=='0'?'sats':'NO FIX';
+    let browserGps=d.gps_source==='browser';
+    document.getElementById('hdr_gps').querySelector('.val').innerText=browserGps?'BROWSER':(d.sats||'0');
+    let gu=document.getElementById('hdr_gps').querySelector('.unit');if(gu)gu.innerText=d.fix!=='0'?(browserGps?'GPS':'sats'):'NO FIX';
     document.getElementById('hdr_gps').className='metric'+(d.fix==='0'?' crit':'');
     updateGpsVisual(d.fix!=='0');
     let skm=Math.round((parseFloat(d.speed)||0)*1.852);

@@ -402,6 +402,13 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ live network encryption badge missing"
 fi
 
+echo "  Test: browser GPS header label"
+if grep -q '"gps_source": "$GPS_SOURCE"' openwrt_files/usr/lib/wardriving/handlers/status.sh && grep -q "gps_source==='browser'" openwrt_files/www/wardriving/app.js && grep -q "BROWSER" openwrt_files/www/wardriving/app.js; then
+    PASS=$((PASS + 1)); echo "  ✓ browser GPS shows source instead of synthetic sats"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ browser GPS still shows synthetic sats"
+fi
+
 echo "  Test: frontend treats remote extraction success as GPU OK"
 if grep -q "rs==='ok'||rs==='synced'||rs==='extracted'" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ pipeline accepts extracted remote state"

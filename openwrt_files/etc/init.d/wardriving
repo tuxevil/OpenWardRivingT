@@ -4,6 +4,36 @@
 START=99
 STOP=10
 
+CAPTURE_IFACES_FILE="/tmp/wardriving_capture_ifaces"
+RADIO1_WAS_UP_FILE="/tmp/wardriving_radio1_was_up"
+
+radio_has_interface() {
+    _phy="$1"
+    iw dev 2>/dev/null | awk -v phy="phy#$_phy" '
+        $0 == phy {inside=1; next}
+        /^phy#/ {inside=0}
+        inside && /^[ \t]*Interface / {found=1}
+        END {exit found ? 0 : 1}
+    '
+}
+
+create_monitor_iface() {
+    _phy="$1"
+    _iface="$2"
+    iw phy "$_phy" info >/dev/null 2>&1 || return 1
+    iw dev "$_iface" del 2>/dev/null || true
+    iw phy "$_phy" interface add "$_iface" type monitor 2>/dev/null || return 1
+    ip link set "$_iface" up 2>/dev/null || return 1
+    printf "%s\n" "$_iface" >> "$CAPTURE_IFACES_FILE"
+}
+
+delete_monitor_ifaces() {
+    for iface in wlan0mon wlan1mon; do
+        ip link set "$iface" down 2>/dev/null || true
+        iw dev "$iface" del 2>/dev/null || true
+    done
+}
+
 stop_capture_processes() {
     # Graceful shutdown: kill core script first, which traps and cleans children
     if [ -f /var/run/wardriving_core.pid ]; then
@@ -24,11 +54,11 @@ stop_capture_processes() {
         [ "$pid" != "$$" ] && kill -9 "$pid" 2>/dev/null
     done
 
-    for pid in $(pgrep -f "hcxdumptool.*wlan0mon" 2>/dev/null); do
+    for pid in $(pgrep -f "hcxdumptool.*wlan[0-9]mon" 2>/dev/null); do
         kill -15 "$pid" 2>/dev/null
     done
     sleep 1
-    for pid in $(pgrep -f "hcxdumptool.*wlan0mon" 2>/dev/null); do
+    for pid in $(pgrep -f "hcxdumptool.*wlan[0-9]mon" 2>/dev/null); do
         kill -9 "$pid" 2>/dev/null
     done
 
@@ -40,12 +70,27 @@ stop_capture_processes() {
 start() {
     logger -t "openwardrivingt" "Starting Wardriving Service"
     stop_capture_processes
+    delete_monitor_ifaces
+
+    if [ ! -f "$RADIO1_WAS_UP_FILE" ]; then
+        if radio_has_interface 1; then
+            echo "1" > "$RADIO1_WAS_UP_FILE"
+        else
+            echo "0" > "$RADIO1_WAS_UP_FILE"
+        fi
+    fi
     
     wifi down radio0
+    wifi down radio1 2>/dev/null || true
     sleep 1
-    
-    iw phy phy0 interface add wlan0mon type monitor 2>/dev/null
-    ip link set wlan0mon up 2>/dev/null
+
+    : > "$CAPTURE_IFACES_FILE"
+    create_monitor_iface phy0 wlan0mon || logger -t "openwardrivingt" "Failed to create wlan0mon"
+    create_monitor_iface phy1 wlan1mon || logger -t "openwardrivingt" "Failed to create wlan1mon"
+    if [ ! -s "$CAPTURE_IFACES_FILE" ]; then
+        logger -t "openwardrivingt" "No monitor interfaces created"
+        return 1
+    fi
     
     # SQLite Rotation / Vacuum
     if [ -f /mnt/wardriving/wardriving.db ]; then
@@ -71,10 +116,14 @@ stop() {
     
     sync
     
-    ip link set wlan0mon down 2>/dev/null
-    iw dev wlan0mon del 2>/dev/null
+    delete_monitor_ifaces
+    rm -f "$CAPTURE_IFACES_FILE"
     
     wifi up radio0
+    if [ "$(cat "$RADIO1_WAS_UP_FILE" 2>/dev/null)" = "1" ]; then
+        wifi up radio1 2>/dev/null || true
+    fi
+    rm -f "$RADIO1_WAS_UP_FILE"
     
     # LED Off
     WPS_LED=$(ls /sys/class/leds/ | grep -i wps | head -n 1)

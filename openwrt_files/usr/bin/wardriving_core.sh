@@ -13,6 +13,7 @@ trap cleanup SIGTERM SIGINT SIGHUP
 
 LIB_DIR="${WARDRIVING_LIB_DIR:-/usr/lib/wardriving}"
 CLIENTS_BIN="${WARDRIVING_CLIENTS_BIN:-/usr/bin/wardriving_clients.sh}"
+CAPTURE_IFACES_FILE="${WARDRIVING_CAPTURE_IFACES_FILE:-/tmp/wardriving_capture_ifaces}"
 # shellcheck disable=SC1091 # Runtime path is provided by the OpenWrt installer.
 . "$LIB_DIR/db.sh"
 # shellcheck disable=SC1091 # Runtime path is provided by the OpenWrt installer.
@@ -88,6 +89,42 @@ import_remote_bundle() {
     rm -rf "$_workdir"
 }
 
+process_capture_file() {
+    _iface="$1"
+    _pcap="$2"
+    _nmea="$3"
+    _hc2200="$4"
+    _essid="$5"
+    _csv="$6"
+    _bundle="$7"
+
+    [ -f "$_pcap" ] || return 0
+    remote_read_config
+    if try_remote_extract_capture "$_pcap" "$_bundle"; then
+        :
+    else
+        local_extract_capture "$_pcap" "$_hc2200" "$_essid" "$_csv" /mnt/wardriving/wardriving.db
+        if [ "$EXTRACTION_MODE" = "local" ]; then
+            if [ "$GPU_CRACKING_ENABLED" = "1" ]; then
+                if [ -n "$REMOTE_URL" ]; then
+                    remote_write_status "local" "0" "$_iface local extraction complete"
+                    remote_sync_hashes "/mnt/wardriving/master.hc2200" || true
+                else
+                    remote_write_status "unconfigured" "0" "missing remote url"
+                fi
+            else
+                remote_write_status "local" "0" "$_iface local extraction gpu cracking off"
+            fi
+        elif [ "$GPU_CRACKING_ENABLED" = "1" ] && [ -n "$REMOTE_URL" ]; then
+            remote_sync_hashes "/mnt/wardriving/master.hc2200" || true
+        fi
+    fi
+
+    if [ ! -f /etc/wardriving_keep_pcap.txt ]; then
+        rm -f "$_pcap" "$_nmea"
+    fi
+}
+
 try_remote_extract_capture() {
     _pcap="$1"
     _bundle="$2"
@@ -150,15 +187,13 @@ while true; do
 
 
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-    FILENAME="/mnt/wardriving/wardriving_${TIMESTAMP}.pcapng"
-    NMEAFILE="/mnt/wardriving/wardriving_${TIMESTAMP}.nmea"
-    HC2200FILE="/mnt/wardriving/wardriving_${TIMESTAMP}.hc2200"
-    TMP_ESSID="/tmp/essid_${TIMESTAMP}.txt"
-    TMP_CSV="/tmp/csv_${TIMESTAMP}.txt"
-    REMOTE_BUNDLE="/tmp/extract_bundle_${TIMESTAMP}.tar.gz"
+    CAPTURE_IFACES=$(awk 'NF && $0 ~ /^[A-Za-z0-9_.:-]+$/ {print}' "$CAPTURE_IFACES_FILE" 2>/dev/null | tr '\n' ' ')
+    [ -n "$CAPTURE_IFACES" ] || CAPTURE_IFACES="wlan0mon"
+    JOBS_FILE="/tmp/wardriving_jobs_${TIMESTAMP}.txt"
+    : > "$JOBS_FILE"
     
-    echo "[*] Starting session: $FILENAME"
-        OPTS=""
+    echo "[*] Starting session: $TIMESTAMP ($CAPTURE_IFACES)"
+    OPTS=""
     if [ -f /etc/wardriving_mode.txt ]; then
         MODE=$(cat /etc/wardriving_mode.txt)
         if [ "$MODE" = "passive" ]; then
@@ -177,36 +212,30 @@ while true; do
         fi
     fi
 
-    # shellcheck disable=SC2086 # OPTS needs word splitting for multi-flag modes
-    hcxdumptool -i wlan0mon -w "$FILENAME" --nmea_dev=/tmp/vGPS --nmea_pcapng --nmea_out="$NMEAFILE" -F -t 3 --tot=1 $OPTS
-    
-    if [ -f "$FILENAME" ]; then
-        remote_read_config
-        if try_remote_extract_capture "$FILENAME" "$REMOTE_BUNDLE"; then
-            :
-        else
-            local_extract_capture "$FILENAME" "$HC2200FILE" "$TMP_ESSID" "$TMP_CSV" /mnt/wardriving/wardriving.db
-            if [ "$EXTRACTION_MODE" = "local" ]; then
-                if [ "$GPU_CRACKING_ENABLED" = "1" ]; then
-                    if [ -n "$REMOTE_URL" ]; then
-                        remote_write_status "local" "0" "local extraction complete"
-                        remote_sync_hashes "/mnt/wardriving/master.hc2200" || true
-                    else
-                        remote_write_status "unconfigured" "0" "missing remote url"
-                    fi
-                else
-                    remote_write_status "local" "0" "local extraction gpu cracking off"
-                fi
-            elif [ "$GPU_CRACKING_ENABLED" = "1" ] && [ -n "$REMOTE_URL" ]; then
-                remote_sync_hashes "/mnt/wardriving/master.hc2200" || true
-            fi
-        fi
-        
-        # Retencion configurable del pcapng
-        if [ ! -f /etc/wardriving_keep_pcap.txt ]; then
-            rm -f "$FILENAME" "$NMEAFILE"
-        fi
-    fi
+    for IFACE in $CAPTURE_IFACES; do
+        FILENAME="/mnt/wardriving/wardriving_${TIMESTAMP}_${IFACE}.pcapng"
+        NMEAFILE="/mnt/wardriving/wardriving_${TIMESTAMP}_${IFACE}.nmea"
+        HC2200FILE="/mnt/wardriving/wardriving_${TIMESTAMP}_${IFACE}.hc2200"
+        TMP_ESSID="/tmp/essid_${TIMESTAMP}_${IFACE}.txt"
+        TMP_CSV="/tmp/csv_${TIMESTAMP}_${IFACE}.txt"
+        REMOTE_BUNDLE="/tmp/extract_bundle_${TIMESTAMP}_${IFACE}.tar.gz"
+        IFACE_LOG="/tmp/wardriving_status_${IFACE}.log"
+        echo "[*] Capturing $IFACE -> $FILENAME"
+        # shellcheck disable=SC2086 # OPTS needs word splitting for multi-flag modes.
+        hcxdumptool -i "$IFACE" -w "$FILENAME" --nmea_dev=/tmp/vGPS --nmea_pcapng --nmea_out="$NMEAFILE" -F -t 3 --tot=1 $OPTS > "$IFACE_LOG" 2>&1 &
+        echo "$IFACE|$!|$FILENAME|$NMEAFILE|$HC2200FILE|$TMP_ESSID|$TMP_CSV|$REMOTE_BUNDLE" >> "$JOBS_FILE"
+    done
+
+    while IFS='|' read -r IFACE PID FILENAME NMEAFILE HC2200FILE TMP_ESSID TMP_CSV REMOTE_BUNDLE; do
+        [ -n "$PID" ] || continue
+        wait "$PID" 2>/dev/null || echo "[-] Capture on $IFACE exited with an error"
+    done < "$JOBS_FILE"
+
+    while IFS='|' read -r IFACE PID FILENAME NMEAFILE HC2200FILE TMP_ESSID TMP_CSV REMOTE_BUNDLE; do
+        [ -n "$IFACE" ] || continue
+        process_capture_file "$IFACE" "$FILENAME" "$NMEAFILE" "$HC2200FILE" "$TMP_ESSID" "$TMP_CSV" "$REMOTE_BUNDLE"
+    done < "$JOBS_FILE"
+    rm -f "$JOBS_FILE"
 
     # Truncate log only when it grows excessively (avoid unnecessary I/O)
     LOG_SIZE=$(wc -l < /tmp/wardriving_status.log 2>/dev/null || echo 0)

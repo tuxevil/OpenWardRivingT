@@ -582,6 +582,27 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ init start stale-process cleanup missing"
 fi
 
+echo "  Test: init.d/wardriving sets up dual radio capture"
+if grep -q "wlan1mon" openwrt_files/etc/init.d/wardriving && grep -q "wifi down radio1" openwrt_files/etc/init.d/wardriving && grep -q "wifi up radio1" openwrt_files/etc/init.d/wardriving && grep -q "wardriving_capture_ifaces" openwrt_files/etc/init.d/wardriving; then
+    PASS=$((PASS + 1)); echo "  ✓ init handles wlan0mon and wlan1mon"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ init dual radio setup missing"
+fi
+
+echo "  Test: core captures configured interfaces"
+if grep -q "WARDRIVING_CAPTURE_IFACES_FILE" openwrt_files/usr/bin/wardriving_core.sh && grep -Fq 'for IFACE in $CAPTURE_IFACES' openwrt_files/usr/bin/wardriving_core.sh && grep -Fq 'wardriving_status_${IFACE}.log' openwrt_files/usr/bin/wardriving_core.sh; then
+    PASS=$((PASS + 1)); echo "  ✓ core launches capture per monitor interface"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ core still assumes a single monitor interface"
+fi
+
+echo "  Test: status merges dual radio logs"
+if grep -q "wardriving_status_wlan0mon.log" openwrt_files/usr/lib/wardriving/handlers/status.sh && grep -q "wardriving_status_wlan1mon.log" openwrt_files/usr/lib/wardriving/handlers/status.sh; then
+    PASS=$((PASS + 1)); echo "  ✓ status reads both radio logs"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ status does not read both radio logs"
+fi
+
 # Test: wardriving_sync.sh syntax
 echo "  Test: wardriving_sync.sh bash syntax"
 if bash -n openwrt_files/usr/bin/wardriving_sync.sh 2>/dev/null; then

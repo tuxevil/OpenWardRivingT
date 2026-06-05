@@ -45,7 +45,13 @@ _EOF
     fi
 fi
 
-LOG_DATA=$(tail -n 250 /tmp/wardriving_status.log 2>/dev/null | tr -cd '\11\12\40-\176')
+LOG_DATA=$(
+    {
+        tail -n 250 /tmp/wardriving_status.log
+        tail -n 250 /tmp/wardriving_status_wlan0mon.log
+        tail -n 250 /tmp/wardriving_status_wlan1mon.log
+    } 2>/dev/null | tr -cd '\11\12\40-\176'
+)
 CLEAN_LOG=$(echo "$LOG_DATA" | awk '/CHA   LAST/{buf=""} {buf = buf $0 "\n"} END{print buf}' | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -cd '\11\12\40-\176')
 [ -z "$CLEAN_LOG" ] && CLEAN_LOG=$(echo "$LOG_DATA" | tail -n 30 | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -cd '\11\12\40-\176')
 if [ -z "$CLEAN_LOG" ]; then

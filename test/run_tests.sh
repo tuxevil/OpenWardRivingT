@@ -115,6 +115,7 @@ setup
 export WARDRIVING_TOKEN_FILE=/tmp/test_wardriving_token
 export WARDRIVING_MNT=/tmp/test_wardriving_mnt
 export WARDRIVING_MODE_FILE=/tmp/test_wardriving_mode
+export WARDRIVING_LIB_DIR="$PWD/openwrt_files/usr/lib/wardriving"
 
 echo ""
 echo "=== CGI Tests ==="
@@ -276,49 +277,56 @@ assert_json "replay_pause returns JSON" "$OUT"
 assert_contains "replay_pause has paused status" "$OUT" "paused"
 
 echo "  Test: frontend has escaping helper"
-if grep -q "function esc" openwrt_files/www/wardriving/index.html && grep -q "esc(n.ssid" openwrt_files/www/wardriving/index.html; then
+if grep -q "function esc" openwrt_files/www/wardriving/app.js && grep -q "esc(n.ssid" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ frontend escaping helper present"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ frontend escaping helper missing"
 fi
 
 echo "  Test: frontend has token injection placeholder"
-if grep -q "API_TOKEN_PLACEHOLDER" openwrt_files/www/wardriving/index.html && grep -q "window.fetch=function" openwrt_files/www/wardriving/index.html; then
+if grep -q "API_TOKEN_PLACEHOLDER" openwrt_files/www/wardriving/app.js && grep -q "window.fetch=function" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ frontend token injection hook present"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ frontend token injection hook missing"
 fi
 
+echo "  Test: frontend static asset split"
+if grep -q 'href="app.css"' openwrt_files/www/wardriving/index.html && grep -q 'src="app.js"' openwrt_files/www/wardriving/index.html && ! grep -q "API_TOKEN_PLACEHOLDER" openwrt_files/www/wardriving/index.html; then
+    PASS=$((PASS + 1)); echo "  ✓ frontend references split app.css/app.js"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ frontend split references missing"
+fi
+
 echo "  Test: frontend replay markers are cumulative"
-if grep -q "function mergeReplayNetworks" openwrt_files/www/wardriving/index.html && grep -q "replayDiscoveredItems={}" openwrt_files/www/wardriving/index.html && grep -q "if(d&&d.length){mergeReplayNetworks" openwrt_files/www/wardriving/index.html; then
+if grep -q "function mergeReplayNetworks" openwrt_files/www/wardriving/app.js && grep -q "replayDiscoveredItems={}" openwrt_files/www/wardriving/app.js && grep -q "if(d&&d.length){mergeReplayNetworks" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ replay marker cache preserves discovered networks"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ replay marker cache missing"
 fi
 
 echo "  Test: frontend replay map has free/follow controls"
-if grep -q "function fitReplayNetworks" openwrt_files/www/wardriving/index.html && grep -q "btnReplayFollow" openwrt_files/www/wardriving/index.html && grep -q "if(replayFollowMode)" openwrt_files/www/wardriving/index.html; then
+if grep -q "function fitReplayNetworks" openwrt_files/www/wardriving/app.js && grep -q "btnReplayFollow" openwrt_files/www/wardriving/index.html && grep -q "if(replayFollowMode)" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ replay map follow controls present"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ replay map follow controls missing"
 fi
 
 echo "  Test: frontend dashboard mode and client layer"
-if grep -q "id=\"dashMode\"" openwrt_files/www/wardriving/index.html && grep -q "function setOperationMode" openwrt_files/www/wardriving/index.html && grep -q "clients_map" openwrt_files/www/wardriving/index.html && grep -q "function drawClientLayer" openwrt_files/www/wardriving/index.html; then
+if grep -q "id=\"dashMode\"" openwrt_files/www/wardriving/index.html && grep -q "function setOperationMode" openwrt_files/www/wardriving/app.js && grep -q "clients_map" openwrt_files/www/wardriving/app.js && grep -q "function drawClientLayer" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ dashboard mode/client layer present"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ dashboard mode/client layer missing"
 fi
 
 echo "  Test: frontend map markers cluster by zoom"
-if grep -q "function clusterMapItems" openwrt_files/www/wardriving/index.html && grep -q "clusterPixelSize" openwrt_files/www/wardriving/index.html && grep -q "zoomend.*refreshVisibleLayers" openwrt_files/www/wardriving/index.html; then
+if grep -q "function clusterMapItems" openwrt_files/www/wardriving/app.js && grep -q "clusterPixelSize" openwrt_files/www/wardriving/app.js && grep -q "zoomend.*refreshVisibleLayers" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ zoom-aware map clustering present"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ zoom-aware map clustering missing"
 fi
 
 echo "  Test: frontend pushes browser GPS while stopped"
-if grep -q "action=gps_push" openwrt_files/www/wardriving/index.html && ! grep -q "if(isRunning).*gps_push" openwrt_files/www/wardriving/index.html; then
+if grep -q "action=gps_push" openwrt_files/www/wardriving/app.js && ! grep -q "if(isRunning).*gps_push" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ browser GPS push is independent of capture state"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ browser GPS push still depends on running state"
@@ -434,6 +442,24 @@ if bash -n openwrt_files/usr/bin/wardriving_replay.sh 2>/dev/null; then
     PASS=$((PASS + 1)); echo "  ✓ wardriving_replay.sh syntax OK"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ wardriving_replay.sh syntax ERROR"
+fi
+
+echo "  Test: wardriving shell libraries syntax"
+LIB_FAIL=0
+for f in openwrt_files/usr/lib/wardriving/*.sh openwrt_files/usr/lib/wardriving/handlers/*.sh; do
+    bash -n "$f" 2>/dev/null || LIB_FAIL=1
+done
+if [ "$LIB_FAIL" -eq 0 ]; then
+    PASS=$((PASS + 1)); echo "  ✓ wardriving shell libraries syntax OK"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ wardriving shell libraries syntax ERROR"
+fi
+
+echo "  Test: gpu_server.py syntax"
+if python3 -m py_compile server_files/gpu_server.py 2>/dev/null; then
+    PASS=$((PASS + 1)); echo "  ✓ gpu_server.py syntax OK"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ gpu_server.py syntax ERROR"
 fi
 
 cleanup

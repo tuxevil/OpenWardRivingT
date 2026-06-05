@@ -25,6 +25,14 @@ jobs:
             openwrt_files/usr/bin/wardriving_clients.sh \
             openwrt_files/usr/bin/wardriving_replay.sh \
             openwrt_files/usr/bin/wardriving_sync.sh \
+            openwrt_files/usr/lib/wardriving/common.sh \
+            openwrt_files/usr/lib/wardriving/db.sh \
+            openwrt_files/usr/lib/wardriving/remote.sh \
+            openwrt_files/usr/lib/wardriving/handlers/status.sh \
+            openwrt_files/usr/lib/wardriving/handlers/captures.sh \
+            openwrt_files/usr/lib/wardriving/handlers/replay.sh \
+            openwrt_files/usr/lib/wardriving/handlers/maps.sh \
+            openwrt_files/usr/lib/wardriving/handlers/settings.sh \
             openwrt_files/etc/init.d/wardriving \
             openwrt_files/www/cgi-bin/wardriving_api \
             test/run_tests.sh
@@ -38,6 +46,14 @@ jobs:
                    openwrt_files/usr/bin/wardriving_clients.sh \
                    openwrt_files/usr/bin/wardriving_replay.sh \
                    openwrt_files/usr/bin/wardriving_sync.sh \
+                   openwrt_files/usr/lib/wardriving/common.sh \
+                   openwrt_files/usr/lib/wardriving/db.sh \
+                   openwrt_files/usr/lib/wardriving/remote.sh \
+                   openwrt_files/usr/lib/wardriving/handlers/status.sh \
+                   openwrt_files/usr/lib/wardriving/handlers/captures.sh \
+                   openwrt_files/usr/lib/wardriving/handlers/replay.sh \
+                   openwrt_files/usr/lib/wardriving/handlers/maps.sh \
+                   openwrt_files/usr/lib/wardriving/handlers/settings.sh \
                    openwrt_files/etc/init.d/wardriving \
                    openwrt_files/www/cgi-bin/wardriving_api; do
             sh -n "$f" || { echo "FAIL: $f"; exit 1; }
@@ -52,6 +68,14 @@ jobs:
                    openwrt_files/usr/bin/wardriving_clients.sh \
                    openwrt_files/usr/bin/wardriving_replay.sh \
                    openwrt_files/usr/bin/wardriving_sync.sh \
+                   openwrt_files/usr/lib/wardriving/common.sh \
+                   openwrt_files/usr/lib/wardriving/db.sh \
+                   openwrt_files/usr/lib/wardriving/remote.sh \
+                   openwrt_files/usr/lib/wardriving/handlers/status.sh \
+                   openwrt_files/usr/lib/wardriving/handlers/captures.sh \
+                   openwrt_files/usr/lib/wardriving/handlers/replay.sh \
+                   openwrt_files/usr/lib/wardriving/handlers/maps.sh \
+                   openwrt_files/usr/lib/wardriving/handlers/settings.sh \
                    openwrt_files/etc/init.d/wardriving \
                    openwrt_files/www/cgi-bin/wardriving_api; do
             busybox sh -n "$f" || { echo "FAIL: $f"; exit 1; }
@@ -76,8 +100,15 @@ jobs:
           python3 -m json.tool openwrt_files/www/wardriving/manifest.json > /dev/null
           echo "✓ manifest.json is valid JSON"
 
+      - name: Validate GPU server syntax
+        run: |
+          python3 -m py_compile server_files/gpu_server.py
+          echo "✓ gpu_server.py syntax OK"
+
       - name: Validate index.html basic structure
         run: |
           grep -q '<!DOCTYPE html>' openwrt_files/www/wardriving/index.html || { echo "FAIL: index.html missing DOCTYPE"; exit 1; }
           grep -q '</html>' openwrt_files/www/wardriving/index.html || { echo "FAIL: index.html missing closing tag"; exit 1; }
+          grep -q 'href="app.css"' openwrt_files/www/wardriving/index.html || { echo "FAIL: index.html missing app.css"; exit 1; }
+          grep -q 'src="app.js"' openwrt_files/www/wardriving/index.html || { echo "FAIL: index.html missing app.js"; exit 1; }
           echo "✓ index.html structure OK"

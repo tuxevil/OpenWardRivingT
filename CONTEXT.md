@@ -8,14 +8,15 @@ It uses a completely serverless backend approach: the "backend" is a collection 
 
 ## 📂 Core Architecture & Files
 
-- **`openwrt_files/www/wardriving/index.html`**: The entire Frontend SPA.
+- **`openwrt_files/www/wardriving/index.html` + `app.css` + `app.js`**: The Frontend SPA.
   - **No Build Step**: It uses raw vanilla JS, CSS variables, and HTML. No React, no Webpack.
+  - **Static Split**: `index.html` carries the DOM shell, `app.css` carries styles, and `app.js` carries dashboard behavior plus the `API_TOKEN_PLACEHOLDER` that `install.sh` replaces.
   - **Theme**: "Cyberpunk" aesthetic. High-contrast colors (green, cyan, magenta) meant to be viewed from a car's Android head unit.
   - **Logic**: Uses `setInterval` to periodically poll the backend via `fetch()`. Polling intervals are carefully tuned (4-10 seconds) to avoid crashing the router's CPU.
 
 - **`openwrt_files/www/cgi-bin/wardriving_api`**: The Backend API.
   - **Pure Shell**: Written in busybox `ash`.
-  - **Stateless CGI**: Every HTTP request forks `/bin/sh` to run this script. It parses the `QUERY_STRING` manually.
+  - **Stateless CGI Dispatcher**: Every HTTP request forks `/bin/sh` to run this script. It sources `/usr/lib/wardriving/common.sh`, `db.sh`, `remote.sh`, and grouped handler modules under `/usr/lib/wardriving/handlers/`.
   - **Authentication**: Requires a `token=` URL parameter on all state-changing endpoints and sensitive read/export endpoints. `status` remains a lightweight public health endpoint. The frontend intercepts `fetch` calls to automatically append `window.API_TOKEN` (which is injected by `install.sh`), and export buttons use the same tokenized URL helper.
   - **JSON Generation**: Uses extensive `awk` scripting to parse logs, SQLite databases, and `hc2200` hash files into raw JSON strings.
 
@@ -25,6 +26,7 @@ It uses a completely serverless backend approach: the "backend" is a collection 
   - Integrates with `sqlite3` to push captured networks into `/mnt/wardriving/wardriving.db`.
   - Dedupes hashes into `/mnt/wardriving/master.hc2200`.
   - Supports optional GPU offload. Uses authenticated JSONL (`X-OWRT-Contract: jsonl`) and validates rows locally before SQLite insert. Legacy remote SQL execution has been removed.
+  - Shares SQLite and remote upload helpers with replay/API through `/usr/lib/wardriving/db.sh` and `/usr/lib/wardriving/remote.sh`.
   - In the test topology, the GPU is reached at `10.128.128.254`; if WireGuard is used, route that host as `10.128.128.254/32` rather than the whole `10.128.128.0/24` when WAN also lives on `10.128.128.0/24`.
   - **Performance Note**: Capture rollover is CPU-heavy. We run these heavy tasks with `nice -n 10` so they don't freeze the router's UI.
 

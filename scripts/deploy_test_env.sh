@@ -36,6 +36,11 @@ test -f openwrt_files/usr/bin/wardriving_core.sh
 test -f openwrt_files/usr/bin/wardriving_clients.sh
 test -f openwrt_files/usr/bin/wardriving_replay.sh
 test -f openwrt_files/www/wardriving/index.html
+test -f openwrt_files/www/wardriving/app.css
+test -f openwrt_files/www/wardriving/app.js
+test -f openwrt_files/usr/lib/wardriving/common.sh
+test -f openwrt_files/usr/lib/wardriving/db.sh
+test -f openwrt_files/usr/lib/wardriving/remote.sh
 test -f server_files/gpu_server.py
 test -f server_files/run_hashcat.sh
 test -f server_files/wardriving_gpu.service
@@ -47,7 +52,7 @@ if [ -z "$REMOTE_SECRET" ]; then
 fi
 
 echo "== Backups =="
-ssh_cmd "$ROUTER_HOST" "set -eu; b=/root/openwardrivingt_deploy_backup_$STAMP; mkdir -p \"\$b\"; cp -f /www/cgi-bin/wardriving_api \"\$b/\" 2>/dev/null || true; cp -f /usr/bin/wardriving_core.sh \"\$b/\" 2>/dev/null || true; cp -f /usr/bin/wardriving_clients.sh \"\$b/\" 2>/dev/null || true; cp -f /usr/bin/wardriving_replay.sh \"\$b/\" 2>/dev/null || true; cp -f /www/wardriving/index.html \"\$b/\" 2>/dev/null || true; cp -f /etc/wardriving_remote_secret \"\$b/\" 2>/dev/null || true; echo \"\$b\""
+ssh_cmd "$ROUTER_HOST" "set -eu; b=/root/openwardrivingt_deploy_backup_$STAMP; mkdir -p \"\$b\"; cp -f /www/cgi-bin/wardriving_api \"\$b/\" 2>/dev/null || true; cp -f /usr/bin/wardriving_core.sh \"\$b/\" 2>/dev/null || true; cp -f /usr/bin/wardriving_clients.sh \"\$b/\" 2>/dev/null || true; cp -f /usr/bin/wardriving_replay.sh \"\$b/\" 2>/dev/null || true; cp -f /www/wardriving/index.html /www/wardriving/app.css /www/wardriving/app.js \"\$b/\" 2>/dev/null || true; cp -rf /usr/lib/wardriving \"\$b/\" 2>/dev/null || true; cp -f /etc/wardriving_remote_secret \"\$b/\" 2>/dev/null || true; echo \"\$b\""
 ssh_cmd "$GPU_HOST" "set -eu; b=/root/openwardrivingt_gpu_deploy_backup_$STAMP; mkdir -p \"\$b\"; cp -f /root/gpu_server.py \"\$b/\" 2>/dev/null || true; cp -f /root/run_hashcat.sh \"\$b/\" 2>/dev/null || true; cp -f /etc/systemd/system/wardriving_gpu.service \"\$b/\" 2>/dev/null || true; echo \"\$b\""
 
 echo "== Deploy router =="
@@ -56,7 +61,18 @@ copy_router openwrt_files/usr/bin/wardriving_core.sh /usr/bin/wardriving_core.sh
 copy_router openwrt_files/usr/bin/wardriving_clients.sh /usr/bin/wardriving_clients.sh
 copy_router openwrt_files/usr/bin/wardriving_replay.sh /usr/bin/wardriving_replay.sh
 copy_router openwrt_files/www/wardriving/index.html /www/wardriving/index.html
-ssh_cmd "$ROUTER_HOST" "set -eu; chmod +x /www/cgi-bin/wardriving_api /usr/bin/wardriving_core.sh /usr/bin/wardriving_clients.sh /usr/bin/wardriving_replay.sh; printf '%s\n' '$REMOTE_SECRET' > /etc/wardriving_remote_secret; chmod 600 /etc/wardriving_remote_secret; printf '1\n' > /etc/wardriving_remote_enabled; printf '%s\n' '$GPU_URL' > /etc/wardriving_remote_url; rm -f /etc/wardriving_remote_allow_sql; sed -i \"s|^[[:space:]]*// API_TOKEN_PLACEHOLDER[[:space:]]*$|window.API_TOKEN = '$ROUTER_TOKEN';|\" /www/wardriving/index.html; ! grep -q API_TOKEN_PLACEHOLDER /www/wardriving/index.html"
+copy_router openwrt_files/www/wardriving/app.css /www/wardriving/app.css
+copy_router openwrt_files/www/wardriving/app.js /www/wardriving/app.js
+ssh_cmd "$ROUTER_HOST" "set -eu; mkdir -p /usr/lib/wardriving/handlers"
+copy_router openwrt_files/usr/lib/wardriving/common.sh /usr/lib/wardriving/common.sh
+copy_router openwrt_files/usr/lib/wardriving/db.sh /usr/lib/wardriving/db.sh
+copy_router openwrt_files/usr/lib/wardriving/remote.sh /usr/lib/wardriving/remote.sh
+copy_router openwrt_files/usr/lib/wardriving/handlers/status.sh /usr/lib/wardriving/handlers/status.sh
+copy_router openwrt_files/usr/lib/wardriving/handlers/captures.sh /usr/lib/wardriving/handlers/captures.sh
+copy_router openwrt_files/usr/lib/wardriving/handlers/replay.sh /usr/lib/wardriving/handlers/replay.sh
+copy_router openwrt_files/usr/lib/wardriving/handlers/maps.sh /usr/lib/wardriving/handlers/maps.sh
+copy_router openwrt_files/usr/lib/wardriving/handlers/settings.sh /usr/lib/wardriving/handlers/settings.sh
+ssh_cmd "$ROUTER_HOST" "set -eu; chmod +x /www/cgi-bin/wardriving_api /usr/bin/wardriving_core.sh /usr/bin/wardriving_clients.sh /usr/bin/wardriving_replay.sh; chmod 644 /usr/lib/wardriving/*.sh /usr/lib/wardriving/handlers/*.sh /www/wardriving/app.css /www/wardriving/app.js; printf '%s\n' '$REMOTE_SECRET' > /etc/wardriving_remote_secret; chmod 600 /etc/wardriving_remote_secret; printf '1\n' > /etc/wardriving_remote_enabled; printf '%s\n' '$GPU_URL' > /etc/wardriving_remote_url; rm -f /etc/wardriving_remote_allow_sql; sed -i \"s|^[[:space:]]*// API_TOKEN_PLACEHOLDER[[:space:]]*$|window.API_TOKEN = '$ROUTER_TOKEN';|\" /www/wardriving/app.js; ! grep -q API_TOKEN_PLACEHOLDER /www/wardriving/app.js"
 
 echo "== Deploy GPU =="
 copy_gpu server_files/gpu_server.py /root/gpu_server.py

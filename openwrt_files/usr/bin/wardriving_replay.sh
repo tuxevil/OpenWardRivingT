@@ -4,6 +4,12 @@
 set -u
 
 WARD_MNT="${WARDRIVING_MNT:-/mnt/wardriving}"
+LIB_DIR="${WARDRIVING_LIB_DIR:-/usr/lib/wardriving}"
+# shellcheck disable=SC1091 # Runtime path is provided by the OpenWrt installer.
+. "$LIB_DIR/db.sh"
+# shellcheck disable=SC1091 # Runtime path is provided by the OpenWrt installer.
+. "$LIB_DIR/remote.sh"
+
 CSV_FILE="${1:-}"
 DELAY_MS="${2:-500}"
 RADIUS_M="${3:-75}"
@@ -244,41 +250,8 @@ record_discovered() {
     fi
 }
 
-insert_jsonl_rows() {
-    _jsonl="$1"
-    [ -s "$_jsonl" ] || return 0
-    command -v sqlite3 >/dev/null 2>&1 || return 0
-    sqlite3 "$WARD_MNT/wardriving.db" "CREATE TABLE IF NOT EXISTS networks (mac TEXT PRIMARY KEY, ssid TEXT, enc TEXT, channel INTEGER, lat REAL, lon REAL, first_seen DATETIME, last_seen DATETIME, rssi INTEGER);"
-    while IFS= read -r line; do
-        MAC=$(echo "$line" | sed -n 's/.*"mac":"\([^"]*\)".*/\1/p' | tr -cd 'a-fA-F0-9:')
-        SSID_B64=$(echo "$line" | sed -n 's/.*"ssid_b64":"\([^"]*\)".*/\1/p' | tr -cd 'A-Za-z0-9+/=')
-        ENC=$(echo "$line" | sed -n 's/.*"enc":"\([^"]*\)".*/\1/p' | sed "s/'/''/g" | tr -cd '[:print:]')
-        CHAN=$(echo "$line" | sed -n 's/.*"channel":\([-0-9]*\).*/\1/p' | tr -cd '0-9-')
-        LAT=$(echo "$line" | sed -n 's/.*"lat":\([^,}]*\).*/\1/p' | tr -cd '0-9.-')
-        LON=$(echo "$line" | sed -n 's/.*"lon":\([^,}]*\).*/\1/p' | tr -cd '0-9.-')
-        RSSI=$(echo "$line" | sed -n 's/.*"rssi":\([-0-9]*\).*/\1/p' | tr -cd '0-9-')
-        case "$MAC" in
-            [0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]) ;;
-            *) continue ;;
-        esac
-        [ -z "$CHAN" ] && CHAN=0
-        [ -z "$RSSI" ] && RSSI=0
-        [ -z "$LAT" ] && LAT="NULL"
-        [ -z "$LON" ] && LON="NULL"
-        SSID=$(printf "%s" "$SSID_B64" | base64 -d 2>/dev/null | sed "s/'/''/g" | tr -cd '[:print:]')
-        [ -z "$SSID" ] && continue
-        sqlite3 "$WARD_MNT/wardriving.db" "INSERT INTO networks (mac, ssid, enc, channel, lat, lon, first_seen, last_seen, rssi) VALUES ('$MAC', '$SSID', '$ENC', $CHAN, $LAT, $LON, datetime('now'), datetime('now'), $RSSI) ON CONFLICT(mac) DO UPDATE SET ssid=EXCLUDED.ssid, enc=EXCLUDED.enc, channel=EXCLUDED.channel, lat=EXCLUDED.lat, lon=EXCLUDED.lon, last_seen=EXCLUDED.last_seen, rssi=EXCLUDED.rssi;" 2>/dev/null || true
-    done < "$_jsonl"
-}
-
 process_queue() {
-    REMOTE_ENABLED="0"
-    [ -f /etc/wardriving_remote_enabled ] && REMOTE_ENABLED=$(cat /etc/wardriving_remote_enabled)
-    REMOTE_URL=""
-    [ -f /etc/wardriving_remote_url ] && REMOTE_URL=$(cat /etc/wardriving_remote_url)
-    REMOTE_SECRET=""
-    [ -f /etc/wardriving_remote_secret ] && REMOTE_SECRET=$(cat /etc/wardriving_remote_secret)
-    [ -z "$REMOTE_SECRET" ] && [ -f /etc/wardriving_api_token ] && REMOTE_SECRET=$(cat /etc/wardriving_api_token)
+    remote_read_config
     while [ ! -f "$STOPFILE" ]; do
         CAP=$(awk 'NF{print; exit}' "$QUEUE" 2>/dev/null)
         if [ -z "$CAP" ]; then
@@ -292,16 +265,10 @@ process_queue() {
         append_event "gpu" "processing $(basename "$CAP")"
         if [ "$REMOTE_ENABLED" = "1" ] && [ -n "$REMOTE_URL" ]; then
             RESP="$WORK/response_$(date +%s)_$$.jsonl"
-            AUTH_HEADER=""
-            [ -n "$REMOTE_SECRET" ] && AUTH_HEADER="X-OWRT-Token: $REMOTE_SECRET"
-            if [ -n "$AUTH_HEADER" ]; then
-                HTTP=$(curl -s -o "$RESP" -w "%{http_code}" -X POST -H "X-OWRT-Contract: jsonl" -H "$AUTH_HEADER" -F "pcap=@$CAP" "$REMOTE_URL" --connect-timeout 10)
-            else
-                HTTP=$(curl -s -o "$RESP" -w "%{http_code}" -X POST -H "X-OWRT-Contract: jsonl" -F "pcap=@$CAP" "$REMOTE_URL" --connect-timeout 10)
-            fi
+            HTTP=$(remote_upload_capture "$CAP" "$RESP")
             if [ "$HTTP" = "200" ]; then
                 ADDED=$(grep -c '"mac"' "$RESP" 2>/dev/null || echo 0)
-                insert_jsonl_rows "$RESP"
+                db_insert_jsonl_rows "$RESP" "$WARD_MNT/wardriving.db"
                 echo "$CAP" >> "$DONE_QUEUE"
                 append_event "gpu" "GPU processed $(basename "$CAP") and returned $ADDED rows"
             else
@@ -365,7 +332,7 @@ LAST_LAT=0
 LAST_LON=0
 CRACKS_START=$(read_cracks)
 
-while IFS='	' read -r TS MAC SSID CHAN RSSI LAT LON; do
+while IFS='	' read -r TS MAC SSID _ RSSI LAT LON; do
     IDX=$((IDX + 1))
     [ "$IDX" -le "$START_INDEX" ] && continue
 
@@ -384,7 +351,7 @@ while IFS='	' read -r TS MAC SSID CHAN RSSI LAT LON; do
         SEEK=$(cat "$SEEKFILE" 2>/dev/null | tr -cd '0-9')
         rm -f "$SEEKFILE"
         if [ -n "$SEEK" ] && [ "$SEEK" -gt "$IDX" ] 2>/dev/null; then
-            while [ "$IDX" -lt "$SEEK" ] && IFS='	' read -r TS MAC SSID CHAN RSSI LAT LON; do
+            while [ "$IDX" -lt "$SEEK" ] && IFS='	' read -r TS MAC SSID _ RSSI LAT LON; do
                 IDX=$((IDX + 1))
             done
         fi

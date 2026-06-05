@@ -11,6 +11,12 @@ cleanup() {
 }
 trap cleanup SIGTERM SIGINT SIGHUP
 
+LIB_DIR="${WARDRIVING_LIB_DIR:-/usr/lib/wardriving}"
+# shellcheck disable=SC1091 # Runtime path is provided by the OpenWrt installer.
+. "$LIB_DIR/db.sh"
+# shellcheck disable=SC1091 # Runtime path is provided by the OpenWrt installer.
+. "$LIB_DIR/remote.sh"
+
 # Start virtual GPS server if it doesn't exist
 pkill -f "socat.*vGPS" 2>/dev/null
 rm -f /tmp/vGPS_fifo
@@ -30,19 +36,6 @@ blink_led() {
         usleep 100000 2>/dev/null || sleep 1
         echo "$_current" > "/sys/class/leds/$_LED/brightness"
     fi
-}
-
-write_remote_status() {
-    _state="$1"
-    _code="$2"
-    _msg="$3"
-    _ts=$(date +%s)
-    {
-        echo "state=$_state"
-        echo "code=$_code"
-        echo "message=$_msg"
-        echo "updated=$_ts"
-    } > /tmp/wardriving_remote_status
 }
 
 USB_FULL_COUNT=0
@@ -103,134 +96,76 @@ while true; do
     hcxdumptool -i wlan0mon -w "$FILENAME" --nmea_dev=/tmp/vGPS --nmea_pcapng --nmea_out="$NMEAFILE" -F -t 3 --tot=1 $OPTS
     
     if [ -f "$FILENAME" ]; then
-        REMOTE_ENABLED="0"
-        [ -f /etc/wardriving_remote_enabled ] && REMOTE_ENABLED=$(cat /etc/wardriving_remote_enabled)
-        REMOTE_URL=""
-        [ -f /etc/wardriving_remote_url ] && REMOTE_URL=$(cat /etc/wardriving_remote_url)
-        REMOTE_SECRET=""
-        [ -f /etc/wardriving_remote_secret ] && REMOTE_SECRET=$(cat /etc/wardriving_remote_secret)
-        [ -z "$REMOTE_SECRET" ] && [ -f /etc/wardriving_api_token ] && REMOTE_SECRET=$(cat /etc/wardriving_api_token)
-        
+        remote_read_config
         PROCESSED_REMOTE=0
+        REMOTE_RESPONSE="/tmp/respuesta_server_${TIMESTAMP}.jsonl"
         if [ "$REMOTE_ENABLED" = "1" ] && [ -n "$REMOTE_URL" ]; then
             echo "[*] Sending $FILENAME to remote server ($REMOTE_URL) ..."
-            write_remote_status "uploading" "0" "sending capture"
-            AUTH_HEADER=""
-            [ -n "$REMOTE_SECRET" ] && AUTH_HEADER="X-OWRT-Token: $REMOTE_SECRET"
-            if [ -n "$AUTH_HEADER" ]; then
-                HTTP_CODE=$(curl -s -o "/tmp/respuesta_server.jsonl" -w "%{http_code}" -X POST -H "X-OWRT-Contract: jsonl" -H "$AUTH_HEADER" -F "pcap=@$FILENAME" "$REMOTE_URL" --connect-timeout 10 -m 15)
-            else
-                HTTP_CODE=$(curl -s -o "/tmp/respuesta_server.jsonl" -w "%{http_code}" -X POST -H "X-OWRT-Contract: jsonl" -F "pcap=@$FILENAME" "$REMOTE_URL" --connect-timeout 10 -m 15)
-            fi
+            remote_write_status "uploading" "0" "sending capture"
+            HTTP_CODE=$(remote_upload_capture "$FILENAME" "$REMOTE_RESPONSE")
             if [ "$HTTP_CODE" = "200" ]; then
                 echo "[+] Remote server processed capture successfully."
-                write_remote_status "ok" "$HTTP_CODE" "remote processed"
+                remote_write_status "ok" "$HTTP_CODE" "remote processed"
                 PROCESSED_REMOTE=1
                 
-                if [ -s "/tmp/respuesta_server.jsonl" ] && grep -q '"mac"' /tmp/respuesta_server.jsonl 2>/dev/null; then
-                    sqlite3 /mnt/wardriving/wardriving.db "CREATE TABLE IF NOT EXISTS networks (mac TEXT PRIMARY KEY, ssid TEXT, enc TEXT, channel INTEGER, lat REAL, lon REAL, first_seen DATETIME, last_seen DATETIME, rssi INTEGER);"
-                    sqlite3 /mnt/wardriving/wardriving.db "PRAGMA journal_mode=WAL; CREATE INDEX IF NOT EXISTS idx_last_seen ON networks(last_seen);" > /dev/null 2>&1
-                    while IFS= read -r line; do
-                        MAC=$(echo "$line" | sed -n 's/.*"mac":"\([^"]*\)".*/\1/p' | tr -cd 'a-fA-F0-9:')
-                        SSID_B64=$(echo "$line" | sed -n 's/.*"ssid_b64":"\([^"]*\)".*/\1/p' | tr -cd 'A-Za-z0-9+/=')
-                        ENC=$(echo "$line" | sed -n 's/.*"enc":"\([^"]*\)".*/\1/p' | sed "s/'/''/g" | tr -cd '[:print:]')
-                        CHAN=$(echo "$line" | sed -n 's/.*"channel":\([-0-9]*\).*/\1/p' | tr -cd '0-9-')
-                        LAT=$(echo "$line" | sed -n 's/.*"lat":\([^,}]*\).*/\1/p' | tr -cd '0-9.-')
-                        LON=$(echo "$line" | sed -n 's/.*"lon":\([^,}]*\).*/\1/p' | tr -cd '0-9.-')
-                        RSSI=$(echo "$line" | sed -n 's/.*"rssi":\([-0-9]*\).*/\1/p' | tr -cd '0-9-')
-                        case "$MAC" in
-                            [0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]) ;;
-                            *) continue ;;
-                        esac
-                        [ -z "$CHAN" ] && CHAN=0
-                        [ -z "$RSSI" ] && RSSI=0
-                        [ -z "$LAT" ] && LAT="NULL"
-                        [ -z "$LON" ] && LON="NULL"
-                        SSID=$(printf "%s" "$SSID_B64" | base64 -d 2>/dev/null | sed "s/'/''/g" | tr -cd '[:print:]')
-                        [ -z "$SSID" ] && continue
-                        [ "$RSSI" -gt 0 ] 2>/dev/null && continue
-                        sqlite3 /mnt/wardriving/wardriving.db "INSERT INTO networks (mac, ssid, enc, channel, lat, lon, first_seen, last_seen, rssi) VALUES ('$MAC', '$SSID', '$ENC', $CHAN, $LAT, $LON, datetime('now'), datetime('now'), $RSSI) ON CONFLICT(mac) DO UPDATE SET ssid=EXCLUDED.ssid, enc=EXCLUDED.enc, channel=EXCLUDED.channel, lat=EXCLUDED.lat, lon=EXCLUDED.lon, last_seen=EXCLUDED.last_seen, rssi=EXCLUDED.rssi;"
-                    done < /tmp/respuesta_server.jsonl
+                if [ -s "$REMOTE_RESPONSE" ] && grep -q '"mac"' "$REMOTE_RESPONSE" 2>/dev/null; then
+                    db_insert_jsonl_rows "$REMOTE_RESPONSE" /mnt/wardriving/wardriving.db
                 fi
                 /usr/bin/wardriving_clients.sh "$FILENAME" "/tmp/client_csv_${TIMESTAMP}.txt" /mnt/wardriving/wardriving.db 2>/dev/null || true
                 rm -f "/tmp/client_csv_${TIMESTAMP}.txt"
-                rm -f "/tmp/respuesta_server.jsonl"
+                rm -f "$REMOTE_RESPONSE"
                 rm -f "$FILENAME" "$NMEAFILE"
-                # Sync offline hashes si existen
-                if [ -s "/mnt/wardriving/master.hc2200" ]; then
-                    SYNC_URL=$(echo "$REMOTE_URL" | sed 's|/upload|/upload_hc2200|')
-                    echo "[*] Syncing offline hashes to $SYNC_URL ..."
-                    if [ -n "$AUTH_HEADER" ]; then
-                        SYNC_HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "$AUTH_HEADER" -F "hc2200=@/mnt/wardriving/master.hc2200" "$SYNC_URL" --connect-timeout 10 -m 15)
-                    else
-                        SYNC_HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST -F "hc2200=@/mnt/wardriving/master.hc2200" "$SYNC_URL" --connect-timeout 10 -m 15)
-                    fi
-                    if [ "$SYNC_HTTP" = "200" ]; then
-                        echo "[+] Offline hashes synced successfully."
-                        write_remote_status "synced" "$SYNC_HTTP" "hashes synced"
-                        rm -f "/mnt/wardriving/master.hc2200"
-                    else
-                        echo "[-] Failed to sync offline hashes (Code: $SYNC_HTTP). Will retry later."
-                        write_remote_status "sync_error" "$SYNC_HTTP" "hash sync failed"
-                    fi
-                fi
             else
                 echo "[-] Remote server failed (Code: $HTTP_CODE). Falling back to local processing..."
-                write_remote_status "fallback" "$HTTP_CODE" "using local processing"
+                remote_write_status "fallback" "$HTTP_CODE" "using local processing"
             fi
         elif [ "$REMOTE_ENABLED" = "1" ]; then
-            write_remote_status "unconfigured" "0" "missing remote url"
+            remote_write_status "unconfigured" "0" "missing remote url"
         else
-            write_remote_status "local" "0" "remote disabled"
+            remote_write_status "local" "0" "remote disabled"
         fi
 
-        if true; then # ALWAYS PARSE LOCALLY FOR SQLITE
+        if [ "$PROCESSED_REMOTE" = "0" ]; then
             echo "[*] Converting $FILENAME to $HC2200FILE"
             nice -n 10 hcxpcapngtool -o "$HC2200FILE" -E "$TMP_ESSID" --csv="/tmp/csv_${TIMESTAMP}.txt" "$FILENAME" > /dev/null 2>&1
             /usr/bin/wardriving_clients.sh "$FILENAME" "/tmp/csv_${TIMESTAMP}.txt" /mnt/wardriving/wardriving.db 2>/dev/null || true
-            
+
             # SQLite Integration
             if command -v sqlite3 >/dev/null 2>&1 && [ -s "/tmp/csv_${TIMESTAMP}.txt" ]; then
-                sqlite3 /mnt/wardriving/wardriving.db "CREATE TABLE IF NOT EXISTS networks (mac TEXT PRIMARY KEY, ssid TEXT, enc TEXT, channel INTEGER, lat REAL, lon REAL, first_seen DATETIME, last_seen DATETIME, rssi INTEGER);"
-                sqlite3 /mnt/wardriving/wardriving.db "PRAGMA journal_mode=WAL; CREATE INDEX IF NOT EXISTS idx_last_seen ON networks(last_seen);" > /dev/null 2>&1
-                
-                cat << 'AWK_EOF' > /tmp/parse.awk
-BEGIN { FS="	" }
-{
-    mac=$3; ssid=$4; enc=$5$6$7; chan=$9; rssi=$10;
-    lat=$11; lat_dir=$12; lon=$13; lon_dir=$14;
-    if (mac !~ /^[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]$/) next
-    if (ssid == "" || rssi > 0) next
-    gsub(/'/, "''", ssid)
-    lat_dd="NULL"; lon_dd="NULL"
-    
-    if (lat != "" && lat != "0.000000") {
-        idx = index(lat, ".")
-        deg_len = (idx >= 3) ? idx - 3 : 2
-        if(deg_len <= 0) deg_len = 1
-        deg = substr(lat, 1, deg_len)
-        min = substr(lat, deg_len + 1)
-        lat_dd = deg + (min / 60)
-        if (lat_dir == "S") lat_dd = -lat_dd
-    }
-    if (lon != "" && lon != "0.000000") {
-        idx = index(lon, ".")
-        deg_len = (idx >= 3) ? idx - 3 : 3
-        if(deg_len <= 0) deg_len = 1
-        deg = substr(lon, 1, deg_len)
-        min = substr(lon, deg_len + 1)
-        lon_dd = deg + (min / 60)
-        if (lon_dir == "W") lon_dd = -lon_dd
-    }
+                db_init_networks /mnt/wardriving/wardriving.db
 
-    printf "INSERT INTO networks (mac, ssid, enc, channel, lat, lon, first_seen, last_seen, rssi) VALUES ('%s', '%s', '%s', %d, %s, %s, datetime('now'), datetime('now'), %d) ON CONFLICT(mac) DO UPDATE SET last_seen=datetime('now'), rssi=EXCLUDED.rssi;
-", mac, ssid, enc, chan, lat_dd, lon_dd, rssi
-}
-AWK_EOF
-                awk -f /tmp/parse.awk "/tmp/csv_${TIMESTAMP}.txt" > "/tmp/sql_${TIMESTAMP}.sql"
+                awk -F'	' '{
+                    mac=$3; ssid=$4; enc=$5$6$7; chan=$9; rssi=$10;
+                    lat=$11; lat_dir=$12; lon=$13; lon_dir=$14;
+                    if (mac !~ /^[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]$/) next
+                    if (ssid == "" || rssi > 0) next
+                    gsub(/\047/, "\047\047", ssid)
+                    lat_dd="NULL"; lon_dd="NULL"
+
+                    if (lat != "" && lat != "0.000000") {
+                        idx = index(lat, ".")
+                        deg_len = (idx >= 3) ? idx - 3 : 2
+                        if(deg_len <= 0) deg_len = 1
+                        deg = substr(lat, 1, deg_len)
+                        min = substr(lat, deg_len + 1)
+                        lat_dd = deg + (min / 60)
+                        if (lat_dir == "S") lat_dd = -lat_dd
+                    }
+                    if (lon != "" && lon != "0.000000") {
+                        idx = index(lon, ".")
+                        deg_len = (idx >= 3) ? idx - 3 : 3
+                        if(deg_len <= 0) deg_len = 1
+                        deg = substr(lon, 1, deg_len)
+                        min = substr(lon, deg_len + 1)
+                        lon_dd = deg + (min / 60)
+                        if (lon_dir == "W") lon_dd = -lon_dd
+                    }
+
+                    printf "INSERT INTO networks (mac, ssid, enc, channel, lat, lon, first_seen, last_seen, rssi) VALUES (\047%s\047, \047%s\047, \047%s\047, %d, %s, %s, datetime(\047now\047), datetime(\047now\047), %d) ON CONFLICT(mac) DO UPDATE SET last_seen=datetime(\047now\047), rssi=EXCLUDED.rssi;\n", mac, ssid, enc, chan, lat_dd, lon_dd, rssi
+                }' "/tmp/csv_${TIMESTAMP}.txt" > "/tmp/sql_${TIMESTAMP}.sql"
                 
                 nice -n 10 sqlite3 /mnt/wardriving/wardriving.db < "/tmp/sql_${TIMESTAMP}.sql"
-                ls -la "/tmp/csv_${TIMESTAMP}.txt" "/tmp/sql_${TIMESTAMP}.sql"
+                rm -f "/tmp/csv_${TIMESTAMP}.txt" "/tmp/sql_${TIMESTAMP}.sql"
             fi
             
             # Si la conversión generó un hash
@@ -251,26 +186,12 @@ AWK_EOF
                 rm -f "$TMP_ESSID"
             fi
         fi
+
+        remote_sync_hashes "/mnt/wardriving/master.hc2200" || true
         
         # Retencion configurable del pcapng
         if [ ! -f /etc/wardriving_keep_pcap.txt ]; then
             rm -f "$FILENAME" "$NMEAFILE"
-                # Sync offline hashes si existen
-                if [ "$REMOTE_ENABLED" = "1" ] && [ -n "$REMOTE_URL" ] && [ -s "/mnt/wardriving/master.hc2200" ]; then
-                    SYNC_URL=$(echo "$REMOTE_URL" | sed 's|/upload|/upload_hc2200|')
-                    echo "[*] Syncing offline hashes to $SYNC_URL ..."
-                    if [ -n "$AUTH_HEADER" ]; then
-                        SYNC_HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST -H "$AUTH_HEADER" -F "hc2200=@/mnt/wardriving/master.hc2200" "$SYNC_URL" --connect-timeout 10 -m 15)
-                    else
-                        SYNC_HTTP=$(curl -s -o /dev/null -w "%{http_code}" -X POST -F "hc2200=@/mnt/wardriving/master.hc2200" "$SYNC_URL" --connect-timeout 10 -m 15)
-                    fi
-                    if [ "$SYNC_HTTP" = "200" ]; then
-                        echo "[+] Offline hashes synced successfully."
-                        rm -f "/mnt/wardriving/master.hc2200"
-                    else
-                        echo "[-] Failed to sync offline hashes (Code: $SYNC_HTTP). Will retry later."
-                    fi
-                fi
         fi
     fi
 

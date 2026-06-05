@@ -80,9 +80,9 @@ chmod +x /usr/bin/wardriving_sync.sh
 chmod +x /etc/init.d/wardriving
 chmod +x /www/cgi-bin/wardriving_api
 
-# Inject API token into dashboard (for authenticated API calls)
-if [ -f /www/wardriving/index.html ] && [ -n "$API_TOKEN" ]; then
-    sed -i "s|^\([[:space:]]*\)// API_TOKEN_PLACEHOLDER[[:space:]]*$|\1window.API_TOKEN = '$API_TOKEN';|" /www/wardriving/index.html
+# Inject API token into dashboard JS (for authenticated API calls)
+if [ -f /www/wardriving/app.js ] && [ -n "$API_TOKEN" ]; then
+    sed -i "s|^\([[:space:]]*\)// API_TOKEN_PLACEHOLDER[[:space:]]*$|\1window.API_TOKEN = '$API_TOKEN';|" /www/wardriving/app.js
 fi
 
 # Ensure symlink for capture files

@@ -68,14 +68,16 @@ bd close <id>         # Complete work
 
 ### Layer 3: API (`wardriving_api` CGI)
 - Shell CGI under uhttpd at `/cgi-bin/wardriving_api`
+- Dispatcher sources shared modules from `/usr/lib/wardriving/` and grouped handlers from `/usr/lib/wardriving/handlers/`
 - Token-authenticated for write operations and sensitive read/export operations (read from `/etc/wardriving_api_token`)
 - Public endpoint: status
 - Sensitive read/export endpoints: map_data, heatmap_data, scored_networks, history, list_files, cracked_networks, export_*.
 - Write endpoints: start, stop, delete_file, set_hw, set_processing, wigle_upload, upload_tiles, upload_potfile, pwnagotchi_sync.
 - Remote GPU processing uses authenticated JSONL only. The router validates each row before SQLite insert.
 
-### Layer 4: Web Dashboard (`index.html`)
+### Layer 4: Web Dashboard (`index.html`, `app.css`, `app.js`)
 - Single-page app, 4-column responsive layout (car head unit optimized)
+- No build step: HTML shell, CSS, and vanilla JS are split into static files deployed directly
 - Leaflet.js maps with offline/online tile toggle
 - Live spectrum analyzer (accordion tree view)
 - Real-time stats via polling (status every 3s, map every 4s, scores every 5s)
@@ -137,12 +139,15 @@ echo '$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A' | aw
 
 ### CGI Patterns
 - **Auth**: Extract token, check against `/etc/wardriving_api_token` for write actions and sensitive read/export actions. `action=status` is the **only** public (token-free) endpoint — explicitly documented to clarify attack surface.
+- **Dispatcher**: Keep `/www/cgi-bin/wardriving_api` thin. Add endpoint behavior to the grouped handler modules under `/usr/lib/wardriving/handlers/`.
+- **Shared helpers**: Put query/auth/JSON helpers in `common.sh`, SQLite/hash helpers in `db.sh`, and GPU upload/status helpers in `remote.sh`.
 - **Response**: Always emit `Content-Type` header + blank line before body
 - **JSON**: Build manually with `cat << JSON` heredocs. Validate with `python3 -m json.tool`
 - **NMEA parsing**: Extract to shared `parse_nmea()` function. Do NOT copy-paste the awk block.
 
 ### JavaScript (Dashboard)
 - **No build step**: Vanilla JS only. No npm, no bundler.
+- **Static split**: Keep behavior in `app.js`, styles in `app.css`, and the DOM shell in `index.html`.
 - **localStorage**: Only for UI preferences (night mode, map toggle, audio). Never for secrets.
 - **Polling**: `setInterval` for status(3s), map(4s), scores(5s). Respect router CPU.
 - **Fetch override**: Monkey-patched with auth token injection. All `fetch()` calls auto-include token.

@@ -3,6 +3,8 @@ self.addEventListener('install', (e) => {
     caches.open('owrt-store').then((cache) => cache.addAll([
       './',
       './index.html',
+      './app.css',
+      './app.js',
       './leaflet.css',
       './leaflet.js',
       './leaflet-heat.js',

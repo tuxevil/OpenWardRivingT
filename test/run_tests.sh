@@ -451,6 +451,13 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ browser GPS push still depends on running state"
 fi
 
+echo "  Test: gps_push does not block without vGPS reader"
+if grep -q "socat.*vGPS" openwrt_files/usr/lib/wardriving/handlers/status.sh && grep -q "printf.*vGPS_fifo" openwrt_files/usr/lib/wardriving/handlers/status.sh; then
+    PASS=$((PASS + 1)); echo "  ✓ gps_push gates FIFO writes on active socat reader"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ gps_push can still write to FIFO without reader"
+fi
+
 echo ""
 echo "=== NMEA Parser Tests ==="
 

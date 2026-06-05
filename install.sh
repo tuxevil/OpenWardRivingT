@@ -80,6 +80,16 @@ chmod +x /usr/bin/wardriving_sync.sh
 chmod +x /etc/init.d/wardriving
 chmod +x /www/cgi-bin/wardriving_api
 
+# Leave enough uhttpd workers for LuCI and dashboard polling to coexist.
+if command -v uci >/dev/null 2>&1 && uci -q get uhttpd.main >/dev/null 2>&1; then
+    UHTTPD_MAX_REQUESTS=$(uci -q get uhttpd.main.max_requests 2>/dev/null || echo 0)
+    case "$UHTTPD_MAX_REQUESTS" in ''|*[!0-9]*) UHTTPD_MAX_REQUESTS=0 ;; esac
+    if [ "$UHTTPD_MAX_REQUESTS" -lt 12 ]; then
+        uci set uhttpd.main.max_requests='12'
+        uci commit uhttpd
+    fi
+fi
+
 # Inject API token into dashboard JS (for authenticated API calls)
 if [ -f /www/wardriving/app.js ] && [ -n "$API_TOKEN" ]; then
     sed -i "s|^\([[:space:]]*\)// API_TOKEN_PLACEHOLDER[[:space:]]*$|\1window.API_TOKEN = '$API_TOKEN';|" /www/wardriving/app.js

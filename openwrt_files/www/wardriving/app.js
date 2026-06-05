@@ -79,6 +79,7 @@ function switchTab(id,el){
   if(el)el.classList.add('active');
   if(id==='dashboard')setTimeout(()=>{if(map)map.invalidateSize()},300);
   if(id==='replay')setTimeout(()=>{if(replayMap)replayMap.invalidateSize();loadReplayStatus();},300);
+  if(id==='settings')loadExclusions(true);
   if(id==='history')loadHistory();
 }
 
@@ -577,11 +578,12 @@ loadProcessing();
 
 // EXCLUSIONS & TARGETS
 
-function loadExclusions(){fetch('/cgi-bin/wardriving_api?action=get_exclusions').then(r=>r.json()).then(d=>{excludedSSIDs=d||[];renderExclusions();});}
+function settingsVisible(){let v=document.getElementById('view-settings');return !!(v&&v.classList.contains('active'));}
+function loadExclusions(force){if(!force&&!settingsVisible())return;fetch('/cgi-bin/wardriving_api?action=get_exclusions').then(r=>r.json()).then(d=>{excludedSSIDs=d||[];renderExclusions();});}
 function renderExclusions(){let c=document.getElementById('exclusionsList');if(!c)return;c.innerHTML='';if(!excludedSSIDs.length){c.innerHTML='<span style="color:var(--c-dim)">None</span>';return;}excludedSSIDs.forEach(s=>{let d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:8px;border:1px solid var(--border);margin-bottom:4px;border-radius:6px';d.innerHTML='<span>'+esc(s)+'</span><button class="btn small" style="border-color:var(--c-red);color:var(--c-red);min-width:60px;min-height:30px" onclick="removeExclusion(\''+encodeURIComponent(s)+'\')">✕</button>';c.appendChild(d);});}
-function addExclusion(){let v=document.getElementById('newExclusion').value.trim();if(!v)return;fetch('/cgi-bin/wardriving_api?action=add_exclusion&ssid='+encodeURIComponent(v)).then(()=>{document.getElementById('newExclusion').value='';loadExclusions();});}
-function removeExclusion(s){fetch('/cgi-bin/wardriving_api?action=remove_exclusion&ssid='+s).then(()=>loadExclusions());}
-loadExclusions();setInterval(loadExclusions,10000);
+function addExclusion(){let v=document.getElementById('newExclusion').value.trim();if(!v)return;fetch('/cgi-bin/wardriving_api?action=add_exclusion&ssid='+encodeURIComponent(v)).then(()=>{document.getElementById('newExclusion').value='';loadExclusions(true);});}
+function removeExclusion(s){fetch('/cgi-bin/wardriving_api?action=remove_exclusion&ssid='+s).then(()=>loadExclusions(true));}
+loadExclusions();setInterval(loadExclusions,30000);
 function loadTargets(){fetch('/cgi-bin/wardriving_api?action=get_targets').then(r=>r.json()).then(d=>{targetMacs=d||[];renderTargets();});}
 function renderTargets(){let c=document.getElementById('targetsList');if(!c)return;c.innerHTML='';targetMacs.forEach(m=>{let d=document.createElement('div');d.style.cssText='display:flex;justify-content:space-between;padding:8px;border:1px solid var(--c-red);margin-bottom:4px;border-radius:6px';d.innerHTML='<span style="color:var(--c-red);font-weight:bold">'+esc(m)+'</span><button class="btn small" style="border-color:var(--c-red);color:var(--c-red);min-width:60px;min-height:30px" onclick="removeTarget(\''+encodeURIComponent(m)+'\')">✕</button>';c.appendChild(d);});}
 function addTarget(){let m=document.getElementById('newTarget').value.trim().toUpperCase();if(!m)return;fetch('/cgi-bin/wardriving_api?action=add_target&mac='+encodeURIComponent(m)).then(()=>{document.getElementById('newTarget').value='';loadTargets();});}

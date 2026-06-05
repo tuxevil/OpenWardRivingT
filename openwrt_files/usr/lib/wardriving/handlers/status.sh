@@ -42,7 +42,7 @@ _EOF
     fi
 fi
 
-LOG_DATA=$(tail -n 1000 /tmp/wardriving_status.log 2>/dev/null | tr -cd '\11\12\40-\176')
+LOG_DATA=$(tail -n 250 /tmp/wardriving_status.log 2>/dev/null | tr -cd '\11\12\40-\176')
 CLEAN_LOG=$(echo "$LOG_DATA" | awk '/CHA   LAST/{buf=""} {buf = buf $0 "\n"} END{print buf}' | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -cd '\11\12\40-\176')
 [ -z "$CLEAN_LOG" ] && CLEAN_LOG=$(echo "$LOG_DATA" | tail -n 30 | sed 's/\x1b\[[0-9;]*[a-zA-Z]//g' | tr -cd '\11\12\40-\176')
 if [ -z "$CLEAN_LOG" ]; then
@@ -110,8 +110,10 @@ if [ -n "$NMEA_DATA" ]; then
     # Basic NMEA validation: must start with $ and contain checksum
     case "$NMEA_DATA" in
         \$G*\**)
-            if [ -p /tmp/vGPS_fifo ]; then printf "%s\n" "$NMEA_DATA" >> /tmp/vGPS_fifo; fi
             printf "%s\n" "$NMEA_DATA" > /tmp/vGPS_last
+            if [ -p /tmp/vGPS_fifo ] && pgrep -f "socat.*vGPS" >/dev/null 2>&1; then
+                printf "%s\n" "$NMEA_DATA" >> /tmp/vGPS_fifo
+            fi
             ;;
         *)
             echo '{"status": "error", "reason": "invalid NMEA format"}'

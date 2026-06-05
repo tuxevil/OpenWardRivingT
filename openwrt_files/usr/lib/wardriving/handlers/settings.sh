@@ -281,7 +281,12 @@ fi
 
 handle_get_exclusions() {
 touch /etc/wardriving_excluded.txt /etc/wardriving_removed.txt
-cat "$WARD_MNT"/*.txt 2>/dev/null | sort -u | awk 'FILENAME == ARGV[1] {rem[$0]; next} {if (!($0 in rem)) print $0}' /etc/wardriving_removed.txt - > /tmp/new_excl
+{
+    [ -f "$WARD_MNT"/master_essid.txt ] && cat "$WARD_MNT"/master_essid.txt
+    for _ssid_file in "$WARD_MNT"/wardriving_*.txt; do
+        [ -f "$_ssid_file" ] && cat "$_ssid_file"
+    done
+} 2>/dev/null | sort -u | awk 'FILENAME == ARGV[1] {rem[$0]; next} {if (!($0 in rem)) print $0}' /etc/wardriving_removed.txt - > /tmp/new_excl
 cat /etc/wardriving_excluded.txt >> /tmp/new_excl
 sort -u /tmp/new_excl > /etc/wardriving_excluded.txt
 rm -f /tmp/new_excl

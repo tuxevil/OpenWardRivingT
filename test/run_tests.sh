@@ -297,6 +297,20 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ frontend split references missing"
 fi
 
+echo "  Test: service worker updates dashboard assets"
+if grep -q "owrt-store-v" openwrt_files/www/wardriving/sw.js && grep -q "skipWaiting" openwrt_files/www/wardriving/sw.js && grep -q "clients.claim" openwrt_files/www/wardriving/sw.js && grep -q "caches.delete" openwrt_files/www/wardriving/sw.js && grep -q "/cgi-bin/wardriving_api" openwrt_files/www/wardriving/sw.js; then
+    PASS=$((PASS + 1)); echo "  ✓ service worker refreshes app shell and bypasses API cache"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ service worker cache refresh safeguards missing"
+fi
+
+echo "  Test: hardware settings LED fallback"
+if grep -q "function loadHW(){apiJson('get_hw')" openwrt_files/www/wardriving/app.js && grep -q "No LEDs found" openwrt_files/www/wardriving/app.js && grep -q "LED status unavailable" openwrt_files/www/wardriving/app.js; then
+    PASS=$((PASS + 1)); echo "  ✓ hardware LED selector has API and fallback handling"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ hardware LED selector fallback missing"
+fi
+
 echo "  Test: frontend replay markers are cumulative"
 if grep -q "function mergeReplayNetworks" openwrt_files/www/wardriving/app.js && grep -q "replayDiscoveredItems={}" openwrt_files/www/wardriving/app.js && grep -q "if(d&&d.length){mergeReplayNetworks" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ replay marker cache preserves discovered networks"

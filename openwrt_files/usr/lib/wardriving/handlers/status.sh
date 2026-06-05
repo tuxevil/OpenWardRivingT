@@ -51,7 +51,43 @@ else
     LAST_LOG=$(echo "$CLEAN_LOG" | tr '\t' ' ' | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' -e 's/$/\\n/g' | tr -d '\n')
 fi
 
-CHANNELS_JSON=$(echo "$LOG_DATA" | awk '/^[ \t]*[0-9]+ [0-9]{2}:[0-9]{2}:[0-9]{2}/ {chan=$1; essid=$NF; if(length(essid)>2 && essid!~/:/ && essid !~ /^[0-9a-fA-F]{12}$/){ k=chan"\t"essid; if(!seen[k]++){ if(!f) printf "["; else printf ","; printf "{\"c\":%s, \"s\":\"%s\"}", chan, essid; f=1 } }} END{if(!f) printf "["; print "]"}')
+CHANNELS_JSON=$(echo "$LOG_DATA" | awk '
+function json_escape(v) {
+    gsub(/\\/, "\\\\", v)
+    gsub(/"/, "\\\"", v)
+    return v
+}
+function enc_from_flags(line) {
+    return substr(line, 23, 1) == "+" ? "PSK" : "?"
+}
+/^[ \t]*[0-9]+ [0-9]{2}:[0-9]{2}:[0-9]{2}/ {
+    chan=$1
+    mac=""
+    mac_idx=0
+    for (i=3; i<=NF; i++) {
+        if ($i ~ /^[0-9a-fA-F]{12}$/) {
+            mac=tolower($i)
+            mac_idx=i
+            break
+        }
+    }
+    if (!mac_idx) next
+    essid=""
+    for (i=mac_idx+1; i<=NF; i++) {
+        essid = essid (essid ? " " : "") $i
+    }
+    if (length(essid)>2 && essid!~/:/ && essid !~ /^[0-9a-fA-F]{12}$/) {
+        enc=enc_from_flags($0)
+        k=chan "\t" essid "\t" enc
+        if(!seen[k]++){
+            if(!f) printf "["
+            else printf ","
+            printf "{\"c\":%s, \"s\":\"%s\", \"m\":\"%s\", \"e\":\"%s\"}", chan, json_escape(essid), mac, enc
+            f=1
+        }
+    }
+}
+END{if(!f) printf "["; print "]"}')
 [ -z "$CHANNELS_JSON" ] && CHANNELS_JSON="[]"
 if [ "$CHANNELS_JSON" = "[]]" ]; then CHANNELS_JSON="[]"; fi
 

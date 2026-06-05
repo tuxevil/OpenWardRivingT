@@ -388,6 +388,13 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ live networks copy still exposes implementation wording"
 fi
 
+echo "  Test: Redes Ahora shows live encryption"
+if grep -q '\\"e\\"' openwrt_files/usr/lib/wardriving/handlers/status.sh && grep -Fq 'return substr(line, 23, 1) == "+" ? "PSK" : "?"' openwrt_files/usr/lib/wardriving/handlers/status.sh && grep -q "sr-enc" openwrt_files/www/wardriving/app.js && grep -q "ENC ?" openwrt_files/www/wardriving/app.js; then
+    PASS=$((PASS + 1)); echo "  ✓ live networks include encryption badge"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ live network encryption badge missing"
+fi
+
 echo "  Test: frontend treats remote extraction success as GPU OK"
 if grep -q "rs==='ok'||rs==='synced'||rs==='extracted'" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ pipeline accepts extracted remote state"

@@ -220,12 +220,15 @@ function updateStatus(){
 
 function updateScores(channelsData){
   let rows=Array.isArray(channelsData)?channelsData:[];
+  function encRank(v){v=String(v||'?');if(v.indexOf('WPA3')>=0)return 4;if(v.indexOf('WPA2')>=0)return 3;if(v.indexOf('WPA')>=0)return 2;if(v==='OPEN'||v==='WEP')return 1;return 0;}
   let grouped={},order=[];
   rows.forEach(n=>{
     let ssid=String(n.s||'').trim(),chan=parseInt(n.c||0);
     if(!ssid||excludedSSIDs.includes(ssid))return;
     let key=chan+'|'+ssid;
-    if(!grouped[key]){grouped[key]={ssid,chan,count:0};order.push(key);}
+    let enc=String(n.e||'?').trim().toUpperCase();
+    if(!grouped[key]){grouped[key]={ssid,chan,count:0,enc:'?'};order.push(key);}
+    if(encRank(enc)>encRank(grouped[key].enc))grouped[key].enc=enc;
     grouped[key].count++;
   });
   let items=order.map(k=>grouped[k]).sort((a,b)=>b.count-a.count||a.chan-b.chan).slice(0,12);
@@ -233,7 +236,8 @@ function updateScores(channelsData){
   let h='';
   items.forEach(n=>{
     let countLabel=n.count>1?' | visto '+esc(n.count)+' veces':'';
-    h+='<div class="sr"><div class="sr-top"><span class="sr-ssid">'+esc(n.ssid)+'</span><span class="sr-pts" style="color:var(--c-green)">LIVE</span></div><div class="sr-info">CH '+esc(n.chan||'?')+countLabel+'</div></div>';
+    let encLabel=n.enc&&n.enc!=='?'?esc(n.enc):'ENC ?';
+    h+='<div class="sr"><div class="sr-top"><span class="sr-ssid">'+esc(n.ssid)+'</span><span class="sr-pts" style="color:var(--c-green)">LIVE</span></div><div class="sr-info">CH '+esc(n.chan||'?')+' <span class="sr-enc">'+encLabel+'</span>'+countLabel+'</div></div>';
   });
   setHtml('scoresList',h);
 }

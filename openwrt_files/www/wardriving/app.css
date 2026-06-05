@@ -91,6 +91,7 @@ body{background:var(--bg-deep);color:var(--c-green);font-family:var(--font);font
 .scores-panel .sr .sr-ssid{color:var(--c-white);font-weight:bold}
 .scores-panel .sr .sr-pts{color:var(--c-cyan);flex-shrink:0;margin-left:8px}
 .scores-panel .sr .sr-info{font-size:15px;color:#aaaaaa}
+.scores-panel .sr .sr-enc{display:inline-block;margin-left:6px;padding:1px 5px;border:1px solid var(--border);border-radius:4px;color:var(--c-amber);font-size:12px;vertical-align:1px}
 .drive-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:10px}
 .pipeline{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .pipe-node{min-height:72px;border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;background:#000}

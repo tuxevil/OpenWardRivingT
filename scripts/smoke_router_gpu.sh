@@ -22,7 +22,7 @@ ssh_cmd() {
 curl_router() {
     action="$1"
     token_arg="$2"
-    ssh_cmd "$ROUTER_HOST" "wget -qO- 'http://127.0.0.1/cgi-bin/wardriving_api?action=$action$token_arg' || true"
+    ssh_cmd "$ROUTER_HOST" "wget -T 10 -qO- 'http://127.0.0.1/cgi-bin/wardriving_api?action=$action$token_arg' || true"
 }
 
 echo "== Router auth smoke =="
@@ -37,7 +37,11 @@ WITH_TOKEN=$(curl_router history "&token=$ROUTER_TOKEN")
 case "$WITH_TOKEN" in *unauthorized*|"") echo "router history with token: failed"; exit 1 ;; *) echo "router history with token: ok" ;; esac
 
 CRACKED=$(curl_router cracked_networks "&token=$ROUTER_TOKEN")
-case "$CRACKED" in \[* ) echo "router cracked_networks: ok" ;; *) echo "router cracked_networks: failed"; exit 1 ;; esac
+CRACKED_FIRST=$(printf "%s" "$CRACKED" | tr -d '\r\n\t ' | cut -c 1)
+case "$CRACKED_FIRST" in
+    "[") echo "router cracked_networks: ok" ;;
+    *) echo "router cracked_networks: failed"; exit 1 ;;
+esac
 
 MAP_DATA=$(curl_router map_data "&token=$ROUTER_TOKEN")
 case "$MAP_DATA" in *nmea_b64*) echo "router map_data: ok" ;; *) echo "router map_data: failed"; exit 1 ;; esac

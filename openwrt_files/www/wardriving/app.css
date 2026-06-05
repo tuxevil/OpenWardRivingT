@@ -46,6 +46,9 @@ body{background:var(--bg-deep);color:var(--c-green);font-family:var(--font);font
 .header-toggle{width:56px;height:56px;border:1px solid var(--c-magenta);color:var(--c-magenta);background:#000;border-radius:8px;font-size:25px;cursor:pointer;line-height:1}
 .fullscreen-toggle{border-color:var(--c-cyan);color:var(--c-cyan)}
 .fullscreen-toggle.active{background:rgba(0,255,255,0.12);box-shadow:var(--glow-sm) var(--c-cyan)}
+.wakelock-toggle{border-color:var(--c-amber);color:var(--c-amber)}
+.wakelock-toggle.active{background:rgba(255,176,0,0.16);box-shadow:var(--glow-sm) var(--c-amber)}
+.wakelock-toggle.warn{border-color:var(--c-red);color:var(--c-red)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
 @keyframes hsFlash{0%{background:var(--c-green);color:#000;box-shadow:0 0 24px var(--c-green)}100%{background:rgba(255,255,255,0.02);color:inherit;box-shadow:none}}
 

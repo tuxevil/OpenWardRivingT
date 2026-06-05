@@ -566,6 +566,50 @@ function toggleFullscreen(){let root=document.documentElement;if(isFullscreen())
 document.addEventListener('fullscreenchange',syncFullscreenButton);
 document.addEventListener('webkitfullscreenchange',syncFullscreenButton);
 window.addEventListener('DOMContentLoaded',syncFullscreenButton);
+let wakeLockSentinel=null,wakeLockDesired=localStorage.getItem('screenWakeLock')==='true',wakeLockBlockedReason='';
+function wakeLockSupported(){return !!(navigator.wakeLock&&navigator.wakeLock.request&&window.isSecureContext);}
+function syncWakeLockButton(){
+  let b=document.getElementById('btnWakeLock');if(!b)return;
+  let active=!!wakeLockSentinel,blocked=wakeLockDesired&&!active&&!!wakeLockBlockedReason;
+  b.classList.toggle('active',active);
+  b.classList.toggle('warn',blocked);
+  b.innerText=active?'◉':(blocked?'!':'◌');
+  b.title=active?'Screen wake lock active':(wakeLockDesired?'Screen wake lock pending':'Keep screen awake');
+}
+async function requestWakeLock(showMessage){
+  wakeLockBlockedReason='';
+  if(!wakeLockSupported()){
+    wakeLockBlockedReason=window.isSecureContext?'unsupported':'https';
+    syncWakeLockButton();
+    if(showMessage)showToast(window.isSecureContext?'Wake lock unsupported by this browser':'Open dashboard with HTTPS for screen lock','warn');
+    return false;
+  }
+  if(document.hidden)return false;
+  try{
+    wakeLockSentinel=await navigator.wakeLock.request('screen');
+    wakeLockSentinel.addEventListener('release',()=>{wakeLockSentinel=null;syncWakeLockButton();});
+    syncWakeLockButton();
+    if(showMessage)showToast('Screen lock on');
+    return true;
+  }catch(e){
+    wakeLockBlockedReason=(e&&e.name)||'blocked';
+    syncWakeLockButton();
+    if(showMessage)showToast('Screen lock blocked: '+wakeLockBlockedReason,'warn');
+    return false;
+  }
+}
+async function releaseWakeLock(){
+  wakeLockDesired=false;localStorage.setItem('screenWakeLock','false');
+  let w=wakeLockSentinel;wakeLockSentinel=null;wakeLockBlockedReason='';
+  if(w&&w.release){try{await w.release();}catch(e){}}
+  syncWakeLockButton();showToast('Screen lock off');
+}
+function toggleWakeLock(){
+  if(wakeLockDesired)return releaseWakeLock();
+  wakeLockDesired=true;localStorage.setItem('screenWakeLock','true');
+  requestWakeLock(true);
+}
+window.addEventListener('DOMContentLoaded',()=>{syncWakeLockButton();if(wakeLockDesired)setTimeout(()=>requestWakeLock(false),500);});
 function toggleHighAccuracyGPS(){let e=document.getElementById('chkHighGPS').checked;window.GPS_HIGH_ACCURACY=e;localStorage.setItem('gpsHighAccuracy',e);}
 window.GPS_HIGH_ACCURACY=localStorage.getItem('gpsHighAccuracy')==='true';
 window.addEventListener('DOMContentLoaded',()=>{if(window.GPS_HIGH_ACCURACY){let c=document.getElementById('chkHighGPS');if(c)c.checked=true;}});
@@ -623,7 +667,7 @@ let lastHiddenStatusPoll=0;
 function isTabHidden(){return typeof document.hidden==='boolean'&&document.hidden;}
 function pollStatus(){let now=Date.now();if(isTabHidden()&&now-lastHiddenStatusPoll<20000)return;lastHiddenStatusPoll=now;updateStatus();}
 function pollVisible(fn){if(!isTabHidden())fn();}
-document.addEventListener('visibilitychange',()=>{if(!isTabHidden()){updateStatus();updateMap();loadCrackedNetworks();loadNetworkMap();loadReplayStatus();fetchPwnagotchi();}});
+document.addEventListener('visibilitychange',()=>{if(!isTabHidden()){if(wakeLockDesired&&!wakeLockSentinel)requestWakeLock(false);updateStatus();updateMap();loadCrackedNetworks();loadNetworkMap();loadReplayStatus();fetchPwnagotchi();}});
 setInterval(pollStatus,5000);setInterval(()=>pollVisible(updateMap),10000);setInterval(()=>pollVisible(loadCrackedNetworks),15000);setInterval(()=>pollVisible(loadNetworkMap),20000);setInterval(refreshFreshnessAge,1000);setInterval(()=>pollVisible(loadReplayStatus),5000);
 updateStatus();loadFiles();loadHW();loadNetworkMap();
 loadReplayStatus();

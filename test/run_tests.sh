@@ -377,6 +377,13 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ fullscreen control missing"
 fi
 
+echo "  Test: dashboard wake lock button"
+if grep -q "btnWakeLock" openwrt_files/www/wardriving/index.html && grep -q "navigator.wakeLock.request('screen')" openwrt_files/www/wardriving/app.js && grep -q "window.isSecureContext" openwrt_files/www/wardriving/app.js && grep -q "wakelock-toggle" openwrt_files/www/wardriving/app.css; then
+    PASS=$((PASS + 1)); echo "  ✓ wake lock control is wired in header"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ wake lock control missing"
+fi
+
 echo "  Test: frontend processing settings are split"
 if grep -q "selExtractionMode" openwrt_files/www/wardriving/index.html && grep -q "selGpuCracking" openwrt_files/www/wardriving/index.html && grep -q "extraction_mode" openwrt_files/www/wardriving/app.js && grep -q "gpu_cracking_enabled" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ frontend exposes extraction and cracking settings separately"

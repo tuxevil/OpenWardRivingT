@@ -119,9 +119,13 @@ api_cache_emit() {
     _cache_ttl="$2"
     _cache_file=$(api_cache_path "$_cache_key") || return 1
     [ -s "$_cache_file" ] || return 1
-    [ -f "$_cache_file.ts" ] || return 1
     _cache_now=$(date +%s)
-    _cache_ts=$(cat "$_cache_file.ts" 2>/dev/null | tr -cd '0-9')
+    if command -v stat >/dev/null 2>&1; then
+        _cache_ts=$(stat -c %Y "$_cache_file" 2>/dev/null | tr -cd '0-9')
+    else
+        [ -f "$_cache_file.ts" ] || return 1
+        _cache_ts=$(cat "$_cache_file.ts" 2>/dev/null | tr -cd '0-9')
+    fi
     case "$_cache_ttl" in *[!0-9]*|'') return 1 ;; esac
     case "$_cache_now" in *[!0-9]*|'') return 1 ;; esac
     case "$_cache_ts" in
@@ -140,9 +144,13 @@ api_cache_store() {
     _cache_tmp="${_cache_file}.$$"
     _cache_ts_tmp="${_cache_file}.ts.$$"
     cat "$_cache_src" > "$_cache_tmp" || { rm -f "$_cache_tmp"; return 1; }
-    date +%s > "$_cache_ts_tmp" || { rm -f "$_cache_tmp" "$_cache_ts_tmp"; return 1; }
     mv -f "$_cache_tmp" "$_cache_file" || { rm -f "$_cache_tmp" "$_cache_ts_tmp"; return 1; }
-    mv -f "$_cache_ts_tmp" "$_cache_file.ts" || { rm -f "$_cache_ts_tmp"; return 1; }
+    if command -v stat >/dev/null 2>&1; then
+        rm -f "$_cache_file.ts" "$_cache_ts_tmp"
+    else
+        date +%s > "$_cache_ts_tmp" || { rm -f "$_cache_ts_tmp"; return 1; }
+        mv -f "$_cache_ts_tmp" "$_cache_file.ts" || { rm -f "$_cache_ts_tmp"; return 1; }
+    fi
 }
 
 api_cache_clear() {

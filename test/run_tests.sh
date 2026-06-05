@@ -653,11 +653,11 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ core still has old remote processing gate"
 fi
 
-echo "  Test: API cache helpers are BusyBox-safe"
-if grep -q "API_CACHE_DIR" openwrt_files/usr/lib/wardriving/common.sh && grep -q "api_cache_emit()" openwrt_files/usr/lib/wardriving/common.sh && grep -q "api_cache_store()" openwrt_files/usr/lib/wardriving/common.sh && ! grep -q "stat -c" openwrt_files/usr/lib/wardriving/common.sh; then
-    PASS=$((PASS + 1)); echo "  ✓ API cache uses timestamp files instead of stat"
+echo "  Test: API cache helpers prefer stat with fallback"
+if grep -q "API_CACHE_DIR" openwrt_files/usr/lib/wardriving/common.sh && grep -q "api_cache_emit()" openwrt_files/usr/lib/wardriving/common.sh && grep -q "api_cache_store()" openwrt_files/usr/lib/wardriving/common.sh && grep -q "stat -c %Y" openwrt_files/usr/lib/wardriving/common.sh && grep -q 'cache_file.ts' openwrt_files/usr/lib/wardriving/common.sh; then
+    PASS=$((PASS + 1)); echo "  ✓ API cache uses stat mtime when available and keeps timestamp fallback"
 else
-    FAIL=$((FAIL + 1)); echo "  ✗ API cache helper missing or not BusyBox-safe"
+    FAIL=$((FAIL + 1)); echo "  ✗ API cache helper missing stat preference or fallback"
 fi
 
 echo "  Test: heavy dashboard endpoints use short server cache"

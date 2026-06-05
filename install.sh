@@ -8,10 +8,12 @@ if command -v apk >/dev/null 2>&1; then
     echo "[*] Detected 'apk' package manager (OpenWrt 24.x+)"
     apk update
     apk add sqlite3-cli hcxdumptool hcxtools socat block-mount kmod-fs-ext4 kmod-usb-storage e2fsprogs rsync openssh-client openssh-sftp-server
+    apk add coreutils-stat 2>/dev/null || echo "[!] Optional coreutils-stat unavailable; API cache will use timestamp fallback."
 elif command -v opkg >/dev/null 2>&1; then
     echo "[*] Detected 'opkg' package manager (OpenWrt 23.x or older)"
     opkg update
     opkg install sqlite3-cli hcxdumptool hcxtools socat block-mount kmod-fs-ext4 kmod-usb-storage e2fsprogs rsync openssh-client openssh-sftp-server
+    opkg install coreutils-stat 2>/dev/null || echo "[!] Optional coreutils-stat unavailable; API cache will use timestamp fallback."
 else
     echo "[-] ERROR: Neither apk nor opkg package manager found!"
     exit 1

@@ -117,7 +117,7 @@ function updatePipeline(d){
   if(extraction==='local'&&!gpuCracking){setPipe('pipeGpu','warn','LOCAL');setPipe('pipeTx','warn','IDLE');}
   else if(extraction==='local'&&rs==='local'){setPipe('pipeGpu','warn',gpuCracking?'CRACK':'LOCAL');setPipe('pipeTx','warn','IDLE');}
   else if(!remoteOn){setPipe('pipeGpu','warn','LOCAL');setPipe('pipeTx','warn','IDLE');}
-  else if(rs==='ok'||rs==='synced'){setPipe('pipeGpu','ok','OK');setPipe('pipeTx','ok',ageLabel(Math.max(0,Math.floor(Date.now()/1000)-parseInt(d.remote_updated||0))));}
+  else if(rs==='ok'||rs==='synced'||rs==='extracted'){setPipe('pipeGpu','ok','OK');setPipe('pipeTx','ok',ageLabel(Math.max(0,Math.floor(Date.now()/1000)-parseInt(d.remote_updated||0))));}
   else if(rs==='uploading'){setPipe('pipeGpu','warn','WAIT');setPipe('pipeTx','warn','TX');}
   else if(rs==='fallback'||rs==='sync_error'||rs==='unconfigured'){setPipe('pipeGpu','err',rs==='fallback'?'FALLBACK':'ERROR');setPipe('pipeTx','err',d.remote_code||'ERR');}
   else{setPipe('pipeGpu','warn','WAIT');setPipe('pipeTx','warn','--');}

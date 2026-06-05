@@ -381,6 +381,13 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ live networks still depend on scored_networks"
 fi
 
+echo "  Test: frontend treats remote extraction success as GPU OK"
+if grep -q "rs==='ok'||rs==='synced'||rs==='extracted'" openwrt_files/www/wardriving/app.js; then
+    PASS=$((PASS + 1)); echo "  ✓ pipeline accepts extracted remote state"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ pipeline does not accept extracted remote state"
+fi
+
 echo "  Test: cracked historical map toggle"
 if grep -q "chkCracked" openwrt_files/www/wardriving/index.html && grep -q "showCracked" openwrt_files/www/wardriving/app.js && grep -q "function toggleCrackedButton" openwrt_files/www/wardriving/app.js && grep -q "cracked_networks" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ cracked map layer has persisted toggle"
@@ -574,6 +581,7 @@ else
 fi
 
 echo "  Test: remote hash sync preserves local master"
+# shellcheck disable=SC2016 # Literal shell snippet is what the test is looking for.
 if grep -q "REMOTE_SYNCED_HASHES_FILE" openwrt_files/usr/lib/wardriving/remote.sh && grep -q "grep -Fvx" openwrt_files/usr/lib/wardriving/remote.sh && ! grep -q 'rm -f "$_hash_file"' openwrt_files/usr/lib/wardriving/remote.sh; then
     PASS=$((PASS + 1)); echo "  ✓ hash sync sends only pending hashes without deleting master"
 else

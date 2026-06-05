@@ -44,17 +44,18 @@ function parseNMEAWPL(l){if(!l||!l.startsWith('$GPWPL'))return null;let p=l.spli
 
 // INIT MAP
 function initMap(){
-  loadCrackedNetworks();
   map=L.map('map',{zoomControl:false}).setView([0,0],2);
   L.control.zoom({position:'topright'}).addTo(map);
   onlineLayer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OSM'});
   offlineLayer=L.tileLayer('/wardriving/captures/tiles/{z}/{x}/{y}.png',{maxZoom:18,errorTileUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='});
   let uo=localStorage.getItem('useOnlineMaps')==='true';
   document.getElementById('chkOnlineTiles').checked=uo;
+  document.getElementById('chkCracked').checked=localStorage.getItem('showCracked')!=='false';
   if(uo)onlineLayer.addTo(map);else offlineLayer.addTo(map);
   carMarker=L.circleMarker([0,0],{radius:8,fillColor:'#00ffff',color:'#fff',weight:2,opacity:1,fillOpacity:1}).addTo(map).bindPopup('<b>Current Location</b>');
   map.on('dragstart',()=>{followMode=false;updateFollowButton();});
   map.on('zoomend',refreshVisibleLayers);
+  loadCrackedNetworks();
   updateMapButtons();
 }
 initMap();
@@ -112,8 +113,10 @@ function setPipe(id,state,label){
 }
 function updatePipeline(d){
   setPipe('pipeCapture',isRunning?'ok':'warn',isRunning?'LIVE':'STOP');
-  let remoteOn=String(d.remote_enabled||'0')==='1',rs=d.remote_state||'local';
-  if(!remoteOn){setPipe('pipeGpu','warn','LOCAL');setPipe('pipeTx','warn','IDLE');}
+  let remoteOn=String(d.remote_enabled||'0')==='1',rs=d.remote_state||'local',extraction=String(d.extraction_mode||'local'),gpuCracking=String(d.gpu_cracking_enabled==null?'1':d.gpu_cracking_enabled)==='1';
+  if(extraction==='local'&&!gpuCracking){setPipe('pipeGpu','warn','LOCAL');setPipe('pipeTx','warn','IDLE');}
+  else if(extraction==='local'&&rs==='local'){setPipe('pipeGpu','warn',gpuCracking?'CRACK':'LOCAL');setPipe('pipeTx','warn','IDLE');}
+  else if(!remoteOn){setPipe('pipeGpu','warn','LOCAL');setPipe('pipeTx','warn','IDLE');}
   else if(rs==='ok'||rs==='synced'){setPipe('pipeGpu','ok','OK');setPipe('pipeTx','ok',ageLabel(Math.max(0,Math.floor(Date.now()/1000)-parseInt(d.remote_updated||0))));}
   else if(rs==='uploading'){setPipe('pipeGpu','warn','WAIT');setPipe('pipeTx','warn','TX');}
   else if(rs==='fallback'||rs==='sync_error'||rs==='unconfigured'){setPipe('pipeGpu','err',rs==='fallback'?'FALLBACK':'ERROR');setPipe('pipeTx','err',d.remote_code||'ERR');}
@@ -201,8 +204,10 @@ function updateStatus(){
       chs.forEach(c=>{let ss=cm[c]||[],w=Math.max(2,Math.round((ss.length/max)*100)),hot=ss.length>=10?' hot':(ss.length>=5?' med':'');if(ss.length||[1,6,11].includes(c))sh+='<div class="ch-row"><span class="ch-n">CH '+c+'</span><span class="bar-track"><span class="bar-fill'+hot+'" style="width:'+w+'%"></span></span><span class="ch-c">'+ss.length+'</span></div>';});
       if(!sh)sh='<span style="color:var(--c-dim)">'+emptyText+'</span>';
       document.getElementById('specList').innerHTML=sh;
+      updateScores(d.channels_data);
+    }else{
+      updateScores([]);
     }
-    updateScores();
   }).catch(e=>{
     updateFreshness(false);
     setHtml('specList',dim('status error: '+(e.message||'unknown')));
@@ -212,17 +217,23 @@ function updateStatus(){
   });
 }
 
-function updateScores(){
-  if(!isRunning)return;
-  apiJson('scored_networks').then(d=>{
-    let h='';if(!d||!d.length){document.getElementById('scoresList').innerHTML='<span style="color:var(--c-dim);font-size:18px">Sin redes cerca</span>';return;}
-    d.forEach(n=>{
-      let v=OUI_DB[(n.mac||'').replace(/:/g,'').substring(0,6).toUpperCase()]||'';
-      let rssi=parseInt(n.rssi||-100),co=rssi>-60?'var(--c-green)':(rssi>-75?'var(--c-amber)':'var(--c-dim)');
-      h+='<div class="sr"><div class="sr-top"><span class="sr-ssid">'+esc(n.ssid||'??')+'</span><span class="sr-pts" style="color:'+co+'">'+esc(rssi)+' dBm</span></div><div class="sr-info">'+ageLabel(n.age)+' ago | '+esc(n.enc||'?')+(n.has_hs?' | 🔑 HS':'')+(v?' | '+esc(v):'')+'</div></div>';
-    });
-    document.getElementById('scoresList').innerHTML=h||'<span style="color:var(--c-dim);font-size:18px">Sin redes cerca</span>';
-  }).catch(e=>{setHtml('scoresList',dim('score error: '+(e.message||'unknown')));});
+function updateScores(channelsData){
+  let rows=Array.isArray(channelsData)?channelsData:[];
+  let grouped={},order=[];
+  rows.forEach(n=>{
+    let ssid=String(n.s||'').trim(),chan=parseInt(n.c||0);
+    if(!ssid||excludedSSIDs.includes(ssid))return;
+    let key=chan+'|'+ssid;
+    if(!grouped[key]){grouped[key]={ssid,chan,count:0};order.push(key);}
+    grouped[key].count++;
+  });
+  let items=order.map(k=>grouped[k]).sort((a,b)=>b.count-a.count||a.chan-b.chan).slice(0,12);
+  if(!items.length){setHtml('scoresList','<span style="color:var(--c-dim);font-size:18px">Sin redes cerca</span>');return;}
+  let h='';
+  items.forEach(n=>{
+    h+='<div class="sr"><div class="sr-top"><span class="sr-ssid">'+esc(n.ssid)+'</span><span class="sr-pts" style="color:var(--c-green)">LIVE</span></div><div class="sr-info">CH '+esc(n.chan||'?')+' | seen '+esc(n.count)+'x in hcxdumptool</div></div>';
+  });
+  setHtml('scoresList',h);
 }
 
 // MAP POLL
@@ -382,14 +393,17 @@ function startReplay(){if(replayTimer){clearInterval(replayTimer);replayTimer=nu
 function updateFollowButton(){let b=document.getElementById('btnFollow');if(!b)return;b.className='map-action '+(followMode?'on':'warn');b.innerText=followMode?'📍 FOLLOW':'⊙ FREE';}
 function toggleFollowMode(){followMode=!followMode;if(followMode&&window.carLat&&window.carLng)map.panTo([window.carLat,window.carLng],{animate:true,duration:0.3});updateFollowButton();}
 function updateMapButtons(){
-  let gps=document.getElementById('btnBrowserGPS'),tiles=document.getElementById('btnTiles'),heat=document.getElementById('btnHeatmap');
+  let gps=document.getElementById('btnBrowserGPS'),tiles=document.getElementById('btnTiles'),heat=document.getElementById('btnHeatmap'),cracked=document.getElementById('btnCracked');
   if(gps)gps.className='map-action '+(browserGpsActive?'on':'off');
   if(tiles)tiles.className='map-action '+(document.getElementById('chkOnlineTiles').checked?'on':'off');
   if(heat)heat.className='map-action '+(document.getElementById('chkHeatmap').checked?'on':'off');
+  if(cracked)cracked.className='map-action '+(document.getElementById('chkCracked').checked?'on':'off');
   updateFollowButton();
 }
 function toggleTilesButton(){let c=document.getElementById('chkOnlineTiles');c.checked=!c.checked;toggleTiles();updateMapButtons();}
 function toggleHeatmapButton(){let c=document.getElementById('chkHeatmap');c.checked=!c.checked;toggleHeatmap();updateMapButtons();}
+function clearCrackedMarkers(){crackedMarkers.forEach(m=>{if(map)map.removeLayer(m);});crackedMarkers=[];}
+function toggleCrackedButton(){let c=document.getElementById('chkCracked');c.checked=!c.checked;localStorage.setItem('showCracked',c.checked?'true':'false');if(c.checked)loadCrackedNetworks();else clearCrackedMarkers();updateMapButtons();}
 function toggleBrowserGPSButton(){let c=document.getElementById('chkBrowserGPS');c.checked=!c.checked;toggleBrowserGPS();updateMapButtons();}
 
 // BROWSER GPS
@@ -418,6 +432,9 @@ function deleteFile(fn){fetch('/cgi-bin/wardriving_api?action=delete_file&file='
 function togglePcap(){fetch('/cgi-bin/wardriving_api?action=set_pcap_retention&keep='+document.getElementById('chkKeepPcap').checked);}
 function uploadPotfile(){let f=document.getElementById('potfileInput').files[0];if(!f)return;document.getElementById('potfileStatus').innerText='Uploading...';fetch('/cgi-bin/wardriving_api?action=upload_potfile',{method:'POST',body:f}).then(()=>{document.getElementById('potfileStatus').innerText='✓ Uploaded!';loadCrackedNetworks();});}
 function loadCrackedNetworks(){
+  if(!map)return;
+  let c=document.getElementById('chkCracked');
+  if(c&&!c.checked){clearCrackedMarkers();return;}
   let openLatLon=null;
   crackedMarkers.forEach(m=>{if(m.isPopupOpen())openLatLon=m.getLatLng().lat.toFixed(7)+','+m.getLatLng().lng.toFixed(7);});
   apiJson('cracked_networks').then(d=>{
@@ -552,9 +569,9 @@ function uploadTiles(){let f=document.getElementById('tilesFile').files[0];if(!f
 
 
 // PROCESSING SETTINGS
-function loadProcessing(){fetch('/cgi-bin/wardriving_api?action=get_processing').then(r=>r.json()).then(d=>{if(d.enabled!==undefined){document.getElementById('selProcessing').value=d.enabled;document.getElementById('remoteUrl').value=d.url||'';toggleRemoteServerUrl();}}).catch(e=>{});}
-function toggleRemoteServerUrl(){document.getElementById('remoteUrlContainer').style.display=document.getElementById('selProcessing').value==='1'?'block':'none';}
-function saveProcessing(){let en=document.getElementById('selProcessing').value,url=encodeURIComponent(document.getElementById('remoteUrl').value);fetch('/cgi-bin/wardriving_api?action=set_processing&en='+en+'&url='+url).then(r=>r.json()).then(d=>{if(d.status==='saved')showToast('Processing saved');});}
+function loadProcessing(){apiJson('get_processing').then(d=>{let m=document.getElementById('selExtractionMode'),g=document.getElementById('selGpuCracking'),u=document.getElementById('remoteUrl');if(m)m.value=d.extraction_mode||((d.enabled==='1')?'remote':'local');if(g)g.value=String(d.gpu_cracking_enabled== null?'1':d.gpu_cracking_enabled);if(u)u.value=d.url||'';toggleRemoteServerUrl();}).catch(()=>{});}
+function toggleRemoteServerUrl(){let m=document.getElementById('selExtractionMode'),g=document.getElementById('selGpuCracking'),box=document.getElementById('remoteUrlContainer');if(box)box.style.display=((m&&m.value==='remote')||(g&&g.value==='1'))?'block':'none';}
+function saveProcessing(){let m=document.getElementById('selExtractionMode').value,g=document.getElementById('selGpuCracking').value,u=document.getElementById('remoteUrl').value.trim();if((m==='remote'||g==='1')&&!u){showToast('GPU server URL required','warn');return;}apiJson('set_processing',{extraction_mode:m,gpu_cracking_enabled:g,url:u}).then(d=>{if(d.status==='saved')showToast('Processing saved');}).catch(e=>showToast('Processing save failed: '+(e.message||'unknown'),'err'));}
 loadProcessing();
 
 // EXCLUSIONS & TARGETS

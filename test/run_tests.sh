@@ -13,7 +13,9 @@ setup() {
     rm -f /tmp/wardriving_replay.pause /tmp/wardriving_replay.stop /tmp/wardriving_replay.seek
     rm -f /tmp/wardriving_replay.pid /tmp/wardriving_replay_queue.pid /tmp/wardriving_replay_status.json
     rm -rf /tmp/wardriving_replay_work /tmp/wardriving_replay_uploads
-    rm -f /tmp/test_wardriving_mode
+    rm -rf /tmp/test_wardriving_mnt
+    rm -f /tmp/test_wardriving_mode /tmp/test_wardriving_extraction_mode /tmp/test_wardriving_gpu_cracking
+    rm -f /tmp/test_wardriving_remote_enabled /tmp/test_wardriving_remote_url /tmp/test_wardriving_remote_secret
     echo "$TOKEN" > /tmp/test_wardriving_token
     echo "active" > /tmp/test_wardriving_mode
     cat > /tmp/test_wardriving_init <<'INIT'
@@ -133,6 +135,11 @@ export WARDRIVING_LIB_DIR="$PWD/openwrt_files/usr/lib/wardriving"
 export WARDRIVING_INIT_SCRIPT=/tmp/test_wardriving_init
 export WARDRIVING_WPS_BUTTON_SCRIPT=/tmp/test_wardriving_wps
 export WARDRIVING_RFKILL_BUTTON_SCRIPT=/tmp/test_wardriving_rfkill
+export WARDRIVING_EXTRACTION_MODE_FILE=/tmp/test_wardriving_extraction_mode
+export WARDRIVING_GPU_CRACKING_FILE=/tmp/test_wardriving_gpu_cracking
+export WARDRIVING_REMOTE_ENABLED_FILE=/tmp/test_wardriving_remote_enabled
+export WARDRIVING_REMOTE_URL_FILE=/tmp/test_wardriving_remote_url
+export WARDRIVING_REMOTE_SECRET_FILE=/tmp/test_wardriving_remote_secret
 
 echo ""
 echo "=== CGI Tests ==="
@@ -212,6 +219,32 @@ echo "  Test: action=get_mode"
 OUT=$(QUERY_STRING="action=get_mode&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_json "get_mode returns JSON" "$OUT"
 assert_contains "get_mode has mode" "$OUT" "mode"
+
+echo "  Test: action=get_processing defaults"
+OUT=$(QUERY_STRING="action=get_processing&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_json "get_processing returns JSON" "$OUT"
+assert_contains "get_processing has extraction mode" "$OUT" "\"extraction_mode\":\"local\""
+assert_contains "get_processing has gpu cracking default" "$OUT" "\"gpu_cracking_enabled\":\"1\""
+
+echo "  Test: action=set_processing rejects missing URL"
+OUT=$(QUERY_STRING="action=set_processing&extraction_mode=remote&gpu_cracking_enabled=1&url=&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_json "set_processing invalid returns JSON" "$OUT"
+assert_contains "set_processing requires URL" "$OUT" "remote url required"
+
+echo "  Test: action=set_processing saves local/off"
+OUT=$(QUERY_STRING="action=set_processing&extraction_mode=local&gpu_cracking_enabled=0&url=&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_json "set_processing local/off returns JSON" "$OUT"
+assert_contains "set_processing saves local mode" "$OUT" "\"extraction_mode\":\"local\""
+assert_contains "set_processing saves gpu off" "$OUT" "\"gpu_cracking_enabled\":\"0\""
+
+echo "  Test: action=get_processing migrates legacy remote flag"
+rm -f "$WARDRIVING_EXTRACTION_MODE_FILE" "$WARDRIVING_GPU_CRACKING_FILE"
+echo "1" > "$WARDRIVING_REMOTE_ENABLED_FILE"
+echo "http://gpu.example:5000" > "$WARDRIVING_REMOTE_URL_FILE"
+OUT=$(QUERY_STRING="action=get_processing&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_json "legacy processing returns JSON" "$OUT"
+assert_contains "legacy remote flag becomes remote extraction" "$OUT" "\"extraction_mode\":\"remote\""
+assert_contains "legacy processing keeps URL" "$OUT" "http://gpu.example:5000"
 
 echo "  Test: action=set_mode"
 OUT=$(QUERY_STRING="action=set_mode&mode=passive&token=$TOKEN" sh "$CGI" 2>/dev/null)
@@ -332,6 +365,27 @@ if grep -q 'href="app.css"' openwrt_files/www/wardriving/index.html && grep -q '
     PASS=$((PASS + 1)); echo "  ✓ frontend references split app.css/app.js"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ frontend split references missing"
+fi
+
+echo "  Test: frontend processing settings are split"
+if grep -q "selExtractionMode" openwrt_files/www/wardriving/index.html && grep -q "selGpuCracking" openwrt_files/www/wardriving/index.html && grep -q "extraction_mode" openwrt_files/www/wardriving/app.js && grep -q "gpu_cracking_enabled" openwrt_files/www/wardriving/app.js; then
+    PASS=$((PASS + 1)); echo "  ✓ frontend exposes extraction and cracking settings separately"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ frontend processing settings split missing"
+fi
+
+echo "  Test: Redes Ahora uses live status channels"
+if grep -q "function updateScores(channelsData)" openwrt_files/www/wardriving/app.js && grep -q "updateScores(d.channels_data)" openwrt_files/www/wardriving/app.js && ! grep -q "apiJson('scored_networks')" openwrt_files/www/wardriving/app.js; then
+    PASS=$((PASS + 1)); echo "  ✓ live networks render from status.channels_data"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ live networks still depend on scored_networks"
+fi
+
+echo "  Test: cracked historical map toggle"
+if grep -q "chkCracked" openwrt_files/www/wardriving/index.html && grep -q "showCracked" openwrt_files/www/wardriving/app.js && grep -q "function toggleCrackedButton" openwrt_files/www/wardriving/app.js && grep -q "cracked_networks" openwrt_files/www/wardriving/app.js; then
+    PASS=$((PASS + 1)); echo "  ✓ cracked map layer has persisted toggle"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ cracked map layer toggle missing"
 fi
 
 echo "  Test: service worker updates dashboard assets"
@@ -510,6 +564,20 @@ if [ "$LIB_FAIL" -eq 0 ]; then
     PASS=$((PASS + 1)); echo "  ✓ wardriving shell libraries syntax OK"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ wardriving shell libraries syntax ERROR"
+fi
+
+echo "  Test: core no longer uses PROCESSED_REMOTE gate"
+if ! grep -q "PROCESSED_REMOTE" openwrt_files/usr/bin/wardriving_core.sh && grep -q "try_remote_extract_capture" openwrt_files/usr/bin/wardriving_core.sh && grep -q "remote_extract_capture" openwrt_files/usr/lib/wardriving/remote.sh; then
+    PASS=$((PASS + 1)); echo "  ✓ core separates remote extraction from local fallback"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ core still has old remote processing gate"
+fi
+
+echo "  Test: remote hash sync preserves local master"
+if grep -q "REMOTE_SYNCED_HASHES_FILE" openwrt_files/usr/lib/wardriving/remote.sh && grep -q "grep -Fvx" openwrt_files/usr/lib/wardriving/remote.sh && ! grep -q 'rm -f "$_hash_file"' openwrt_files/usr/lib/wardriving/remote.sh; then
+    PASS=$((PASS + 1)); echo "  ✓ hash sync sends only pending hashes without deleting master"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ hash sync can still delete or resend master hashes"
 fi
 
 echo "  Test: gpu_server.py syntax"

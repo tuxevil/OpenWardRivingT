@@ -62,6 +62,7 @@
 </svg>
 <input type="checkbox" id="chkOnlineTiles" style="display:none">
 <input type="checkbox" id="chkHeatmap" style="display:none">
+<input type="checkbox" id="chkCracked" style="display:none">
 <input type="checkbox" id="chkBrowserGPS" style="display:none">
 
 <!-- HEADER -->
@@ -133,6 +134,7 @@
             <button class="map-action" id="btnBrowserGPS" onclick="toggleBrowserGPSButton()">📡 GPS</button>
             <button class="map-action" id="btnTiles" onclick="toggleTilesButton()">🌐 MAP</button>
             <button class="map-action off" id="btnHeatmap" onclick="toggleHeatmapButton()">🔥 HEAT</button>
+            <button class="map-action on" id="btnCracked" onclick="toggleCrackedButton()">🔓 CRACK</button>
           </div>
         </div>
         <div class="dash-right">
@@ -242,10 +244,12 @@
         </div>
         
         <div class="card"><h3 style="color:var(--c-magenta)">🧠 Processing</h3>
-          <label style="font-size:0.8em;color:var(--c-dim)">Processing Location</label>
-          <select id="selProcessing" style="margin-bottom:8px" onchange="toggleRemoteServerUrl()"><option value="0">Local (Router CPU)</option><option value="1">Remote (GPU Server via HTTP)</option></select>
+          <label style="font-size:0.8em;color:var(--c-dim)">Extraction Mode</label>
+          <select id="selExtractionMode" style="margin-bottom:8px" onchange="toggleRemoteServerUrl()"><option value="local">Local Router CPU</option><option value="remote">Remote GPU</option></select>
+          <label style="font-size:0.8em;color:var(--c-dim)">GPU Cracking</label>
+          <select id="selGpuCracking" style="margin-bottom:8px" onchange="toggleRemoteServerUrl()"><option value="1">Enabled</option><option value="0">Disabled</option></select>
           <div id="remoteUrlContainer" style="display:none;">
-            <label style="font-size:0.8em;color:var(--c-dim)">Server URL</label><input type="text" id="remoteUrl" placeholder="http://10.0.0.1:5000/upload" style="margin-bottom:8px">
+            <label style="font-size:0.8em;color:var(--c-dim)">GPU Server URL</label><input type="text" id="remoteUrl" placeholder="http://10.0.0.1:5000" style="margin-bottom:8px">
           </div>
           <button class="btn small magenta" onclick="saveProcessing()">💾 Save</button>
         </div>

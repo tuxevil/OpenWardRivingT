@@ -12,6 +12,7 @@ cleanup() {
 trap cleanup SIGTERM SIGINT SIGHUP
 
 LIB_DIR="${WARDRIVING_LIB_DIR:-/usr/lib/wardriving}"
+CLIENTS_BIN="${WARDRIVING_CLIENTS_BIN:-/usr/bin/wardriving_clients.sh}"
 # shellcheck disable=SC1091 # Runtime path is provided by the OpenWrt installer.
 . "$LIB_DIR/db.sh"
 # shellcheck disable=SC1091 # Runtime path is provided by the OpenWrt installer.
@@ -36,6 +37,88 @@ blink_led() {
         usleep 100000 2>/dev/null || sleep 1
         echo "$_current" > "/sys/class/leds/$_LED/brightness"
     fi
+}
+
+merge_hash_file() {
+    _hash_file="$1"
+    [ -s "$_hash_file" ] || return 0
+    blink_led
+    cat "$_hash_file" >> /mnt/wardriving/master.hc2200
+    nice -n 10 sort -u /mnt/wardriving/master.hc2200 -o /mnt/wardriving/master.hc2200
+}
+
+merge_essid_file() {
+    _essid_file="$1"
+    [ -s "$_essid_file" ] || return 0
+    cat "$_essid_file" >> /mnt/wardriving/master_essid.txt
+    sort -u /mnt/wardriving/master_essid.txt -o /mnt/wardriving/master_essid.txt
+}
+
+local_extract_capture() {
+    _pcap="$1"
+    _hc2200="$2"
+    _essid="$3"
+    _csv="$4"
+    _db="$5"
+
+    echo "[*] Extracting $_pcap locally to $_hc2200"
+    nice -n 10 hcxpcapngtool -o "$_hc2200" -E "$_essid" --csv="$_csv" "$_pcap" > /dev/null 2>&1
+    "$CLIENTS_BIN" "$_pcap" "$_csv" "$_db" 2>/dev/null || true
+    db_insert_hcx_csv "$_csv" "$_db"
+    merge_hash_file "$_hc2200"
+    merge_essid_file "$_essid"
+    rm -f "$_hc2200" "$_essid" "$_csv"
+}
+
+import_remote_bundle() {
+    _bundle="$1"
+    _workdir=$(mktemp -d /tmp/wardriving_extract_XXXXXX) || return 1
+    if ! tar -xzf "$_bundle" -C "$_workdir" >/dev/null 2>&1; then
+        rm -rf "$_workdir"
+        return 1
+    fi
+    if [ ! -f "$_workdir/networks.jsonl" ] && [ ! -f "$_workdir/clients.jsonl" ] && [ ! -f "$_workdir/capture.hc2200" ]; then
+        rm -rf "$_workdir"
+        return 1
+    fi
+
+    db_insert_jsonl_rows "$_workdir/networks.jsonl" /mnt/wardriving/wardriving.db
+    db_insert_clients_jsonl "$_workdir/clients.jsonl" /mnt/wardriving/wardriving.db
+    merge_hash_file "$_workdir/capture.hc2200"
+    rm -rf "$_workdir"
+}
+
+try_remote_extract_capture() {
+    _pcap="$1"
+    _bundle="$2"
+
+    [ "$EXTRACTION_MODE" = "remote" ] || return 1
+    if [ -z "$REMOTE_URL" ]; then
+        remote_write_status "unconfigured" "0" "missing remote url"
+        return 1
+    fi
+
+    echo "[*] Requesting remote extraction for $_pcap ($REMOTE_URL) ..."
+    remote_write_status "uploading" "0" "sending capture for extraction"
+    HTTP_CODE=$(remote_extract_capture "$_pcap" "$_bundle")
+    if [ "$HTTP_CODE" != "200" ]; then
+        echo "[-] Remote extraction failed (Code: $HTTP_CODE). Falling back to local extraction..."
+        remote_write_status "fallback" "$HTTP_CODE" "remote extraction failed"
+        rm -f "$_bundle"
+        return 1
+    fi
+
+    if import_remote_bundle "$_bundle"; then
+        echo "[+] Remote extraction bundle imported locally."
+        remote_write_status "extracted" "$HTTP_CODE" "remote bundle imported"
+        rm -f "$_bundle"
+        return 0
+    fi
+
+    echo "[-] Remote extraction bundle was invalid. Falling back to local extraction..."
+    remote_write_status "fallback" "$HTTP_CODE" "invalid extraction bundle"
+    rm -f "$_bundle"
+    return 1
 }
 
 USB_FULL_COUNT=0
@@ -71,6 +154,8 @@ while true; do
     NMEAFILE="/mnt/wardriving/wardriving_${TIMESTAMP}.nmea"
     HC2200FILE="/mnt/wardriving/wardriving_${TIMESTAMP}.hc2200"
     TMP_ESSID="/tmp/essid_${TIMESTAMP}.txt"
+    TMP_CSV="/tmp/csv_${TIMESTAMP}.txt"
+    REMOTE_BUNDLE="/tmp/extract_bundle_${TIMESTAMP}.tar.gz"
     
     echo "[*] Starting session: $FILENAME"
         OPTS=""
@@ -97,97 +182,25 @@ while true; do
     
     if [ -f "$FILENAME" ]; then
         remote_read_config
-        PROCESSED_REMOTE=0
-        REMOTE_RESPONSE="/tmp/respuesta_server_${TIMESTAMP}.jsonl"
-        if [ "$REMOTE_ENABLED" = "1" ] && [ -n "$REMOTE_URL" ]; then
-            echo "[*] Sending $FILENAME to remote server ($REMOTE_URL) ..."
-            remote_write_status "uploading" "0" "sending capture"
-            HTTP_CODE=$(remote_upload_capture "$FILENAME" "$REMOTE_RESPONSE")
-            if [ "$HTTP_CODE" = "200" ]; then
-                echo "[+] Remote server processed capture successfully."
-                remote_write_status "ok" "$HTTP_CODE" "remote processed"
-                PROCESSED_REMOTE=1
-                
-                if [ -s "$REMOTE_RESPONSE" ] && grep -q '"mac"' "$REMOTE_RESPONSE" 2>/dev/null; then
-                    db_insert_jsonl_rows "$REMOTE_RESPONSE" /mnt/wardriving/wardriving.db
-                fi
-                /usr/bin/wardriving_clients.sh "$FILENAME" "/tmp/client_csv_${TIMESTAMP}.txt" /mnt/wardriving/wardriving.db 2>/dev/null || true
-                rm -f "/tmp/client_csv_${TIMESTAMP}.txt"
-                rm -f "$REMOTE_RESPONSE"
-                rm -f "$FILENAME" "$NMEAFILE"
-            else
-                echo "[-] Remote server failed (Code: $HTTP_CODE). Falling back to local processing..."
-                remote_write_status "fallback" "$HTTP_CODE" "using local processing"
-            fi
-        elif [ "$REMOTE_ENABLED" = "1" ]; then
-            remote_write_status "unconfigured" "0" "missing remote url"
+        if try_remote_extract_capture "$FILENAME" "$REMOTE_BUNDLE"; then
+            :
         else
-            remote_write_status "local" "0" "remote disabled"
-        fi
-
-        if [ "$PROCESSED_REMOTE" = "0" ]; then
-            echo "[*] Converting $FILENAME to $HC2200FILE"
-            nice -n 10 hcxpcapngtool -o "$HC2200FILE" -E "$TMP_ESSID" --csv="/tmp/csv_${TIMESTAMP}.txt" "$FILENAME" > /dev/null 2>&1
-            /usr/bin/wardriving_clients.sh "$FILENAME" "/tmp/csv_${TIMESTAMP}.txt" /mnt/wardriving/wardriving.db 2>/dev/null || true
-
-            # SQLite Integration
-            if command -v sqlite3 >/dev/null 2>&1 && [ -s "/tmp/csv_${TIMESTAMP}.txt" ]; then
-                db_init_networks /mnt/wardriving/wardriving.db
-
-                awk -F'	' '{
-                    mac=$3; ssid=$4; enc=$5$6$7; chan=$9; rssi=$10;
-                    lat=$11; lat_dir=$12; lon=$13; lon_dir=$14;
-                    if (mac !~ /^[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]:[0-9A-Fa-f][0-9A-Fa-f]$/) next
-                    if (ssid == "" || rssi > 0) next
-                    gsub(/\047/, "\047\047", ssid)
-                    lat_dd="NULL"; lon_dd="NULL"
-
-                    if (lat != "" && lat != "0.000000") {
-                        idx = index(lat, ".")
-                        deg_len = (idx >= 3) ? idx - 3 : 2
-                        if(deg_len <= 0) deg_len = 1
-                        deg = substr(lat, 1, deg_len)
-                        min = substr(lat, deg_len + 1)
-                        lat_dd = deg + (min / 60)
-                        if (lat_dir == "S") lat_dd = -lat_dd
-                    }
-                    if (lon != "" && lon != "0.000000") {
-                        idx = index(lon, ".")
-                        deg_len = (idx >= 3) ? idx - 3 : 3
-                        if(deg_len <= 0) deg_len = 1
-                        deg = substr(lon, 1, deg_len)
-                        min = substr(lon, deg_len + 1)
-                        lon_dd = deg + (min / 60)
-                        if (lon_dir == "W") lon_dd = -lon_dd
-                    }
-
-                    printf "INSERT INTO networks (mac, ssid, enc, channel, lat, lon, first_seen, last_seen, rssi) VALUES (\047%s\047, \047%s\047, \047%s\047, %d, %s, %s, datetime(\047now\047), datetime(\047now\047), %d) ON CONFLICT(mac) DO UPDATE SET last_seen=datetime(\047now\047), rssi=EXCLUDED.rssi;\n", mac, ssid, enc, chan, lat_dd, lon_dd, rssi
-                }' "/tmp/csv_${TIMESTAMP}.txt" > "/tmp/sql_${TIMESTAMP}.sql"
-                
-                nice -n 10 sqlite3 /mnt/wardriving/wardriving.db < "/tmp/sql_${TIMESTAMP}.sql"
-                rm -f "/tmp/csv_${TIMESTAMP}.txt" "/tmp/sql_${TIMESTAMP}.sql"
-            fi
-            
-            # Si la conversión generó un hash
-            if [ -s "$HC2200FILE" ]; then
-                blink_led
-                # Fusionar hashes para sincronización
-                cat "$HC2200FILE" >> /mnt/wardriving/master.hc2200
-                nice -n 10 sort -u /mnt/wardriving/master.hc2200 -o /mnt/wardriving/master.hc2200
-            fi
-            
-            # Limpiar el hc2200 individual (si estaba vacio se borra, si tenia hashes ya estan en el master)
-            rm -f "$HC2200FILE"
-            
-            # Guardar diccionario de ESSID descubiertos
-            if [ -s "$TMP_ESSID" ]; then
-                cat "$TMP_ESSID" >> /mnt/wardriving/master_essid.txt
-                sort -u /mnt/wardriving/master_essid.txt -o /mnt/wardriving/master_essid.txt
-                rm -f "$TMP_ESSID"
+            local_extract_capture "$FILENAME" "$HC2200FILE" "$TMP_ESSID" "$TMP_CSV" /mnt/wardriving/wardriving.db
+            if [ "$EXTRACTION_MODE" = "local" ]; then
+                if [ "$GPU_CRACKING_ENABLED" = "1" ]; then
+                    if [ -n "$REMOTE_URL" ]; then
+                        remote_write_status "local" "0" "local extraction complete"
+                        remote_sync_hashes "/mnt/wardriving/master.hc2200" || true
+                    else
+                        remote_write_status "unconfigured" "0" "missing remote url"
+                    fi
+                else
+                    remote_write_status "local" "0" "local extraction gpu cracking off"
+                fi
+            elif [ "$GPU_CRACKING_ENABLED" = "1" ] && [ -n "$REMOTE_URL" ]; then
+                remote_sync_hashes "/mnt/wardriving/master.hc2200" || true
             fi
         fi
-
-        remote_sync_hashes "/mnt/wardriving/master.hc2200" || true
         
         # Retencion configurable del pcapng
         if [ ! -f /etc/wardriving_keep_pcap.txt ]; then

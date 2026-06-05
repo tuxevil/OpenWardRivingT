@@ -25,7 +25,11 @@ It uses a completely serverless backend approach: the "backend" is a collection 
   - Upon exiting, it uses `hcxpcapngtool` to extract handshakes and GPS tracks.
   - Integrates with `sqlite3` to push captured networks into `/mnt/wardriving/wardriving.db`.
   - Dedupes hashes into `/mnt/wardriving/master.hc2200`.
-  - Supports optional GPU offload. Uses authenticated JSONL (`X-OWRT-Contract: jsonl`) and validates rows locally before SQLite insert. Legacy remote SQL execution has been removed.
+  - Supports configurable extraction and cracking:
+    - `extraction_mode=local`: the router runs `hcxpcapngtool`, updates local SQLite, merges `master.hc2200`, then optionally uploads hashes to the GPU for cracking.
+    - `extraction_mode=remote`: the router sends the `.pcapng` to the GPU `/extract` endpoint, imports the returned `networks.jsonl`, `clients.jsonl`, and `capture.hc2200` bundle locally, and falls back to local extraction on timeout/error/invalid bundles.
+    - `gpu_cracking_enabled=0|1`: controls only hashcat enqueueing; SQLite, map, history, and live network views remain local sources of truth.
+  - Legacy `/upload` JSONL is kept on the GPU server for compatibility, but new router flows use `/extract` for extraction bundles and `/upload_hc2200` for cracking hashes.
   - Shares SQLite and remote upload helpers with replay/API through `/usr/lib/wardriving/db.sh` and `/usr/lib/wardriving/remote.sh`.
   - In the test topology, the GPU is reached at `10.128.128.254`; if WireGuard is used, route that host as `10.128.128.254/32` rather than the whole `10.128.128.0/24` when WAN also lives on `10.128.128.0/24`.
   - **Performance Note**: Capture rollover is CPU-heavy. We run these heavy tasks with `nice -n 10` so they don't freeze the router's UI.

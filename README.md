@@ -87,7 +87,12 @@ OWRT_GPU_SHARED_SECRET=replace-with-a-long-random-secret
 OWRT_ROUTER_TOKEN=<router-api-token-used-for-potfile-sync>
 ```
 
-The router requests an authenticated JSONL response from the GPU server and validates rows locally before inserting into SQLite.
+Processing now has two independent settings:
+
+- **Extraction Mode** (`/etc/wardriving_extraction_mode`): `local` runs `hcxpcapngtool` on the router; `remote` sends the `.pcapng` to GPU `/extract` and imports the returned bundle locally.
+- **GPU Cracking** (`/etc/wardriving_gpu_cracking_enabled`): `1` uploads `.hc2200` hashes to GPU `/upload_hc2200`; `0` keeps cracking disabled even if extraction runs remotely.
+
+The dashboard never reads the GPU directly. Live "Redes Ahora" comes from local `hcxdumptool` status, and map/history/client/cracked views read the router's local SQLite and pot/hash files. If remote extraction fails or returns an invalid bundle, the router falls back to local extraction.
 
 If the router reaches the GPU over WireGuard, route only the GPU host when that address overlaps with the router's WAN network. For the test topology, `10.128.128.254/32` should be allowed/routed through WireGuard, not the whole `10.128.128.0/24`; advertising the whole `/24` can steal the WAN gateway route and break `apk update`.
 

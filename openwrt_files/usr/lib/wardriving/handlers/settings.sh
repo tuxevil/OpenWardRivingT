@@ -65,19 +65,58 @@ echo "{\"leds\": $LEDS, \"current_led\": \"$CUR_LED\", \"current_button\": \"$CU
 }
 
 handle_set_processing() {
-EN=$(echo "$QUERY_STRING" | awk -F"&en=" '{print $2}' | awk -F"&" '{print $1}')
-if [ -z "$EN" ]; then EN=$(echo "$QUERY_STRING" | awk -F"?en=" '{print $2}' | awk -F"&" '{print $1}'); fi
-S_URL=$(echo "$QUERY_STRING" | grep -o "url=[^&]*" | cut -d= -f2 | sed 's/%3A/:/g; s/%2F/\//g')
-echo "$EN" > /etc/wardriving_remote_enabled
-echo "$S_URL" > /etc/wardriving_remote_url
-echo '{"status": "saved"}'
+MODE=$(query_param extraction_mode | tr -cd 'a-z')
+CRACKING=$(query_param gpu_cracking_enabled | tr -cd '01' | head -c 1)
+S_URL=$(query_param url | sed 's/%3A/:/g; s/%3a/:/g; s/%2F/\//g; s/%2f/\//g; s/%2D/-/g; s/%2d/-/g; s/%5F/_/g; s/%5f/_/g')
+
+if [ -z "$MODE" ]; then
+    EN=$(query_param en | tr -cd '01' | head -c 1)
+    if [ "$EN" = "1" ]; then MODE="remote"; else MODE="local"; fi
+fi
+case "$MODE" in
+    local|remote) ;;
+    *) json_error "invalid extraction mode"; exit 0 ;;
+esac
+
+if [ -z "$CRACKING" ]; then
+    CRACKING="1"
+    [ -f "$GPU_CRACKING_FILE" ] && CRACKING=$(cat "$GPU_CRACKING_FILE" | tr -cd '01' | head -c 1)
+    case "$CRACKING" in 0|1) ;; *) CRACKING="1" ;; esac
+fi
+case "$CRACKING" in
+    0|1) ;;
+    *) json_error "invalid gpu cracking value"; exit 0 ;;
+esac
+
+if { [ "$MODE" = "remote" ] || [ "$CRACKING" = "1" ]; } && [ -z "$S_URL" ]; then
+    json_error "remote url required"
+    exit 0
+fi
+
+write_processing_setting "$EXTRACTION_MODE_FILE" "$MODE" || { json_error "could not save extraction mode"; exit 0; }
+write_processing_setting "$GPU_CRACKING_FILE" "$CRACKING" || { json_error "could not save gpu cracking"; exit 0; }
+write_processing_setting "$REMOTE_URL_FILE" "$S_URL" || { json_error "could not save remote url"; exit 0; }
+if [ "$MODE" = "remote" ] || [ "$CRACKING" = "1" ]; then
+    write_processing_setting "$REMOTE_ENABLED_FILE" "1" || true
+else
+    write_processing_setting "$REMOTE_ENABLED_FILE" "0" || true
+fi
+echo "{\"status\":\"saved\",\"extraction_mode\":\"$MODE\",\"gpu_cracking_enabled\":\"$CRACKING\",\"url\":\"$S_URL\"}"
 }
 
 handle_get_processing() {
-EN="0"; S_URL=""
-[ -f /etc/wardriving_remote_enabled ] && EN=$(cat /etc/wardriving_remote_enabled)
-[ -f /etc/wardriving_remote_url ] && S_URL=$(cat /etc/wardriving_remote_url)
-EN=$(echo "$EN" | tr -d "\n"); S_URL=$(echo "$S_URL" | tr -d "\n"); echo "{\"enabled\": \"$EN\", \"url\": \"$S_URL\"}"
+remote_read_config
+LEGACY_EN="0"
+[ "$EXTRACTION_MODE" = "remote" ] && LEGACY_EN="1"
+echo "{\"enabled\":\"$LEGACY_EN\",\"extraction_mode\":\"$EXTRACTION_MODE\",\"gpu_cracking_enabled\":\"$GPU_CRACKING_ENABLED\",\"url\":\"$REMOTE_URL\"}"
+}
+
+write_processing_setting() {
+_path="$1"
+_value="$2"
+_tmp=$(mktemp /tmp/wardriving_setting_XXXXXX) || return 1
+printf "%s\n" "$_value" > "$_tmp" || { rm -f "$_tmp"; return 1; }
+mv -f "$_tmp" "$_path"
 }
 
 handle_set_pcap_retention() {

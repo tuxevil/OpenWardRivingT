@@ -90,6 +90,10 @@ mkdir -p /mnt/wardriving
 rm -f /www/wardriving/captures
 ln -s /mnt/wardriving /www/wardriving/captures
 
+# Processing defaults: extract on the router, optionally sync hashes to a configured GPU.
+[ -f /etc/wardriving_extraction_mode ] || printf "local\n" > /etc/wardriving_extraction_mode
+[ -f /etc/wardriving_gpu_cracking_enabled ] || printf "1\n" > /etc/wardriving_gpu_cracking_enabled
+
 # Configure Hostname
 echo "[*] Configuring Hostname..."
 uci set system.@system[0].hostname='OpenWardRivingT'

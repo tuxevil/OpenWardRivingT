@@ -55,9 +55,13 @@ bd close <id>         # Complete work
 **OpenWardRivingT** is a headless autonomous wardriving suite for OpenWrt routers. It has 5 layers:
 
 ### Layer 1: Core Capture (`wardriving_core.sh`)
-- Infinite loop: mount check → hcxdumptool capture → hcxpcapngtool conversion → SQLite insert
+- Infinite loop: mount check → hcxdumptool capture → extraction → SQLite/hash import
 - Sessions use 3-second dwell time and 1-minute capture windows (`-t 3 --tot=1`), producing `.pcapng` files on USB
-- Converts pcapng → `.hc2200` (PMKID hashes) + CSV via `hcxpcapngtool`
+- Always captures locally with `hcxdumptool`
+- Extraction is configurable:
+  - `local`: router runs `hcxpcapngtool`, imports networks/clients into SQLite, and merges `.hc2200` into `master.hc2200`
+  - `remote`: GPU `/extract` returns `networks.jsonl`, `clients.jsonl`, and `capture.hc2200`; the router imports that bundle locally and falls back to local extraction if the remote path fails
+- GPU cracking is separate from extraction: `/upload_hc2200` is used only when `gpu_cracking_enabled=1`
 - Merges hashes into `master.hc2200` with `sort -u` dedup
 - Inserts network metadata into SQLite (`/mnt/wardriving/wardriving.db`)
 - Manages GPS via virtual PTY (`socat` → `/tmp/vGPS` → `hcxdumptool --nmea_dev`)
@@ -73,14 +77,14 @@ bd close <id>         # Complete work
 - Public endpoint: status
 - Sensitive read/export endpoints: map_data, heatmap_data, scored_networks, history, list_files, cracked_networks, export_*.
 - Write endpoints: start, stop, delete_file, set_hw, set_processing, wigle_upload, upload_tiles, upload_potfile, pwnagotchi_sync.
-- Remote GPU processing uses authenticated JSONL only. The router validates each row before SQLite insert.
+- Remote GPU extraction uses authenticated bundles only. Legacy `/upload` JSONL remains server-side for compatibility; the dashboard and map never use the GPU as a direct data source.
 
 ### Layer 4: Web Dashboard (`index.html`, `app.css`, `app.js`)
 - Single-page app, 4-column responsive layout (car head unit optimized)
 - No build step: HTML shell, CSS, and vanilla JS are split into static files deployed directly
 - Leaflet.js maps with offline/online tile toggle
 - Live spectrum analyzer (accordion tree view)
-- Real-time stats via polling (status every 3s, map every 4s, scores every 5s)
+- Real-time stats via polling. "Redes Ahora" renders from `status.channels_data`, while map/history/client/cracked layers read local SQLite and local pot/hash files.
 
 ### Layer 5: Init & Install
 - `/etc/init.d/wardriving`: OpenWrt init script (START=99)
@@ -101,6 +105,9 @@ wlan0mon → hcxdumptool → .pcapng → hcxpcapngtool → .hc2200 → master.hc
                                   .csv → sqlite3 → wardriving.db
                                     ↓
                             master_essid.txt
+
+Remote extraction swaps only the hcxpcapngtool step:
+.pcapng → GPU /extract → bundle → router imports SQLite rows + master.hc2200
 ```
 
 ## Build & Test

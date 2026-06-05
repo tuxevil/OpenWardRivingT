@@ -55,8 +55,7 @@ CHANNELS_JSON=$(echo "$LOG_DATA" | awk '/^[ \t]*[0-9]+ [0-9]{2}:[0-9]{2}:[0-9]{2
 [ -z "$CHANNELS_JSON" ] && CHANNELS_JSON="[]"
 if [ "$CHANNELS_JSON" = "[]]" ]; then CHANNELS_JSON="[]"; fi
 
-REMOTE_ENABLED="0"
-[ -f /etc/wardriving_remote_enabled ] && REMOTE_ENABLED=$(cat /etc/wardriving_remote_enabled)
+remote_read_config
 REMOTE_STATE="local"
 REMOTE_CODE="0"
 REMOTE_MSG="remote disabled"
@@ -91,6 +90,8 @@ cat << JSON
 "space_free": "$SPACE_FREE",
 "gps_status": "$GPS_STAT",
 "remote_enabled": "$REMOTE_ENABLED",
+"extraction_mode": "$EXTRACTION_MODE",
+"gpu_cracking_enabled": "$GPU_CRACKING_ENABLED",
 "remote_state": "$REMOTE_STATE",
 "remote_code": "$REMOTE_CODE",
 "remote_message": "$REMOTE_MSG",

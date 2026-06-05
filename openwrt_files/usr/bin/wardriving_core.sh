@@ -6,6 +6,7 @@ cleanup() {
     jobs -p | while read -r pid; do
         [ -n "$pid" ] && kill -15 "$pid" 2>/dev/null
     done
+    rm -f /tmp/wardriving_jobs_*.txt
     rm -f /var/run/wardriving_core.pid
     exit 0
 }
@@ -125,6 +126,33 @@ process_capture_file() {
     fi
 }
 
+process_jobs_file() {
+    _jobs_file="$1"
+    while IFS='|' read -r IFACE PID FILENAME NMEAFILE HC2200FILE TMP_ESSID TMP_CSV REMOTE_BUNDLE; do
+        [ -n "$IFACE" ] || continue
+        process_capture_file "$IFACE" "$FILENAME" "$NMEAFILE" "$HC2200FILE" "$TMP_ESSID" "$TMP_CSV" "$REMOTE_BUNDLE"
+    done < "$_jobs_file"
+    rm -f "$_jobs_file"
+    sync
+}
+
+wait_for_processing_slot() {
+    [ -n "$PROCESSING_PID" ] || return 0
+    if kill -0 "$PROCESSING_PID" 2>/dev/null; then
+        echo "[*] Waiting for previous processing job ($PROCESSING_PID) before queuing more work"
+    fi
+    wait "$PROCESSING_PID" 2>/dev/null || echo "[-] Previous processing job exited with an error"
+    PROCESSING_PID=""
+}
+
+start_processing_jobs() {
+    _jobs_file="$1"
+    process_jobs_file "$_jobs_file" &
+    PROCESSING_PID=$!
+    renice -n 10 "$PROCESSING_PID" >/dev/null 2>&1 || true
+    echo "[*] Queued processing job $PROCESSING_PID for $_jobs_file"
+}
+
 try_remote_extract_capture() {
     _pcap="$1"
     _bundle="$2"
@@ -159,6 +187,7 @@ try_remote_extract_capture() {
 }
 
 USB_FULL_COUNT=0
+PROCESSING_PID=""
 while true; do
 
     if ! mount | grep -q "/mnt/wardriving"; then
@@ -231,11 +260,8 @@ while true; do
         wait "$PID" 2>/dev/null || echo "[-] Capture on $IFACE exited with an error"
     done < "$JOBS_FILE"
 
-    while IFS='|' read -r IFACE PID FILENAME NMEAFILE HC2200FILE TMP_ESSID TMP_CSV REMOTE_BUNDLE; do
-        [ -n "$IFACE" ] || continue
-        process_capture_file "$IFACE" "$FILENAME" "$NMEAFILE" "$HC2200FILE" "$TMP_ESSID" "$TMP_CSV" "$REMOTE_BUNDLE"
-    done < "$JOBS_FILE"
-    rm -f "$JOBS_FILE"
+    wait_for_processing_slot
+    start_processing_jobs "$JOBS_FILE"
 
     # Truncate log only when it grows excessively (avoid unnecessary I/O)
     LOG_SIZE=$(wc -l < /tmp/wardriving_status.log 2>/dev/null || echo 0)
@@ -243,6 +269,5 @@ while true; do
         tail -n 2000 /tmp/wardriving_status.log > /tmp/wardriving_status.tmp 2>/dev/null && mv /tmp/wardriving_status.tmp /tmp/wardriving_status.log
     fi
 
-    sync
-    sleep 2
+    sleep 1
 done

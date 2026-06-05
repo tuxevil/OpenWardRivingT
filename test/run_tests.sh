@@ -596,6 +596,13 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ core still assumes a single monitor interface"
 fi
 
+echo "  Test: core pipelines capture and processing safely"
+if grep -q "process_jobs_file()" openwrt_files/usr/bin/wardriving_core.sh && grep -q "PROCESSING_PID" openwrt_files/usr/bin/wardriving_core.sh && grep -q "wait_for_processing_slot" openwrt_files/usr/bin/wardriving_core.sh && grep -Fq 'process_jobs_file "$_jobs_file"' openwrt_files/usr/bin/wardriving_core.sh && grep -q "renice -n 10" openwrt_files/usr/bin/wardriving_core.sh; then
+    PASS=$((PASS + 1)); echo "  ✓ core overlaps next capture with one low-priority processing worker"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ core processing pipeline guard missing"
+fi
+
 echo "  Test: status merges dual radio logs"
 if grep -q "wardriving_status_wlan0mon.log" openwrt_files/usr/lib/wardriving/handlers/status.sh && grep -q "wardriving_status_wlan1mon.log" openwrt_files/usr/lib/wardriving/handlers/status.sh; then
     PASS=$((PASS + 1)); echo "  ✓ status reads both radio logs"

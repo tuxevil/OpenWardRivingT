@@ -413,6 +413,7 @@ else
 fi
 
 echo "  Test: browser GPS header label"
+# shellcheck disable=SC2016 # Grep pattern intentionally matches literal "$GPS_SOURCE".
 if grep -q '"gps_source": "$GPS_SOURCE"' openwrt_files/usr/lib/wardriving/handlers/status.sh && grep -q "gps_source==='browser'" openwrt_files/www/wardriving/app.js && grep -q "BROWSER" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ browser GPS shows source instead of synthetic sats"
 else
@@ -607,6 +608,7 @@ else
 fi
 
 echo "  Test: core captures configured interfaces"
+# shellcheck disable=SC2016 # Grep patterns intentionally match literal shell variables in source.
 if grep -q "WARDRIVING_CAPTURE_IFACES_FILE" openwrt_files/usr/bin/wardriving_core.sh && grep -Fq 'for IFACE in $CAPTURE_IFACES' openwrt_files/usr/bin/wardriving_core.sh && grep -Fq 'wardriving_status_${IFACE}.log' openwrt_files/usr/bin/wardriving_core.sh; then
     PASS=$((PASS + 1)); echo "  ✓ core launches capture per monitor interface"
 else
@@ -614,6 +616,7 @@ else
 fi
 
 echo "  Test: core pipelines capture and processing safely"
+# shellcheck disable=SC2016 # Grep pattern intentionally matches a literal "$_jobs_file" argument.
 if grep -q "process_jobs_file()" openwrt_files/usr/bin/wardriving_core.sh && grep -q "PROCESSING_PID" openwrt_files/usr/bin/wardriving_core.sh && grep -q "wait_for_processing_slot" openwrt_files/usr/bin/wardriving_core.sh && grep -Fq 'process_jobs_file "$_jobs_file"' openwrt_files/usr/bin/wardriving_core.sh && grep -q "renice -n 10" openwrt_files/usr/bin/wardriving_core.sh; then
     PASS=$((PASS + 1)); echo "  ✓ core overlaps next capture with one low-priority processing worker"
 else

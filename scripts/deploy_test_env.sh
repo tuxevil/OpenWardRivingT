@@ -72,6 +72,7 @@ copy_router openwrt_files/etc/init.d/wardriving /etc/init.d/wardriving
 copy_router openwrt_files/www/wardriving/index.html /www/wardriving/index.html
 copy_router openwrt_files/www/wardriving/app.css /www/wardriving/app.css
 copy_router openwrt_files/www/wardriving/app.js /www/wardriving/app.js
+copy_router openwrt_files/www/wardriving/sw.js /www/wardriving/sw.js
 ssh_cmd "$ROUTER_HOST" "set -eu; mkdir -p /usr/lib/wardriving/handlers"
 copy_router openwrt_files/usr/lib/wardriving/common.sh /usr/lib/wardriving/common.sh
 copy_router openwrt_files/usr/lib/wardriving/db.sh /usr/lib/wardriving/db.sh

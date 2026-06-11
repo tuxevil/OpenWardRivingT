@@ -40,7 +40,7 @@ GPS_STAT="WAITING"
 if [ -f /tmp/vGPS_last ]; then
     LAST_MOD=$(date -r /tmp/vGPS_last +%s 2>/dev/null || echo 0)
     NOW=$(date +%s)
-    if [ "$((NOW - LAST_MOD))" -lt 15 ]; then
+    if [ "$((NOW - LAST_MOD))" -lt 60 ]; then
         GPS_STAT="CONNECTED"
         GPS_SOURCE="browser"
         read -r FIX SATS SPEED <<_EOF

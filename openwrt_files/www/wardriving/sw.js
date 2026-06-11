@@ -1,4 +1,4 @@
-const CACHE_NAME = 'owrt-store-v7';
+const CACHE_NAME = 'owrt-store-v8';
 const APP_ASSETS = [
   './',
   './index.html',

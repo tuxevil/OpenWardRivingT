@@ -94,8 +94,13 @@ function setDriverSide(){
 // TOGGLE WARDIRIVING
 function toggleWardriving(){
   let a=isRunning?'stop':'start';
-  document.getElementById('btnToggle').innerText=a==='start'?'⏳ STARTING':'⏳ STOPPING';
-  apiJson(a).then(()=>setTimeout(updateStatus,a==='start'?4500:1500)).catch(e=>{
+  let btn=document.getElementById('btnToggle');
+  btn.innerText=a==='start'?'⏳ STARTING':'⏳ STOPPING';
+  btn.disabled=true;
+  apiJson(a).then(()=>{
+    setTimeout(()=>{ btn.disabled=false; updateStatus(); },a==='start'?4500:1500);
+  }).catch(e=>{
+    btn.disabled=false;
     setHtml('logBox','Action '+esc(a)+' failed: '+esc(e.message||'unknown'));
     updateStatus();
   });

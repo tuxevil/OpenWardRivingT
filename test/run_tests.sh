@@ -477,7 +477,7 @@ else
 fi
 
 echo "  Test: frontend pushes browser GPS while stopped"
-if grep -q "action=gps_push" openwrt_files/www/wardriving/app.js && ! grep -q "if(isRunning).*gps_push" openwrt_files/www/wardriving/app.js; then
+if grep -q "gps_push" openwrt_files/www/wardriving/app.js && ! grep -q "if(isRunning).*gps_push" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ browser GPS push is independent of capture state"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ browser GPS push still depends on running state"

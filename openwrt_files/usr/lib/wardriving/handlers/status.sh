@@ -32,7 +32,7 @@ FIX="0"
 GPS_SOURCE="none"
 if [ -f "$LATEST_NMEA" ]; then
     read -r FIX SATS SPEED <<_EOF
-$(tail -n 30 "$LATEST_NMEA" | awk -F',' '/^\$G[PN]GGA/{f=$7; s=$8} /^\$[A-Z]{2}RMC/{sp=$8} END{print (f?f:0), (s?s:0), (sp?sp:0)}')
+$(tail -n 30 "$LATEST_NMEA" | awk -F',' '/^[$]G[PN]GGA/{f=$7; s=$8} /^[$][A-Z]{2}RMC/{sp=$8} END{print (f?f:0), (s?s:0), (sp?sp:0)}')
 _EOF
     GPS_SOURCE="nmea"
 fi
@@ -44,7 +44,7 @@ if [ -f /tmp/vGPS_last ]; then
         GPS_STAT="CONNECTED"
         GPS_SOURCE="browser"
         read -r FIX SATS SPEED <<_EOF
-$(awk -F',' '/^\$G[PN]GGA/{f=$7; s=$8} /^\$[A-Z]{2}RMC/{sp=$8} END{print (f?f:0), (s?s:0), (sp?sp:0)}' /tmp/vGPS_last 2>/dev/null)
+$(awk -F',' '/^[$]G[PN]GGA/{f=$7; s=$8} /^[$][A-Z]{2}RMC/{sp=$8} END{print (f?f:0), (s?s:0), (sp?sp:0)}' /tmp/vGPS_last 2>/dev/null)
 _EOF
     fi
 fi

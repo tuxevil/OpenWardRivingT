@@ -52,3 +52,8 @@ Feeding GPS from the browser to `hcxdumptool` is non-trivial and relies on a del
 - **ShellCheck CI**: The GitHub Actions CI runs ShellCheck configured with specific exclusions (`-e SC3043,SC3048,etc.`) because `ash` supports `local` and `SIGTERM`, even though pure POSIX `sh` does not.
 - **Package Manager Drift**: OpenWrt 24/25 may use `apk` instead of `opkg`. Operational docs and install paths must mention both, and router package-update failures should include route/DNS checks before assuming feed errors.
 - **Modern SCP**: New `scp` clients use SFTP by default. Routers should include `openssh-sftp-server`; otherwise deployments may need legacy `scp -O`.
+
+## 🔐 API and Security Patterns (CRITICAL)
+- **API Token Requirement**: Almost all actions in `wardriving_api` are protected by `is_protected_action` and require the `token` parameter. 
+- **Frontend Calls**: Any frontend interaction with the backend MUST be wrapped in the `apiUrl(action, params)` function or `apiJson(action, params)` wrapper provided in `app.js`. 
+- **The Recurring Mistake**: NEVER write raw `fetch('/cgi-bin/wardriving_api?action=...')` calls directly in the JavaScript. If you do, the request will lack the token, silently fail with `401 Unauthorized`, and create "frozen UI" symptoms (like the "Stop" button hanging). Always use `fetch(apiUrl('...'))`.

@@ -82,3 +82,8 @@ bd close <id>         # Complete work
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
+
+## API and Security
+**CRITICAL: ALWAYS include the `API_TOKEN`** in frontend dashboard requests and API interactions.
+This is a recurring mistake. When adding new endpoints or `fetch` calls in the dashboard, you MUST use the `apiUrl(action, params)` wrapper (or ensure `token` is appended appropriately if constructing raw URLs). 
+Failing to include the API token results in silent 401 Unauthorized errors that break UI state and dashboard features like stop/start toggle, history loading, or target exclusions.

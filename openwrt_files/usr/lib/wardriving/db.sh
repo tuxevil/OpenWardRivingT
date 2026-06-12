@@ -38,7 +38,7 @@ db_insert_jsonl_rows() {
         [ "$RSSI" -gt 0 ] 2>/dev/null && continue
         [ -z "$LAT" ] && LAT="NULL"
         [ -z "$LON" ] && LON="NULL"
-        SSID=$(printf "%s" "$SSID_B64" | base64 -d 2>/dev/null | sed "s/'/''/g" | tr -cd '[:print:]')
+        SSID=$(printf "%s" "$SSID_B64" | base64 -d 2>/dev/null | sed "s/'/''/g; s/[^[:print:]]//g")
         [ -z "$SSID" ] && continue
         sqlite3 "$_db" "INSERT INTO networks (mac, ssid, enc, channel, lat, lon, first_seen, last_seen, rssi) VALUES ('$MAC', '$SSID', '$ENC', $CHAN, $LAT, $LON, datetime('now'), datetime('now'), $RSSI) ON CONFLICT(mac) DO UPDATE SET ssid=EXCLUDED.ssid, enc=EXCLUDED.enc, channel=EXCLUDED.channel, lat=EXCLUDED.lat, lon=EXCLUDED.lon, last_seen=EXCLUDED.last_seen, rssi=EXCLUDED.rssi;" 2>/dev/null || true
     done < "$_jsonl"
@@ -75,7 +75,7 @@ db_insert_clients_jsonl() {
         [ -z "$LON" ] && LON="NULL"
         [ -z "$FRAME_TYPE" ] && FRAME_TYPE="remote"
         [ -z "$SEEN_MODE" ] && SEEN_MODE="remote"
-        SSID=$(printf "%s" "$SSID_B64" | base64 -d 2>/dev/null | sed "s/'/''/g" | tr -cd '[:print:]')
+        SSID=$(printf "%s" "$SSID_B64" | base64 -d 2>/dev/null | sed "s/'/''/g; s/[^[:print:]]//g")
         [ -z "$SSID" ] && SSID="$AP_MAC"
         sqlite3 "$_db" "INSERT INTO clients (client_mac, ap_mac, ssid, channel, lat, lon, first_seen, last_seen, rssi, frame_type, seen_mode) VALUES ('$CLIENT_MAC', '$AP_MAC', '$SSID', $CHAN, $LAT, $LON, datetime('now'), datetime('now'), $RSSI, '$FRAME_TYPE', '$SEEN_MODE') ON CONFLICT(client_mac, ap_mac) DO UPDATE SET ssid=COALESCE(NULLIF(EXCLUDED.ssid,''),clients.ssid), channel=EXCLUDED.channel, lat=EXCLUDED.lat, lon=EXCLUDED.lon, last_seen=EXCLUDED.last_seen, rssi=EXCLUDED.rssi, frame_type=EXCLUDED.frame_type, seen_mode=EXCLUDED.seen_mode;" 2>/dev/null || true
     done < "$_jsonl"

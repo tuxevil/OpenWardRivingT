@@ -61,16 +61,23 @@ def parse_csv_rows(csv_path):
             parts = line.strip().split("\t")
             if len(parts) < 10:
                 continue
-            lat = parse_nmea(parts[9], False, parts[10] if len(parts) > 10 else 'N') if len(parts) > 9 else "NULL"
-            lon = parse_nmea(parts[11], True, parts[12] if len(parts) > 12 else 'E') if len(parts) > 11 else "NULL"
+            try:
+                lat = float(parts[14]) if len(parts) > 14 and parts[14] not in ("", "0.000000") else None
+                if lat is not None and parts[11] == "S":
+                    lat = -abs(lat)
+                lon = float(parts[15]) if len(parts) > 15 and parts[15] not in ("", "0.000000") else None
+                if lon is not None and parts[13] == "W":
+                    lon = -abs(lon)
+            except (ValueError, IndexError):
+                lat, lon = None, None
             rows.append({
-                "mac": parts[1],
-                "ssid": parts[2],
-                "enc": parts[3],
-                "channel": int(parts[7]) if parts[7].lstrip("-").isdigit() else 0,
-                "lat": None if lat == "NULL" else float(lat),
-                "lon": None if lon == "NULL" else float(lon),
-                "rssi": int(parts[8]) if parts[8].lstrip("-").isdigit() else 0,
+                "mac": parts[2],
+                "ssid": parts[3],
+                "enc": parts[4],
+                "channel": int(parts[8]) if parts[8].lstrip("-").isdigit() else 0,
+                "lat": lat,
+                "lon": lon,
+                "rssi": int(parts[9]) if parts[9].lstrip("-").isdigit() else 0,
             })
     return rows
 

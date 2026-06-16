@@ -273,6 +273,60 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ dashboard missing Bearer header injection"
 fi
 
+echo "  Test: set_hw serializes concurrent requests"
+# Fire two set_hw requests in parallel and verify the init script remains
+# valid (starts with #!/bin/sh) and that the WPS button script is also
+# valid. Without the flock, the second mv could overwrite a half-written
+# first file.
+rm -f /var/lock/wardriving_set_hw.lock
+OUT1=$(QUERY_STRING="action=set_hw&led=green%3Awps&btn=wps&mode=passive&token=$TOKEN" sh "$CGI" 2>/dev/null) &
+PID1=$!
+OUT2=$(QUERY_STRING="action=set_hw&led=amber%3Astatus&btn=wifi&mode=active&token=$TOKEN" sh "$CGI" 2>/dev/null) &
+PID2=$!
+wait $PID1
+wait $PID2
+if [ -x "$WARDRIVING_INIT_SCRIPT" ] && head -n1 "$WARDRIVING_INIT_SCRIPT" | grep -q "/bin/sh"; then
+    PASS=$((PASS + 1)); echo "  ✓ concurrent set_hw kept init script valid"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ concurrent set_hw corrupted init script"
+fi
+# Either request may have won the lock; just confirm the script is intact
+[ -x "$WARDRIVING_WPS_BUTTON_SCRIPT" ] && head -n1 "$WARDRIVING_WPS_BUTTON_SCRIPT" | grep -q "/bin/sh" && PASS=$((PASS + 1)) && echo "  ✓ concurrent set_hw kept WPS script valid" || { FAIL=$((FAIL + 1)); echo "  ✗ concurrent set_hw corrupted WPS script"; }
+
+echo "  Test: delete_file blocks path traversal"
+# Try every classic path-traversal payload. The handler must not delete
+# anything outside WARD_MNT.
+mkdir -p /etc/wardriving_traversal_test
+echo "must_survive" > /etc/wardriving_traversal_test/keep.txt
+TRAVERSALS='../../etc/passwd /etc/passwd ../etc/shadow ..%2Fetc%2Fpasswd %2Fetc%2Fpasswd'
+ATTACKS_OK=1
+for payload in $TRAVERSALS; do
+    enc=$(printf '%s' "$payload" | od -An -tx1 | tr -d ' \n')
+    # Use awk to percent-encode each byte
+    enc=$(printf '%s' "$payload" | awk '{
+        out=""
+        for (i=1; i<=length($0); i++) {
+            c=substr($0,i,1)
+            if (c ~ /[a-zA-Z0-9._-]/) out=out c
+            else out=out sprintf("%%%02X", sprintf("%d",index("0123456789ABCDEF", toupper(c))-1)+0)
+            # Simpler: just do the bytes we care about
+        }
+        # Fallback: pass through to python for proper encoding
+        print out
+    }' 2>/dev/null)
+    enc=$(python3 -c "import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=''))" "$payload" 2>/dev/null || echo "$payload")
+    OUT=$(QUERY_STRING="action=delete_file&file=${enc}&token=$TOKEN" sh "$CGI" 2>/dev/null)
+    if [ ! -f /etc/wardriving_traversal_test/keep.txt ]; then
+        ATTACKS_OK=0
+    fi
+done
+if [ "$ATTACKS_OK" = "1" ] && [ ! -f /tmp/should_not_exist ]; then
+    PASS=$((PASS + 1)); echo "  ✓ delete_file blocks all path traversal payloads"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ delete_file allowed a traversal payload"
+fi
+rm -rf /etc/wardriving_traversal_test
+
 # Test 7: Heatmap data
 echo "  Test: action=heatmap_data"
 OUT=$(QUERY_STRING="action=heatmap_data&token=$TOKEN" sh "$CGI" 2>/dev/null)

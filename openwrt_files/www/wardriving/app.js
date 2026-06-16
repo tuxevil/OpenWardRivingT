@@ -36,8 +36,13 @@ function fetchWithTimeout(url,options){
   const ms=options.timeout===undefined?10000:options.timeout;
   if(!ms||typeof AbortController==='undefined')return _origFetch(url,options);
   const ctl=new AbortController();
-  const timer=setTimeout(()=>ctl.abort(),ms);
+  let timedOut=false;
+  const timer=setTimeout(()=>{timedOut=true;ctl.abort();},ms);
   return _origFetch(url,Object.assign({},options,{signal:ctl.signal}))
+    .catch(e=>{
+      if(timedOut)throw new Error('request timeout ('+ms+'ms)');
+      throw e;
+    })
     .finally(()=>clearTimeout(timer));
 }
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}

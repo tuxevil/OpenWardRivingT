@@ -674,6 +674,19 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ fetchWithTimeout / AbortController missing"
 fi
 
+echo "  Test: fetchWithTimeout reports timeout (not raw AbortError)"
+# When AbortController fires the dashboard should reject with a
+# human-readable 'request timeout' error so the catch handlers in
+# loadFiles / setMode / etc. can show a useful toast instead of a
+# cryptic 'aborted'. Lock the contract: a refactor that re-throws
+# the raw AbortError will fail this test.
+if grep -qF "request timeout" openwrt_files/www/wardriving/app.js && \
+   grep -qF "timedOut" openwrt_files/www/wardriving/app.js; then
+    PASS=$((PASS + 1)); echo "  ✓ fetchWithTimeout rewrites AbortError to timeout message"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ fetchWithTimeout does not surface a timeout message"
+fi
+
 echo "  Test: targets and wigle_token respect env var overrides"
 # Use /tmp paths so the CI runner (no /etc write access) can
 # exercise the handlers. The CGI output is captured to a temp

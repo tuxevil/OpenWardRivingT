@@ -181,7 +181,6 @@ function updateStatus(){
     let btn=document.getElementById('btnToggle'),dot=document.getElementById('hdr_dot');
     if(isRunning){btn.innerHTML='⏹ STOP';btn.className='btn huge stop';dot.className='status-dot on';dot.innerHTML='● LIVE<span id="hdr_fresh">updated 0s</span>';}
     else{btn.innerHTML='▶ START';btn.className='btn huge';dot.className='status-dot off';dot.innerHTML='● STOPPED<span id="hdr_fresh">updated 0s</span>';}
-    updateFreshness(true);
     let browserGps=d.gps_source==='browser';
     document.getElementById('hdr_gps').querySelector('.val').innerText=browserGps?'BROWSER':(d.sats||'0');
     let gu=document.getElementById('hdr_gps').querySelector('.unit');if(gu)gu.innerText=d.fix!=='0'?(browserGps?'GPS':'sats'):'NO FIX';
@@ -676,7 +675,7 @@ const PQ={sleep:['Zzzz...','Dreaming of packets','Recharging'],awake:['Ready to 
 function updatePet(){let f=document.getElementById('petFace'),q=document.getElementById('petQuote'),b=document.getElementById('petBridge');if(!f||!q)return;let fs=PF[petMood]||PF.sleep,qs=PQ[petMood]||PQ.sleep;f.innerText=fs[Math.floor(Math.random()*fs.length)];q.innerText=qs[Math.floor(Math.random()*qs.length)];if(b)b.style.display=petPwnagotchiDetected?'block':'none';}
 function setPetMood(m){if(m!==petMood){petMood=m;petLastMoodChange=Date.now();updatePet();}}
 function evalMood(hs,de,r,u,g){if(!r){setPetMood('sleep');return;}if(parseInt(u)>=95){setPetMood('sad');return;}if(g==='0'||g===0){setPetMood('lonely');return;}let n=Date.now(),a=(n-petLastMoodChange)/1000;if(hs>petLastHandshakes){petHandshakeBurst+=(hs-petLastHandshakes);petLastHandshakes=hs;}if(petHandshakeBurst>=5)setPetMood('excited');else if(petHandshakeBurst>=3)setPetMood('happy');else if(petHandshakeBurst>0)setPetMood('intense');else if(hs>0&&a>60)setPetMood('awake');else if(a>300&&hs===0)setPetMood('bored');else if(hs>0)setPetMood('cool');if(a>30&&petHandshakeBurst>0)petHandshakeBurst=Math.max(0,petHandshakeBurst-1);}
-function evalMoodDOM(){let hs=parseInt(document.getElementById('hdr_hs').querySelector('.val').innerText)||0,de=parseInt('0')||0;evalMood(hs,de,isRunning,0,1);}
+function evalMoodDOM(){let hs=parseInt(document.getElementById('hdr_hs').querySelector('.val').innerText)||0;evalMood(hs,0,isRunning,0,1);}
 updatePet();setInterval(updatePet,15000);setInterval(evalMoodDOM,5000);
 
 // POLL INTERVALS

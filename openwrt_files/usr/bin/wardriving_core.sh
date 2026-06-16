@@ -188,9 +188,30 @@ try_remote_extract_capture() {
 
 USB_FULL_COUNT=0
 PROCESSING_PID=""
+# Source device of the USB mount, captured at start to detect mid-loop
+# unmounts. If the device changes (or the mountpoint disappears), we
+# abort the write that would otherwise land on the rootfs and burn the
+# router's internal flash.
+USB_SRC=""
+
+check_usb_mount() {
+    # Return 0 only if /mnt/wardriving is a real mount and the source
+    # device is unchanged from the previously seen USB_SRC. Otherwise
+    # return non-zero so the caller can abort.
+    if ! mountpoint -q /mnt/wardriving; then
+        return 1
+    fi
+    _cur_src=$(findmnt -no SOURCE /mnt/wardriving 2>/dev/null)
+    if [ -z "$USB_SRC" ]; then
+        USB_SRC="$_cur_src"
+        return 0
+    fi
+    [ "$_cur_src" = "$USB_SRC" ]
+}
+
 while true; do
 
-    if ! mount | grep -q "/mnt/wardriving"; then
+    if ! check_usb_mount; then
         echo "ERROR: USB NOT DETECTED"
         exit 1
     fi
@@ -260,6 +281,13 @@ while true; do
         wait "$PID" 2>/dev/null || echo "[-] Capture on $IFACE exited with an error"
     done < "$JOBS_FILE"
 
+    # Re-verify the USB mount before kicking off processing: if the
+    # drive was yanked mid-capture, processing the now-orphaned files
+    # on rootfs would silently fill internal flash.
+    if ! check_usb_mount; then
+        echo "ERROR: USB UNMOUNTED DURING CAPTURE - ABORTING" >> /tmp/wardriving_status.log
+        continue
+    fi
     wait_for_processing_slot
     start_processing_jobs "$JOBS_FILE"
 

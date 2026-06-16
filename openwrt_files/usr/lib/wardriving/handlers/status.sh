@@ -190,19 +190,25 @@ require_post
 check_content_length 8192 "NMEA payload"
 NMEA_DATA=$(cat)
 if [ -n "$NMEA_DATA" ]; then
-    # Basic NMEA validation: must start with $ and contain checksum
-    case "$NMEA_DATA" in
-        \$G*\**)
-            printf "%s\n" "$NMEA_DATA" > /tmp/vGPS_last
-            if [ -p /tmp/vGPS_fifo ] && pgrep -f "socat.*vGPS" >/dev/null 2>&1; then
-                printf "%s\n" "$NMEA_DATA" >> /tmp/vGPS_fifo
-            fi
-            ;;
-        *)
-            echo '{"status": "error", "reason": "invalid NMEA format"}'
-            exit 0
-            ;;
-    esac
+    # Tight NMEA validation: every non-empty line must be a real
+    # sentence ($XXXXXX,XX,...,XX*HH with 2-hex-digit checksum).
+    # The previous glob '\$G*\**' was too loose — it accepted
+    # things like '$GARBAGE*anything', which an attacker could
+    # write into /tmp/vGPS_last or push down the FIFO that feeds
+    # hcxdumptool. We require the talker to be GP (the only
+    # sentence generator in the JS), the sentence to be RMC,
+    # GGA, or WPL, and the checksum field to be 2 hex chars.
+    if ! printf '%s\n' "$NMEA_DATA" | awk '
+        NF == 0 { next }
+        !(/^\$[A-Z]{2}(RMC|GGA|WPL),[^*]*\*[0-9A-Fa-f]{2}$/) { exit 1 }
+    ' >/dev/null 2>&1; then
+        echo '{"status": "error", "reason": "invalid NMEA format"}'
+        exit 0
+    fi
+    printf "%s\n" "$NMEA_DATA" > /tmp/vGPS_last
+    if [ -p /tmp/vGPS_fifo ] && pgrep -f "socat.*vGPS" >/dev/null 2>&1; then
+        printf "%s\n" "$NMEA_DATA" >> /tmp/vGPS_fifo
+    fi
 fi
 echo '{"status": "ok"}'
 }

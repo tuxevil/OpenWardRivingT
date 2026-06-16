@@ -669,6 +669,28 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ gps_push can still write to FIFO without reader"
 fi
 
+echo "  Test: gps_push rejects malformed NMEA"
+# Junk that satisfied the old '\$G*\**' glob but should be rejected now.
+# Use printf + pipe to inject a body via stdin (BusyBox ash does not
+# support here-strings).
+if [ -f /tmp/vGPS_last ]; then
+    SAVED_LAST=$(cat /tmp/vGPS_last)
+else
+    SAVED_LAST=""
+fi
+OUT=$(printf '%s' '$GARBAGE*anything' | REQUEST_METHOD=POST CONTENT_LENGTH=20 QUERY_STRING="action=gps_push&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_contains "gps_push rejects \$GARBAGE*anything" "$OUT" "invalid NMEA format"
+OUT=$(printf '%s' '$GPRMC,123519,A,4807.038,N,01131.000,E,022.4' | REQUEST_METHOD=POST CONTENT_LENGTH=42 QUERY_STRING="action=gps_push&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_contains "gps_push rejects RMC without checksum" "$OUT" "invalid NMEA format"
+OUT=$(printf '%s' '$GPIJ,123519,A,4807.038,N,01131.000,E,022.4*6A' | REQUEST_METHOD=POST CONTENT_LENGTH=42 QUERY_STRING="action=gps_push&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_contains "gps_push rejects unknown sentence type IJ" "$OUT" "invalid NMEA format"
+OUT=$(printf '%s' '$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*ZZ' | REQUEST_METHOD=POST CONTENT_LENGTH=72 QUERY_STRING="action=gps_push&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_contains "gps_push rejects non-hex checksum" "$OUT" "invalid NMEA format"
+# Restore vGPS_last so subsequent tests aren't affected
+if [ -n "$SAVED_LAST" ]; then
+    printf "%s" "$SAVED_LAST" > /tmp/vGPS_last
+fi
+
 echo "  Test: url_decode helper decodes SSID variants"
 # url_decode is sourced from common.sh; pass its body inline so we don't
 # overwrite the test's $TOKEN (which common.sh also defines).

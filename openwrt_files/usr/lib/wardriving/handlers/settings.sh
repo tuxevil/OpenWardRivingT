@@ -261,8 +261,11 @@ echo '{"status": "ok"}'
 
 handle_pwnagotchi_status() {
 # Proxy to pwnagotchi REST API (typically on port 8080)
-PWN_HOST="127.0.0.1:8080"
-RES=$(curl -s -m 2 "http://$PWN_HOST/api/v1/status" 2>/dev/null || echo '{}')
+PWN_HOST="${WARDRIVING_PWN_HOST:-127.0.0.1:8080}"
+# 10s timeout: a pwnagotchi with UI loading or slow disk can take
+# >2s. The dashboard polls every 10s anyway, so 10s curl timeout
+# doesn't affect perceived latency.
+RES=$(curl -s -m 10 "http://$PWN_HOST/api/v1/status" 2>/dev/null || echo '{}')
 echo "$RES"
 }
 

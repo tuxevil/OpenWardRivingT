@@ -1,6 +1,14 @@
 #!/bin/sh
 # wardriving_replay.sh - Visual-first WiGLE route replay.
 
+# set -u (nounset): abort on access to unset variables. Catches the
+# most common bash bug class without the cost of strict -e. We do
+# NOT add set -e because this script drives an interactive replay
+# (seek/pause/stop, process_queue background worker). A transient
+# error (curl > 15s, hashcat -m 22000 missing on the GPU, etc)
+# would otherwise abort the whole replay and lose the user's
+# progress mid-presentation. -u still protects against the
+# catastrophic "typo'd variable" footgun.
 set -u
 
 WARD_MNT="${WARDRIVING_MNT:-/mnt/wardriving}"

@@ -693,9 +693,9 @@ else
 fi
 
 echo "  Test: gps_push rejects malformed NMEA"
-# Junk that satisfied the old '\$G*\**' glob but should be rejected now.
-# Use printf + pipe to inject a body via stdin (BusyBox ash does not
-# support here-strings).
+# Single quotes are intentional: we want to send the LITERAL NMEA
+# strings to the CGI, not expand the $ as a variable. The CI's
+# linter excludes SC2016 globally for this reason.
 if [ -f /tmp/vGPS_last ]; then
     SAVED_LAST=$(cat /tmp/vGPS_last)
 else

@@ -166,10 +166,21 @@ if [ -f "$WARD_MNT"/hashcat.potfile ] && [ -f "$WARD_MNT"/wardriving.db ]; then
             }
             first=1
         }
+        function json_escape(v) {
+            gsub(/\\/, "\\\\", v)
+            gsub("\x22", "\\\"", v)
+            gsub(/\x08/, "\\b", v)
+            gsub(/\x0c/, "\\f", v)
+            gsub(/\n/, "\\n", v)
+            gsub(/\r/, "\\r", v)
+            gsub(/\t/, "\\t", v)
+            gsub(/[^\x20-\x7E]/, "", v)
+            return v
+        }
         {
             if(!first) printf ","
-            ssid=$3; gsub(/\\/, "\\\\", ssid); gsub("\x22", "\\\"", ssid);
-            p=pwd[ssid]; gsub(/\\/, "\\\\", p); gsub("\x22", "\\\"", p);
+            ssid=json_escape($3);
+            p=json_escape(pwd[$3]); if (p == "") p=json_escape(pwd[$3]);
             printf "{\"lat\":%s, \"lon\":%s, \"ssid\":\"%s\", \"password\":\"%s\"}", $1, $2, ssid, p
             first=0
         }'

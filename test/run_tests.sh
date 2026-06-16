@@ -434,6 +434,29 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ cracked map layer toggle missing"
 fi
 
+echo "  Test: cracked_networks escapes JSON control chars"
+if grep -qF 'gsub(/\\/, "\\\\", v)' openwrt_files/usr/lib/wardriving/handlers/captures.sh && grep -qF '\x0c' openwrt_files/usr/lib/wardriving/handlers/captures.sh && grep -qF '\x08' openwrt_files/usr/lib/wardriving/handlers/captures.sh; then
+    PASS=$((PASS + 1)); echo "  ✓ cracked_networks escapes backslash, quote, and control chars"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ cracked_networks JSON escape incomplete"
+fi
+# Functional: inject a SSID with control chars and confirm JSON stays valid.
+if command -v sqlite3 >/dev/null 2>&1; then
+    TAB_SSID=$'net\twith\ttabs'
+    sqlite3 /tmp/test_wardriving_mnt/wardriving.db "DELETE FROM networks WHERE mac='00:99:88:77:66:55';" >/dev/null 2>&1
+    sqlite3 /tmp/test_wardriving_mnt/wardriving.db "INSERT INTO networks VALUES ('00:99:88:77:66:55','${TAB_SSID}','WPA2',6,40.0,-74.0,'2026-01-01','2026-01-01',-50);" >/dev/null 2>&1
+    printf 'WPA*02*009988776655*4a1f5e6c7d8e9a0b1c2d3e4f5a6b7c8d*70617373776F7264* ***\n' >> /tmp/test_wardriving_mnt/master.hc2200
+    OUT=$(QUERY_STRING="action=cracked_networks&token=$TOKEN" sh "$CGI" 2>/dev/null)
+    body=$(printf "%s" "$OUT" | sed '1,/^$/d')
+    if printf "%s" "$body" | python3 -m json.tool >/dev/null 2>&1; then
+        PASS=$((PASS + 1)); echo "  ✓ cracked_networks returns valid JSON for control-char SSID"
+    else
+        FAIL=$((FAIL + 1)); echo "  ✗ cracked_networks JSON invalid for control-char SSID"
+    fi
+    # Cleanup
+    sqlite3 /tmp/test_wardriving_mnt/wardriving.db "DELETE FROM networks WHERE mac='00:99:88:77:66:55';" >/dev/null 2>&1
+fi
+
 echo "  Test: service worker updates dashboard assets"
 if grep -q "owrt-store-v" openwrt_files/www/wardriving/sw.js && grep -q "skipWaiting" openwrt_files/www/wardriving/sw.js && grep -q "clients.claim" openwrt_files/www/wardriving/sw.js && grep -q "caches.delete" openwrt_files/www/wardriving/sw.js && grep -q "/cgi-bin/wardriving_api" openwrt_files/www/wardriving/sw.js; then
     PASS=$((PASS + 1)); echo "  ✓ service worker refreshes app shell and bypasses API cache"

@@ -13,7 +13,15 @@ else
     IS_RUNNING="false"
 fi
 if [ -f "$WARD_MNT"/master.hc2200 ]; then
-    HANDSHAKES=$(wc -l < "$WARD_MNT"/master.hc2200 2>/dev/null || echo 0)
+    # Use the cached count from merge_hash_file if available (avoids
+    # running wc -l on the full master.hc2200 every 5s, which is
+    # measurable with 50K+ hashes). Fall back to wc -l on first
+    # poll after boot or if the cache is missing for any reason.
+    if [ -s /tmp/wardriving_handshake_count ]; then
+        HANDSHAKES=$(cat /tmp/wardriving_handshake_count 2>/dev/null || echo 0)
+    else
+        HANDSHAKES=$(wc -l < "$WARD_MNT"/master.hc2200 2>/dev/null || echo 0)
+    fi
 else
     HANDSHAKES=0
 fi

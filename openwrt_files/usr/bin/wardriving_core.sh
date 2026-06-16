@@ -64,6 +64,11 @@ merge_hash_file() {
     # intentando el sort en el siguiente ciclo.
     cat "$_hash_file" >> /mnt/wardriving/master.hc2200 || true
     nice -n 10 sort -u /mnt/wardriving/master.hc2200 -o /mnt/wardriving/master.hc2200
+    # Actualizar el contador cacheado que status.sh lee cada 5s.
+    # wc -l sobre un fichero de 50K hashes toma ~10ms; el dashboard
+    # polea 12 veces/min, sumaria 0.12 CPU·min/h. Con el cache, el
+    # handler solo hace un read de 1 linea de /tmp.
+    wc -l < /mnt/wardriving/master.hc2200 > /tmp/wardriving_handshake_count 2>/dev/null || true
 }
 
 merge_essid_file() {

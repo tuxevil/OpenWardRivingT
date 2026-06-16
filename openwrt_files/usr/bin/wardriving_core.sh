@@ -1,5 +1,18 @@
 #!/bin/sh
 
+# set -e: abort on any unexpected failure. The capture loop is long-
+# running and self-healing, but we still want to know if something
+# fundamental breaks (USB vanished, curl call returned non-zero, etc)
+# instead of silently continuing in a broken state.
+#
+# Most failure paths inside the loop are wrapped in `|| true`,
+# `if`, or use commands whose non-zero exit is the normal path
+# (grep without a match, pkill with no targets). The block-level
+# exceptions (pkill, grep, cat of config files, df, etc) are
+# annotated in-place below.
+
+set -e
+
 # ===== SIGNAL TRAP FOR CLEAN SHUTDOWN =====
 cleanup() {
     echo "[!] Caught signal - cleaning up..."
@@ -21,16 +34,18 @@ CAPTURE_IFACES_FILE="${WARDRIVING_CAPTURE_IFACES_FILE:-/tmp/wardriving_capture_i
 . "$LIB_DIR/remote.sh"
 
 # Start virtual GPS server if it doesn't exist
-pkill -f "socat.*vGPS" 2>/dev/null
+pkill -f "socat.*vGPS" 2>/dev/null || true
 rm -f /tmp/vGPS_fifo
 mkfifo /tmp/vGPS_fifo
 socat pty,link=/tmp/vGPS,raw,echo=0 pipe:/tmp/vGPS_fifo &
 
 # Función para parpadear un LED si existe (feedback visual)
 blink_led() {
-    # Intenta encontrar un LED que probablemente sea seguro usar
-    _LED=$(ls /sys/class/leds/ 2>/dev/null | grep -iE "usb" | head -n 1)
-    [ -z "$_LED" ] && _LED=$(ls /sys/class/leds/ 2>/dev/null | grep -iE "wps|wlan|wifi|system|power" | head -n 1)
+    # Intenta encontrar un LED que probablemente sea seguro usar.
+    # || echo "" evita que set -e aborte cuando grep no encuentra
+    # coincidencias (caso normal en hardware sin LED identificable).
+    _LED=$(ls /sys/class/leds/ 2>/dev/null | grep -iE "usb" | head -n 1 || echo "")
+    [ -z "$_LED" ] && _LED=$(ls /sys/class/leds/ 2>/dev/null | grep -iE "wps|wlan|wifi|system|power" | head -n 1 || echo "")
     if [ -n "$_LED" ] && [ -f "/sys/class/leds/$_LED/brightness" ]; then
         _current=$(cat "/sys/class/leds/$_LED/brightness")
         echo 0 > "/sys/class/leds/$_LED/brightness"
@@ -45,14 +60,16 @@ merge_hash_file() {
     _hash_file="$1"
     [ -s "$_hash_file" ] || return 0
     blink_led
-    cat "$_hash_file" >> /mnt/wardriving/master.hc2200
+    # || true: si el USB se lleno a media escritura seguimos
+    # intentando el sort en el siguiente ciclo.
+    cat "$_hash_file" >> /mnt/wardriving/master.hc2200 || true
     nice -n 10 sort -u /mnt/wardriving/master.hc2200 -o /mnt/wardriving/master.hc2200
 }
 
 merge_essid_file() {
     _essid_file="$1"
     [ -s "$_essid_file" ] || return 0
-    cat "$_essid_file" >> /mnt/wardriving/master_essid.txt
+    cat "$_essid_file" >> /mnt/wardriving/master_essid.txt || true
     sort -u /mnt/wardriving/master_essid.txt -o /mnt/wardriving/master_essid.txt
 }
 
@@ -64,7 +81,9 @@ local_extract_capture() {
     _db="$5"
 
     echo "[*] Extracting $_pcap locally to $_hc2200"
-    nice -n 10 hcxpcapngtool -o "$_hc2200" -E "$_essid" --csv="$_csv" "$_pcap" > /dev/null 2>&1
+    # hcxpcapngtool puede fallar (pcap corrupto, formato no soportado);
+    # en ese caso el siguiente ciclo vuelve a intentarlo, no abortamos.
+    nice -n 10 hcxpcapngtool -o "$_hc2200" -E "$_essid" --csv="$_csv" "$_pcap" > /dev/null 2>&1 || true
     "$CLIENTS_BIN" "$_pcap" "$_csv" "$_db" 2>/dev/null || true
     db_insert_hcx_csv "$_csv" "$_db"
     merge_hash_file "$_hc2200"
@@ -165,7 +184,9 @@ try_remote_extract_capture() {
 
     echo "[*] Requesting remote extraction for $_pcap ($REMOTE_URL) ..."
     remote_write_status "uploading" "0" "sending capture for extraction"
-    HTTP_CODE=$(remote_extract_capture "$_pcap" "$_bundle")
+    # || echo "": si curl ni siquiera arranca (red caida, DNS roto)
+    # no abortamos el daemon; caemos al fallback local.
+    HTTP_CODE=$(remote_extract_capture "$_pcap" "$_bundle" || echo "")
     if [ "$HTTP_CODE" != "200" ]; then
         echo "[-] Remote extraction failed (Code: $HTTP_CODE). Falling back to local extraction..."
         remote_write_status "fallback" "$HTTP_CODE" "remote extraction failed"
@@ -220,15 +241,15 @@ while true; do
         exit 1
     fi
     
-    USB_PCT=$(df /mnt/wardriving | awk 'NR==2 {print $5}' | tr -d '%')
-    if [ "$USB_PCT" -ge 95 ]; then
+    USB_PCT=$(df /mnt/wardriving | awk 'NR==2 {print $5}' | tr -d '%' 2>/dev/null || echo "0")
+    if [ "${USB_PCT:-0}" -ge 95 ] 2>/dev/null; then
         USB_FULL_COUNT=$((USB_FULL_COUNT + 1))
         echo "ERROR: USB CAPACITY CRITICAL ($USB_PCT%). Count: $USB_FULL_COUNT" >> /tmp/wardriving_status.log
         blink_led
         # Auto-stop after ~5 minutes of persistent fullness (30 cycles * 10s avg)
         if [ "$USB_FULL_COUNT" -gt 30 ]; then
             echo "FATAL: USB full for too long. Stopping wardriving." >> /tmp/wardriving_status.log
-            /etc/init.d/wardriving stop 2>/dev/null
+            /etc/init.d/wardriving stop 2>/dev/null || true
             exit 1
         fi
         # Exponential backoff: 5s, 10s, 20s, 40s... capped at 300s
@@ -241,7 +262,10 @@ while true; do
 
 
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-    CAPTURE_IFACES=$(awk 'NF && $0 ~ /^[A-Za-z0-9_.:-]+$/ {print}' "$CAPTURE_IFACES_FILE" 2>/dev/null | tr '\n' ' ')
+    # || echo "": si el archivo CAPTURE_IFACES no existe (caso
+    # comun tras fresh install antes del primer start), capturamos
+    # wlan0mon por default sin abortar.
+    CAPTURE_IFACES=$(awk 'NF && $0 ~ /^[A-Za-z0-9_.:-]+$/ {print}' "$CAPTURE_IFACES_FILE" 2>/dev/null | tr '\n' ' ' || echo "")
     [ -n "$CAPTURE_IFACES" ] || CAPTURE_IFACES="wlan0mon"
     JOBS_FILE="/tmp/wardriving_jobs_${TIMESTAMP}.txt"
     : > "$JOBS_FILE"
@@ -249,14 +273,16 @@ while true; do
     echo "[*] Starting session: $TIMESTAMP ($CAPTURE_IFACES)"
     OPTS=""
     if [ -f /etc/wardriving_mode.txt ]; then
-        MODE=$(cat /etc/wardriving_mode.txt)
+        # || echo "": defensivo contra carrera entre el test y el read.
+        MODE=$(cat /etc/wardriving_mode.txt || echo "")
         if [ "$MODE" = "passive" ]; then
             OPTS="--attemptapmax=0"
             echo "[*] MODE: PASSIVE (Silent Site Survey)"
         elif [ "$MODE" = "smart" ]; then
             if [ -s /etc/wardriving_targets.txt ]; then
                 # format targets for hcxdumptool: 112233
-                cat /etc/wardriving_targets.txt | sed 's/://g' > /tmp/smart_targets.txt
+                # || true: si el archivo se borra entre el test y el read.
+                cat /etc/wardriving_targets.txt | sed 's/://g' > /tmp/smart_targets.txt || true
                 OPTS="--filterlist_ap=/tmp/smart_targets.txt --filtermode=2"
                 echo "[*] MODE: SMART TARGETING (Attacking only targeted OUIs)"
             else

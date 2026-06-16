@@ -1,7 +1,13 @@
 #!/bin/sh
 # Extract associated Wi-Fi clients/stations from a pcapng into wardriving.db.
 
-set -u
+# set -eu: -u catches unset variables (the historical footgun here),
+# -e makes us abort on any unexpected command failure so a corrupt
+# pcap or full USB does not silently produce a half-written DB.
+# The risk paths (hcxpcapngtool may fail on invalid pcap, sqlite
+# may be missing) are guarded with `|| true` or `|| echo` fallbacks.
+
+set -eu
 
 PCAP="${1:-}"
 CSV_IN="${2:-}"
@@ -24,7 +30,7 @@ fi
 hcxpcapngtool --raw-out="$RAW" "$PCAP" >/dev/null 2>&1 || true
 [ -s "$RAW" ] || { rm -f "$RAW" "$AP" "$SQL"; exit 0; }
 
-sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS clients (client_mac TEXT, ap_mac TEXT, ssid TEXT, channel INTEGER, lat REAL, lon REAL, first_seen DATETIME, last_seen DATETIME, rssi INTEGER, frame_type TEXT, seen_mode TEXT, PRIMARY KEY(client_mac, ap_mac)); CREATE INDEX IF NOT EXISTS idx_clients_last_seen ON clients(last_seen); CREATE INDEX IF NOT EXISTS idx_clients_ap ON clients(ap_mac);" >/dev/null 2>&1
+sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS clients (client_mac TEXT, ap_mac TEXT, ssid TEXT, channel INTEGER, lat REAL, lon REAL, first_seen DATETIME, last_seen DATETIME, rssi INTEGER, frame_type TEXT, seen_mode TEXT, PRIMARY KEY(client_mac, ap_mac)); CREATE INDEX IF NOT EXISTS idx_clients_last_seen ON clients(last_seen); CREATE INDEX IF NOT EXISTS idx_clients_ap ON clients(ap_mac);" >/dev/null 2>&1 || true
 
 GPS_MAX_AGE="${WARDRIVING_GPS_MAX_AGE:-20}"
 GPS_NOW=$(date +%s 2>/dev/null || echo 0)

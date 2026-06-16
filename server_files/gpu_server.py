@@ -232,9 +232,21 @@ def extract_pcap_bundle():
     crack_requested = request.form.get("crack", "1") == "1"
     queued_hashcat = False
 
+    # hcxpcapngtool can hang on malformed pcaps (e.g. truncated file
+    # mid-frame) without producing any output. Without a timeout the
+    # HTTP request would sit indefinitely until the client gave up.
+    # 300s is generous: a real 50MB pcap extracts in ~5s, the per-
+    # capture window is 60s, and we add headroom for slow disks.
+    HCXPCAPNGTOOL_TIMEOUT = 300
     try:
-        result = subprocess.run([HCXPCAPNGTOOL_BIN, "-o", hc2200_path, "--csv", csv_path, pcap_path], capture_output=True)
-        subprocess.run([HCXPCAPNGTOOL_BIN, "--raw-out", raw_path, pcap_path], capture_output=True)
+        result = subprocess.run(
+            [HCXPCAPNGTOOL_BIN, "-o", hc2200_path, "--csv", csv_path, pcap_path],
+            capture_output=True, timeout=HCXPCAPNGTOOL_TIMEOUT,
+        )
+        subprocess.run(
+            [HCXPCAPNGTOOL_BIN, "--raw-out", raw_path, pcap_path],
+            capture_output=True, timeout=HCXPCAPNGTOOL_TIMEOUT,
+        )
         rows = parse_csv_rows(csv_path)
         clients = parse_client_rows(raw_path, rows)
 
@@ -251,11 +263,15 @@ def extract_pcap_bundle():
             queued_hashcat = True
 
         bundle = tar_bytes({
-            "networks.jsonl": rows_to_jsonl(rows),
             "clients.jsonl": clients_to_jsonl(clients),
             "capture.hc2200": hash_payload,
         })
         return Response(bundle, mimetype="application/gzip", headers={"X-OWRT-Contract": "extraction-bundle-v1"})
+    except subprocess.TimeoutExpired as e:
+        # hcxpcapngtool hung (truncated pcap, IO stall, etc).
+        # Surface a clean 422 so the router falls back to local
+        # extraction rather than retrying forever.
+        return jsonify({"error": "extraction_timeout", "stage": e.cmd[0] if e.cmd else "hcxpcapngtool"}), 422
     finally:
         for path in (pcap_path, csv_path, raw_path):
             if os.path.exists(path):

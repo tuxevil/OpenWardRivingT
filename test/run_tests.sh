@@ -508,6 +508,62 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ gps_push can still write to FIFO without reader"
 fi
 
+echo "  Test: url_decode helper decodes SSID variants"
+# url_decode is sourced from common.sh; pass its body inline so we don't
+# overwrite the test's $TOKEN (which common.sh also defines).
+url_decode() {
+    printf '%s' "$1" | awk '
+    BEGIN {
+        for (i = 0; i < 16; i++) {
+            v = sprintf("%x", i)
+            c2x[toupper(v)] = i
+            c2x[v] = i
+        }
+    }
+    {
+        out = ""
+        i = 1
+        while (i <= length($0)) {
+            c = substr($0, i, 1)
+            if (c == "+") {
+                out = out " "
+            } else if (c == "%" && i + 2 <= length($0)) {
+                h1 = substr($0, i + 1, 1)
+                h2 = substr($0, i + 2, 1)
+                if ((h1 h2) ~ /^[0-9A-Fa-f][0-9A-Fa-f]$/) {
+                    out = out sprintf("%c", c2x[h1] * 16 + c2x[h2])
+                    i += 2
+                } else {
+                    out = out c
+                }
+            } else {
+                out = out c
+            }
+            i++
+        }
+        print out
+    }'
+}
+DEC=$(url_decode "Hello%20World%21")
+assert_status "url_decode %20 %21" "Hello World!" "$DEC"
+DEC=$(url_decode "Test+SSID")
+assert_status "url_decode plus as space" "Test SSID" "$DEC"
+DEC=$(url_decode "%2Bplus%2Fslash")
+assert_status "url_decode hex escapes" "+plus/slash" "$DEC"
+DEC=$(url_decode "no-encoding")
+assert_status "url_decode pass-through" "no-encoding" "$DEC"
+DEC=$(url_decode "")
+assert_status "url_decode empty" "" "$DEC"
+
+echo "  Test: add_exclusion URL-decodes SSID with spaces"
+: > /etc/wardriving_excluded.txt /etc/wardriving_removed.txt
+OUT=$(QUERY_STRING="action=add_exclusion&ssid=Mi%20Red%20WiFi&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_contains "add_exclusion with spaces" "$OUT" '"status":"added"'
+grep -Fxq "Mi Red WiFi" /etc/wardriving_excluded.txt && PASS=$((PASS + 1)) && echo "  ✓ add_exclusion stored decoded SSID" || { FAIL=$((FAIL + 1)); echo "  ✗ add_exclusion did not store decoded SSID"; }
+OUT=$(QUERY_STRING="action=remove_exclusion&ssid=Mi%20Red%20WiFi&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_contains "remove_exclusion with spaces" "$OUT" '"status":"removed"'
+grep -Fxq "Mi Red WiFi" /etc/wardriving_excluded.txt && FAIL=$((FAIL + 1)) && echo "  ✗ remove_exclusion did not delete SSID" || { PASS=$((PASS + 1)); echo "  ✓ remove_exclusion deleted decoded SSID"; }
+
 echo ""
 echo "=== NMEA Parser Tests ==="
 

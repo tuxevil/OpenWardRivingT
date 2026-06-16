@@ -19,6 +19,44 @@ query_param() {
 ACTION=$(query_param action)
 TOKEN=$(query_param token)
 
+# url_decode <input> -> prints the URL-decoded value.
+# Decodes '+' as space and '%XX' as the corresponding byte. Pure awk so
+# the helper is reusable from any handler sourced after common.sh
+# without spawning a subshell.
+url_decode() {
+    printf '%s' "$1" | awk '
+    BEGIN {
+        for (i = 0; i < 16; i++) {
+            v = sprintf("%x", i)
+            c2x[toupper(v)] = i
+            c2x[v] = i
+        }
+    }
+    {
+        out = ""
+        i = 1
+        while (i <= length($0)) {
+            c = substr($0, i, 1)
+            if (c == "+") {
+                out = out " "
+            } else if (c == "%" && i + 2 <= length($0)) {
+                h1 = substr($0, i + 1, 1)
+                h2 = substr($0, i + 2, 1)
+                if ((h1 h2) ~ /^[0-9A-Fa-f][0-9A-Fa-f]$/) {
+                    out = out sprintf("%c", c2x[h1] * 16 + c2x[h2])
+                    i += 2
+                } else {
+                    out = out c
+                }
+            } else {
+                out = out c
+            }
+            i++
+        }
+        print out
+    }'
+}
+
 emit_json_headers() {
     echo "Content-Type: application/json"
     echo "Access-Control-Allow-Origin: *"

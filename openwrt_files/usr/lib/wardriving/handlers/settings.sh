@@ -304,7 +304,7 @@ awk 'BEGIN {print "["} {if (NR>1) print ","; gsub(/\\/, "\\\\"); gsub(/"/, "\\\"
 
 handle_add_exclusion() {
 RAW_SSID=$(echo "$QUERY_STRING" | awk -F'ssid=' '{print $2}' | cut -d'&' -f1)
-SSID=$(echo "$RAW_SSID" | awk 'BEGIN{c2x["0"]="0";c2x["1"]="1";c2x["2"]="2";c2x["3"]="3";c2x["4"]="4";c2x["5"]="5";c2x["6"]="6";c2x["7"]="7";c2x["8"]="8";c2x["9"]="9";c2x["A"]="10";c2x["B"]="11";c2x["C"]="12";c2x["D"]="13";c2x["E"]="14";c2x["F"]="15";c2x["a"]="10";c2x["b"]="11";c2x["c"]="12";c2x["d"]="13";c2x["e"]="14";c2x["f"]="15"} {gsub(/\+/," "); res=""; i=1; while(i<=length($0)){c=substr($0,i,1); if(c=="%"){hex=substr($0,i+1,2); val=c2x[substr(hex,1,1)]*16+c2x[substr(hex,2,1)]; res=res sprintf("%c",val); i+=2} else{res=res c} i++} print res}')
+SSID=$(url_decode "$RAW_SSID")
 if [ -n "$SSID" ]; then
     touch /etc/wardriving_excluded.txt /etc/wardriving_removed.txt
     awk -v s="$SSID" '$0!=s' /etc/wardriving_removed.txt > /tmp/tmp_rm && mv /tmp/tmp_rm /etc/wardriving_removed.txt
@@ -319,7 +319,7 @@ fi
 
 handle_remove_exclusion() {
 RAW_SSID=$(echo "$QUERY_STRING" | awk -F'ssid=' '{print $2}' | cut -d'&' -f1)
-SSID=$(echo "$RAW_SSID" | awk 'BEGIN{c2x["0"]="0";c2x["1"]="1";c2x["2"]="2";c2x["3"]="3";c2x["4"]="4";c2x["5"]="5";c2x["6"]="6";c2x["7"]="7";c2x["8"]="8";c2x["9"]="9";c2x["A"]="10";c2x["B"]="11";c2x["C"]="12";c2x["D"]="13";c2x["E"]="14";c2x["F"]="15";c2x["a"]="10";c2x["b"]="11";c2x["c"]="12";c2x["d"]="13";c2x["e"]="14";c2x["f"]="15"} {gsub(/\+/," "); res=""; i=1; while(i<=length($0)){c=substr($0,i,1); if(c=="%"){hex=substr($0,i+1,2); val=c2x[substr(hex,1,1)]*16+c2x[substr(hex,2,1)]; res=res sprintf("%c",val); i+=2} else{res=res c} i++} print res}')
+SSID=$(url_decode "$RAW_SSID")
 if [ -n "$SSID" ]; then
     touch /etc/wardriving_excluded.txt /etc/wardriving_removed.txt
     awk -v s="$SSID" '$0!=s' /etc/wardriving_excluded.txt > /tmp/tmp_rm && mv /tmp/tmp_rm /etc/wardriving_excluded.txt

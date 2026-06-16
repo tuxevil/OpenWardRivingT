@@ -490,6 +490,17 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ dashboard polling does not respect tab visibility"
 fi
 
+echo "  Test: set_pcap_retention validates keep value"
+rm -f /etc/wardriving_keep_pcap.txt
+OUT=$(QUERY_STRING="action=set_pcap_retention&keep=evil&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_contains "set_pcap_retention rejects garbage" "$OUT" "invalid keep value"
+OUT=$(QUERY_STRING="action=set_pcap_retention&keep=1&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_contains "set_pcap_retention enables on 1" "$OUT" "\"keep\": \"true\""
+[ -f /etc/wardriving_keep_pcap.txt ] && PASS=$((PASS + 1)) && echo "  ✓ set_pcap_retention 1 creates marker" || { FAIL=$((FAIL + 1)); echo "  ✗ set_pcap_retention 1 missing marker"; }
+OUT=$(QUERY_STRING="action=set_pcap_retention&keep=0&token=$TOKEN" sh "$CGI" 2>/dev/null)
+assert_contains "set_pcap_retention disables on 0" "$OUT" "\"keep\": \"false\""
+[ ! -f /etc/wardriving_keep_pcap.txt ] && PASS=$((PASS + 1)) && echo "  ✓ set_pcap_retention 0 removes marker" || { FAIL=$((FAIL + 1)); echo "  ✗ set_pcap_retention 0 keeps marker"; }
+
 echo "  Test: gps_push does not block without vGPS reader"
 if grep -q "socat.*vGPS" openwrt_files/usr/lib/wardriving/handlers/status.sh && grep -q "printf.*vGPS_fifo" openwrt_files/usr/lib/wardriving/handlers/status.sh; then
     PASS=$((PASS + 1)); echo "  ✓ gps_push gates FIFO writes on active socat reader"

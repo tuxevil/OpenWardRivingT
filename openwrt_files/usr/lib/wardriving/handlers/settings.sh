@@ -124,9 +124,13 @@ mv -f "$_tmp" "$_path"
 }
 
 handle_set_pcap_retention() {
-KEEP=$(echo "$QUERY_STRING" | grep -o "keep=[^&]*" | cut -d= -f2)
-if [ "$KEEP" = "true" ]; then touch /etc/wardriving_keep_pcap.txt; else rm -f /etc/wardriving_keep_pcap.txt; fi
-echo '{"status": "saved"}'
+KEEP=$(echo "$QUERY_STRING" | grep -o "keep=[^&]*" | cut -d= -f2 | tr -cd 'a-zA-Z01')
+case "$KEEP" in
+    true|1) touch /etc/wardriving_keep_pcap.txt; KEEP="true" ;;
+    false|0) rm -f /etc/wardriving_keep_pcap.txt; KEEP="false" ;;
+    *) json_error "invalid keep value"; exit 0 ;;
+esac
+echo "{\"status\": \"saved\", \"keep\": \"$KEEP\"}"
 }
 
 handle_set_hw() {

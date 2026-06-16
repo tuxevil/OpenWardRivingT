@@ -657,6 +657,23 @@ else
     PASS=$((PASS + 1)); echo "  ✓ OUI_DB and oui.json fetch removed"
 fi
 
+echo "  Test: dashboard fetch has AbortController timeout"
+# A hung uhttpd worker would otherwise block the dashboard polling
+# loop indefinitely. fetchWithTimeout wraps apiJson with a 10s
+# AbortController so a stuck call gets cancelled and the next poll
+# can proceed.
+if grep -q "fetchWithTimeout" openwrt_files/www/wardriving/app.js && \
+   grep -q "AbortController" openwrt_files/www/wardriving/app.js && \
+   grep -q "apiJson" openwrt_files/www/wardriving/app.js; then
+    if grep -q "fetchWithTimeout(apiUrl" openwrt_files/www/wardriving/app.js; then
+        PASS=$((PASS + 1)); echo "  ✓ apiJson uses fetchWithTimeout (10s default)"
+    else
+        FAIL=$((FAIL + 1)); echo "  ✗ apiJson does not use fetchWithTimeout"
+    fi
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ fetchWithTimeout / AbortController missing"
+fi
+
 echo "  Test: targets and wigle_token respect env var overrides"
 # Use /tmp paths so the CI runner (no /etc write access) can
 # exercise the handlers. The CGI output is captured to a temp

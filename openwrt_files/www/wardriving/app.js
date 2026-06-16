@@ -25,12 +25,27 @@ function apiUrl(action,params){
   if(window.API_TOKEN)url+='&token='+encodeURIComponent(window.API_TOKEN);
   return url;
 }
+// fetchWithTimeout: wrap fetch with an AbortController that fires
+// after `ms` milliseconds. Returns a promise that rejects with a
+// TimeoutError. Used by apiJson so the dashboard never sits waiting
+// on a hung uhttpd worker (the router has a small finite pool).
+// Long-running calls (downloads, large uploads) opt out by passing
+// {timeout: 0} or omitting the field.
+function fetchWithTimeout(url,options){
+  options=options||{};
+  const ms=options.timeout===undefined?10000:options.timeout;
+  if(!ms||typeof AbortController==='undefined')return _origFetch(url,options);
+  const ctl=new AbortController();
+  const timer=setTimeout(()=>ctl.abort(),ms);
+  return _origFetch(url,Object.assign({},options,{signal:ctl.signal}))
+    .finally(()=>clearTimeout(timer));
+}
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function setHtml(id,html){let el=document.getElementById(id);if(el)el.innerHTML=html;}
 function setText(id,text){let el=document.getElementById(id);if(el)el.innerText=text;}
 function dim(msg){return '<span style="color:var(--c-dim)">'+esc(msg)+'</span>';}
 function apiJson(action,params,options){
-  return fetch(apiUrl(action,params),withApiAuth(options)).then(r=>r.json().catch(()=>({error:'bad json'}))).then(d=>{
+  return fetchWithTimeout(apiUrl(action,params),withApiAuth(options)).then(r=>r.json().catch(()=>({error:'bad json'}))).then(d=>{
     if(d&&d.error)throw new Error(d.error);
     return d;
   });

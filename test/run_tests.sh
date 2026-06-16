@@ -687,6 +687,23 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ fetchWithTimeout does not surface a timeout message"
 fi
 
+echo "  Test: dashboard clears replay and download timers on tab change"
+# replayPollTimer, replayDiscoveredTimer and dlTimer would otherwise
+# keep firing on hidden tabs, hammering the CGI with /replay_status
+# and /download_status every 2-3 seconds. The switchTab function
+# must clear them when the user navigates away. Lock the cleanup
+# hooks so a future refactor of switchTab doesn't silently re-introduce
+# the wasted polling.
+if grep -qF "currentTab" openwrt_files/www/wardriving/app.js && \
+   grep -qE "if\\(currentTab==='replay'&&id!=='replay'\\)" openwrt_files/www/wardriving/app.js && \
+   grep -qE "if\\(currentTab==='captures'&&id!=='captures'\\)" openwrt_files/www/wardriving/app.js && \
+   grep -qE "clearInterval\\(replayPollTimer\\);replayPollTimer=null" openwrt_files/www/wardriving/app.js && \
+   grep -qE "clearInterval\\(dlTimer\\);dlTimer=null" openwrt_files/www/wardriving/app.js; then
+    PASS=$((PASS + 1)); echo "  ✓ switchTab clears replay and download polling timers"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ switchTab does not clear polling timers on tab change"
+fi
+
 echo "  Test: targets and wigle_token respect env var overrides"
 # Use /tmp paths so the CI runner (no /etc write access) can
 # exercise the handlers. The CGI output is captured to a temp

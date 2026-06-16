@@ -102,7 +102,20 @@ function initReplayMap(){
 setTimeout(initReplayMap,250);
 
 // TABS
+let currentTab='dashboard';
 function switchTab(id,el){
+  // Leaving a tab that owns a polling interval: kill the timer so it
+  // doesn't keep hitting the CGI in the background. The owning
+  // function (replay_start, downloadBBox) re-creates the interval the
+  // next time the user enters the tab and triggers an action.
+  if(currentTab==='replay'&&id!=='replay'){
+    if(replayPollTimer){clearInterval(replayPollTimer);replayPollTimer=null;}
+    if(replayDiscoveredTimer){clearInterval(replayDiscoveredTimer);replayDiscoveredTimer=null;}
+  }
+  if(currentTab==='captures'&&id!=='captures'){
+    if(dlTimer){clearInterval(dlTimer);dlTimer=null;}
+  }
+  currentTab=id;
   document.querySelectorAll('.view').forEach(v=>{v.classList.remove('active');v.style.display='none';});
   document.querySelectorAll('#icon-nav .nav-icon').forEach(v=>v.classList.remove('active'));
   let view=document.getElementById('view-'+id);

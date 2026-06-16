@@ -198,10 +198,14 @@ check_usb_mount() {
     # Return 0 only if /mnt/wardriving is a real mount and the source
     # device is unchanged from the previously seen USB_SRC. Otherwise
     # return non-zero so the caller can abort.
-    if ! mountpoint -q /mnt/wardriving; then
+    #
+    # We parse /proc/mounts directly instead of using `mountpoint -q`
+    # or `findmnt` because OpenWrt's BusyBox build does not include
+    # those applets. /proc/mounts is always available on Linux.
+    if ! grep -q " /mnt/wardriving " /proc/mounts 2>/dev/null; then
         return 1
     fi
-    _cur_src=$(findmnt -no SOURCE /mnt/wardriving 2>/dev/null)
+    _cur_src=$(awk '$2 == "/mnt/wardriving" {print $1; exit}' /proc/mounts 2>/dev/null)
     if [ -z "$USB_SRC" ]; then
         USB_SRC="$_cur_src"
         return 0

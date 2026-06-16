@@ -829,6 +829,25 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ init dual radio setup missing"
 fi
 
+echo "  Test: USB mount check uses /proc/mounts not mountpoint/findmnt"
+# OpenWrt's BusyBox build does not include the mountpoint or findmnt
+# applets. The capture daemon must use /proc/mounts (or the busybox
+# mount applet) to verify the USB is mounted. The audit caught a
+# regression where the new race-condition fix relied on mountpoint -q
+# which is absent on the router, causing the daemon to abort on start.
+# Strip shell comments before scanning so doc-only references to these
+# tools (e.g. in a "we don't use X because..." comment) don't trip the
+# check.
+if grep -vE '^[[:space:]]*#' openwrt_files/usr/bin/wardriving_core.sh | grep -qE 'mountpoint[[:space:]]+-q'; then
+    FAIL=$((FAIL + 1)); echo "  ✗ core still uses mountpoint -q (BusyBox applet missing)"
+elif grep -vE '^[[:space:]]*#' openwrt_files/usr/bin/wardriving_core.sh | grep -qE 'findmnt[[:space:]]+-no'; then
+    FAIL=$((FAIL + 1)); echo "  ✗ core still uses findmnt (BusyBox applet missing)"
+elif grep -q '/proc/mounts' openwrt_files/usr/bin/wardriving_core.sh; then
+    PASS=$((PASS + 1)); echo "  ✓ core uses /proc/mounts for USB check"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ core missing portable USB mount check"
+fi
+
 echo "  Test: core captures configured interfaces"
 # shellcheck disable=SC2016 # Grep patterns intentionally match literal shell variables in source.
 if grep -q "WARDRIVING_CAPTURE_IFACES_FILE" openwrt_files/usr/bin/wardriving_core.sh && grep -Fq 'for IFACE in $CAPTURE_IFACES' openwrt_files/usr/bin/wardriving_core.sh && grep -Fq 'wardriving_status_${IFACE}.log' openwrt_files/usr/bin/wardriving_core.sh; then

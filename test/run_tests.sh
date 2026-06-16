@@ -644,6 +644,19 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ skipWaiting called outside message handler"
 fi
 
+echo "  Test: OUI_DB removed (no dead 869KB fetch)"
+# OUI_DB was loaded from /wardriving/oui.json but never queried in
+# the dashboard. The fetch is 869KB of dead payload on every page
+# load. Lock the removal: a reintroduction of OUI_DB usage without
+# the corresponding fetch (or vice versa) fails CI.
+if grep -q "OUI_DB" openwrt_files/www/wardriving/app.js; then
+    FAIL=$((FAIL + 1)); echo "  ✗ OUI_DB reference still present (remove if unused)"
+elif grep -q "oui.json" openwrt_files/www/wardriving/app.js; then
+    FAIL=$((FAIL + 1)); echo "  ✗ oui.json fetch still present (remove if unused)"
+else
+    PASS=$((PASS + 1)); echo "  ✓ OUI_DB and oui.json fetch removed"
+fi
+
 echo "  Test: hardware settings LED fallback"
 if grep -q "function loadHW(){apiJson('get_hw')" openwrt_files/www/wardriving/app.js && grep -q "No LEDs found" openwrt_files/www/wardriving/app.js && grep -q "LED status unavailable" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ hardware LED selector has API and fallback handling"

@@ -44,7 +44,7 @@ let wpsMarkers={},crackedMarkers=[],networkMarkers=[],clientMarkers=[],replayNet
 let networkLayerItems=[],clientLayerItems=[];
 let currentMode='passive';
 let replayDiscoveredItems={};
-let excludedSSIDs=[],targetMacs=[],alertedTargets=[],OUI_DB={};
+let excludedSSIDs=[],targetMacs=[],alertedTargets=[];
 let petMood='sleep',petLastMoodChange=Date.now(),petHandshakeBurst=0,petLastHandshakes=0,petPwnagotchiDetected=false;
 let dlTimer=null,replayMap=null,replayMarker=null,replayPollTimer=null,replayEvents=[],lastReplayState='idle';
 let replayFollowMode=true;
@@ -80,7 +80,6 @@ function initReplayMap(){
   updateReplayFollowButton();
 }
 setTimeout(initReplayMap,250);
-fetch('/wardriving/oui.json').then(r=>r.json()).then(d=>{OUI_DB=d}).catch(()=>{});
 
 // TABS
 function switchTab(id,el){

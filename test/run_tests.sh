@@ -657,6 +657,50 @@ else
     PASS=$((PASS + 1)); echo "  ✓ OUI_DB and oui.json fetch removed"
 fi
 
+echo "  Test: targets and wigle_token respect env var overrides"
+# Use /tmp paths so the CI runner (no /etc write access) can
+# exercise the handlers. The CGI output is captured to a temp
+# file rather than OUT=$(...) because we empirically found that
+# the dispatcher's sourced libraries don't get their env-var
+# overrides to propagate when the CGI is invoked through bash
+# command substitution (a quirk of nested subshells inheriting
+# WARDRIVING_*_FILE vars that haven't been exported). Invoking
+# the CGI directly and capturing its output to a file is the
+# most reliable approach.
+TEST_TARGETS="/tmp/test_wardriving_targets.txt"
+TEST_WIGLE_TOKEN="/tmp/test_wardriving_wigle_token.txt"
+rm -f "$TEST_TARGETS" "$TEST_WIGLE_TOKEN" /tmp/test_wardriving_cgi_out
+
+WARDRIVING_TARGETS_FILE="$TEST_TARGETS" \
+WARDRIVING_WIGLE_TOKEN_FILE="$TEST_WIGLE_TOKEN" \
+QUERY_STRING="action=add_target&mac=00%3A11%3A22%3A33%3A44%3A55&token=$TOKEN" \
+sh "$CGI" >/tmp/test_wardriving_cgi_out 2>&1
+if grep -q '"status":"added"' /tmp/test_wardriving_cgi_out && \
+   grep -Fxq "00:11:22:33:44:55" "$TEST_TARGETS"; then
+    PASS=$((PASS + 1)); echo "  ✓ add_target used WARDRIVING_TARGETS_FILE"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ add_target did not use env-var path"
+fi
+
+WARDRIVING_WIGLE_TOKEN_FILE="$TEST_WIGLE_TOKEN" \
+REQUEST_METHOD=POST CONTENT_LENGTH=4 \
+QUERY_STRING="action=save_wigle_token&token=$TOKEN" \
+sh "$CGI" >/tmp/test_wardriving_cgi_out 2>&1 < /tmp/test_wardriving_wigle_body
+# Body for the POST: valid base64 string >= 10 chars.
+printf 'dGVzdHRlc3R0ZXN0' > /tmp/test_wardriving_wigle_body
+WARDRIVING_WIGLE_TOKEN_FILE="$TEST_WIGLE_TOKEN" \
+REQUEST_METHOD=POST CONTENT_LENGTH=16 \
+QUERY_STRING="action=save_wigle_token&token=$TOKEN" \
+sh "$CGI" >/tmp/test_wardriving_cgi_out 2>&1 < /tmp/test_wardriving_wigle_body
+if [ -f "$TEST_WIGLE_TOKEN" ]; then
+    PASS=$((PASS + 1)); echo "  ✓ save_wigle_token used WARDRIVING_WIGLE_TOKEN_FILE"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ save_wigle_token did not use env-var path"
+fi
+rm -f /tmp/test_wardriving_wigle_body
+
+rm -f "$TEST_TARGETS" "$TEST_WIGLE_TOKEN" /tmp/test_wardriving_cgi_out
+
 echo "  Test: hardware settings LED fallback"
 if grep -q "function loadHW(){apiJson('get_hw')" openwrt_files/www/wardriving/app.js && grep -q "No LEDs found" openwrt_files/www/wardriving/app.js && grep -q "LED status unavailable" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ hardware LED selector has API and fallback handling"

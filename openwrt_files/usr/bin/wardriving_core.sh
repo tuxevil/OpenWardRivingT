@@ -284,10 +284,10 @@ while true; do
             OPTS="--attemptapmax=0"
             echo "[*] MODE: PASSIVE (Silent Site Survey)"
         elif [ "$MODE" = "smart" ]; then
-            if [ -s /etc/wardriving_targets.txt ]; then
+            if [ -s "$TARGETS_FILE" ]; then
                 # format targets for hcxdumptool: 112233
                 # || true: si el archivo se borra entre el test y el read.
-                cat /etc/wardriving_targets.txt | sed 's/://g' > /tmp/smart_targets.txt || true
+                cat "$TARGETS_FILE" | sed 's/://g' > /tmp/smart_targets.txt || true
                 OPTS="--filterlist_ap=/tmp/smart_targets.txt --filtermode=2"
                 echo "[*] MODE: SMART TARGETING (Attacking only targeted OUIs)"
             else

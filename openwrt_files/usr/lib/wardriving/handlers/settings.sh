@@ -254,8 +254,8 @@ case "$WIGLE_RAW" in
         ;;
 esac
 [ "${#WIGLE_RAW}" -lt 10 ] && { json_error "token too short"; exit 0; }
-printf '%s' "$WIGLE_RAW" > /etc/wardriving_wigle_token
-chmod 600 /etc/wardriving_wigle_token
+printf '%s' "$WIGLE_RAW" > "$WIGLE_TOKEN_FILE"
+chmod 600 "$WIGLE_TOKEN_FILE"
 echo '{"status": "ok"}'
 }
 
@@ -270,16 +270,16 @@ echo "$RES"
 }
 
 handle_get_targets() {
-touch /etc/wardriving_targets.txt
-awk 'BEGIN {print "["} {if (NR>1) print ","; printf "\"%s\"", $0} END {print "\n]"}' /etc/wardriving_targets.txt
+touch "$TARGETS_FILE"
+awk 'BEGIN {print "["} {if (NR>1) print ","; printf "\"%s\"", $0} END {print "\n]"}' "$TARGETS_FILE"
 }
 
 handle_add_target() {
 MAC=$(echo "$QUERY_STRING" | awk -F'mac=' '{print $2}' | cut -d'&' -f1 | sed 's/%3A/:/g' | sed 's/%3a/:/g')
 if [ -n "$MAC" ]; then
-    touch /etc/wardriving_targets.txt
-    if ! grep -Fxq "$MAC" /etc/wardriving_targets.txt; then
-        echo "$MAC" >> /etc/wardriving_targets.txt
+    touch "$TARGETS_FILE"
+    if ! grep -Fxq "$MAC" "$TARGETS_FILE"; then
+        echo "$MAC" >> "$TARGETS_FILE"
     fi
     echo '{"status":"added"}'
 else
@@ -290,8 +290,8 @@ fi
 handle_remove_target() {
 MAC=$(echo "$QUERY_STRING" | awk -F'mac=' '{print $2}' | cut -d'&' -f1 | sed 's/%3A/:/g' | sed 's/%3a/:/g')
 if [ -n "$MAC" ]; then
-    touch /etc/wardriving_targets.txt
-    awk -v m="$MAC" '$0!=m' /etc/wardriving_targets.txt > /tmp/tmp_tm && mv /tmp/tmp_tm /etc/wardriving_targets.txt
+    touch "$TARGETS_FILE"
+    awk -v m="$MAC" '$0!=m' "$TARGETS_FILE" > /tmp/tmp_tm && mv /tmp/tmp_tm "$TARGETS_FILE"
     echo '{"status":"removed"}'
 else
     echo '{"status":"error"}'
@@ -299,9 +299,9 @@ fi
 }
 
 handle_check_targets() {
-if [ -f "$WARD_MNT"/wardriving.db ] && [ -s /etc/wardriving_targets.txt ]; then
+if [ -f "$WARD_MNT"/wardriving.db ] && [ -s "$TARGETS_FILE" ]; then
     # Sanitize MACs: keep only hex digits and colons, then build SQL
-    COND=$(sed "s/[^a-fA-F0-9:]//g" /etc/wardriving_targets.txt | awk 'NF {printf "mac LIKE '"'"'%s%%'"'"' OR ", $1}' | sed 's/ OR $//')
+    COND=$(sed "s/[^a-fA-F0-9:]//g" "$TARGETS_FILE" | awk 'NF {printf "mac LIKE '"'"'%s%%'"'"' OR ", $1}' | sed 's/ OR $//')
     [ -z "$COND" ] && { echo "[]"; exit 0; }
     sqlite3 -json "$WARD_MNT"/wardriving.db "SELECT mac, ssid FROM networks WHERE ($COND) AND last_seen >= datetime('now', '-2 minutes');" 2>/dev/null || echo "[]"
 else

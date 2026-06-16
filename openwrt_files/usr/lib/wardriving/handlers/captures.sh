@@ -227,7 +227,7 @@ echo '{"status": "ok"}'
 }
 
 handle_wigle_upload() {
-if [ ! -f "/etc/wardriving_wigle_token" ]; then
+if [ ! -f "$WIGLE_TOKEN_FILE" ]; then
     echo '{"success": false, "error": "No WiGLE token configured. Save your API token first."}'
     exit 0
 fi
@@ -235,7 +235,7 @@ if [ ! -f "$WARD_MNT/wardriving.db" ]; then
     echo '{"success": false, "error": "No database found"}'
     exit 0
 fi
-TOKEN=$(cat /etc/wardriving_wigle_token)
+TOKEN=$(cat "$WIGLE_TOKEN_FILE")
 
 echo "WigleWifi-1.4,appRelease=1.0,model=OpenWardRivingT,release=1.0,device=OpenWrt,display=OpenWrt,board=OpenWrt,brand=OpenWrt" > /tmp/wigle.csv
 echo "MAC,SSID,AuthMode,FirstSeen,Channel,RSSI,CurrentLatitude,CurrentLongitude,AltitudeMeters,AccuracyMeters,Type" >> /tmp/wigle.csv

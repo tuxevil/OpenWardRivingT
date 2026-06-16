@@ -63,7 +63,7 @@ if grep -q "wardriving_core" "$RFKILL_BUTTON_SCRIPT" 2>/dev/null; then CUR_BTN="
 
 CUR_MODE="active"
 if [ -f "$MODE_FILE" ]; then CUR_MODE=$(cat "$MODE_FILE"); fi
-KEEP="false"; [ -f /etc/wardriving_keep_pcap.txt ] && KEEP="true"
+KEEP="false"; [ -f "$KEEP_PCAP_FILE" ] && KEEP="true"
 echo "{\"leds\": $LEDS, \"current_led\": \"$CUR_LED\", \"current_button\": \"$CUR_BTN\", \"mode\": \"$CUR_MODE\", \"keep_pcap\": \"$KEEP\"}"
 }
 
@@ -126,8 +126,8 @@ mv -f "$_tmp" "$_path"
 handle_set_pcap_retention() {
 KEEP=$(echo "$QUERY_STRING" | grep -o "keep=[^&]*" | cut -d= -f2 | tr -cd 'a-zA-Z01')
 case "$KEEP" in
-    true|1) touch /etc/wardriving_keep_pcap.txt; KEEP="true" ;;
-    false|0) rm -f /etc/wardriving_keep_pcap.txt; KEEP="false" ;;
+    true|1) touch "$KEEP_PCAP_FILE"; KEEP="true" ;;
+    false|0) rm -f "$KEEP_PCAP_FILE"; KEEP="false" ;;
     *) json_error "invalid keep value"; exit 0 ;;
 esac
 echo "{\"status\": \"saved\", \"keep\": \"$KEEP\"}"
@@ -307,28 +307,28 @@ fi
 }
 
 handle_get_exclusions() {
-touch /etc/wardriving_excluded.txt /etc/wardriving_removed.txt
+touch "$EXCLUDED_FILE" "$REMOVED_FILE"
 {
     [ -f "$WARD_MNT"/master_essid.txt ] && cat "$WARD_MNT"/master_essid.txt
     for _ssid_file in "$WARD_MNT"/wardriving_*.txt; do
         [ -f "$_ssid_file" ] && cat "$_ssid_file"
     done
-} 2>/dev/null | sort -u | awk 'FILENAME == ARGV[1] {rem[$0]; next} {if (!($0 in rem)) print $0}' /etc/wardriving_removed.txt - > /tmp/new_excl
-cat /etc/wardriving_excluded.txt >> /tmp/new_excl
-sort -u /tmp/new_excl > /etc/wardriving_excluded.txt
+} 2>/dev/null | sort -u | awk 'FILENAME == ARGV[1] {rem[$0]; next} {if (!($0 in rem)) print $0}' "$REMOVED_FILE" - > /tmp/new_excl
+cat "$EXCLUDED_FILE" >> /tmp/new_excl
+sort -u /tmp/new_excl > "$EXCLUDED_FILE"
 rm -f /tmp/new_excl
 
-awk 'BEGIN {print "["} {if (NR>1) print ","; gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); printf "\"%s\"", $0} END {print "\n]"}' /etc/wardriving_excluded.txt
+awk 'BEGIN {print "["} {if (NR>1) print ","; gsub(/\\/, "\\\\"); gsub(/"/, "\\\""); printf "\"%s\"", $0} END {print "\n]"}' "$EXCLUDED_FILE"
 }
 
 handle_add_exclusion() {
 RAW_SSID=$(echo "$QUERY_STRING" | awk -F'ssid=' '{print $2}' | cut -d'&' -f1)
 SSID=$(url_decode "$RAW_SSID")
 if [ -n "$SSID" ]; then
-    touch /etc/wardriving_excluded.txt /etc/wardriving_removed.txt
-    awk -v s="$SSID" '$0!=s' /etc/wardriving_removed.txt > /tmp/tmp_rm && mv /tmp/tmp_rm /etc/wardriving_removed.txt
-    if ! grep -Fxq "$SSID" /etc/wardriving_excluded.txt; then
-        echo "$SSID" >> /etc/wardriving_excluded.txt
+    touch "$EXCLUDED_FILE" "$REMOVED_FILE"
+    awk -v s="$SSID" '$0!=s' "$REMOVED_FILE" > /tmp/tmp_rm && mv /tmp/tmp_rm "$REMOVED_FILE"
+    if ! grep -Fxq "$SSID" "$EXCLUDED_FILE"; then
+        echo "$SSID" >> "$EXCLUDED_FILE"
     fi
     echo '{"status":"added"}'
 else
@@ -340,10 +340,10 @@ handle_remove_exclusion() {
 RAW_SSID=$(echo "$QUERY_STRING" | awk -F'ssid=' '{print $2}' | cut -d'&' -f1)
 SSID=$(url_decode "$RAW_SSID")
 if [ -n "$SSID" ]; then
-    touch /etc/wardriving_excluded.txt /etc/wardriving_removed.txt
-    awk -v s="$SSID" '$0!=s' /etc/wardriving_excluded.txt > /tmp/tmp_rm && mv /tmp/tmp_rm /etc/wardriving_excluded.txt
-    if ! grep -Fxq "$SSID" /etc/wardriving_removed.txt; then
-        echo "$SSID" >> /etc/wardriving_removed.txt
+    touch "$EXCLUDED_FILE" "$REMOVED_FILE"
+    awk -v s="$SSID" '$0!=s' "$EXCLUDED_FILE" > /tmp/tmp_rm && mv /tmp/tmp_rm "$EXCLUDED_FILE"
+    if ! grep -Fxq "$SSID" "$REMOVED_FILE"; then
+        echo "$SSID" >> "$REMOVED_FILE"
     fi
     echo '{"status":"removed"}'
 else

@@ -9,6 +9,12 @@ TOKEN_FILE="${WARDRIVING_TOKEN_FILE:-/etc/wardriving_api_token}"
 WARD_MNT="${WARDRIVING_MNT:-/mnt/wardriving}"
 # shellcheck disable=SC2034 # Used by sourced handler modules.
 MODE_FILE="${WARDRIVING_MODE_FILE:-/etc/wardriving_mode.txt}"
+# shellcheck disable=SC2034 # Used by sourced handler modules.
+KEEP_PCAP_FILE="${WARDRIVING_KEEP_PCAP_FILE:-/etc/wardriving_keep_pcap.txt}"
+# shellcheck disable=SC2034 # Used by sourced handler modules.
+EXCLUDED_FILE="${WARDRIVING_EXCLUDED_FILE:-/etc/wardriving_excluded.txt}"
+# shellcheck disable=SC2034 # Used by sourced handler modules.
+REMOVED_FILE="${WARDRIVING_REMOVED_FILE:-/etc/wardriving_removed.txt}"
 API_CACHE_DIR="${WARDRIVING_API_CACHE_DIR:-/tmp/wardriving_api_cache}"
 
 query_param() {

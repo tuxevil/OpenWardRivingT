@@ -295,9 +295,11 @@ fi
 
 echo "  Test: delete_file blocks path traversal"
 # Try every classic path-traversal payload. The handler must not delete
-# anything outside WARD_MNT.
-mkdir -p /etc/wardriving_traversal_test
-echo "must_survive" > /etc/wardriving_traversal_test/keep.txt
+# anything outside WARD_MNT. Use /tmp sentinel so the CI runner (no
+# /etc write access) can still run the test.
+TEST_TRAVERSAL="/tmp/wardriving_traversal_test"
+mkdir -p "$TEST_TRAVERSAL"
+echo "must_survive" > "$TEST_TRAVERSAL/keep.txt"
 TRAVERSALS='../../etc/passwd /etc/passwd ../etc/shadow ..%2Fetc%2Fpasswd %2Fetc%2Fpasswd'
 ATTACKS_OK=1
 for payload in $TRAVERSALS; do
@@ -316,7 +318,7 @@ for payload in $TRAVERSALS; do
     }' 2>/dev/null)
     enc=$(python3 -c "import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=''))" "$payload" 2>/dev/null || echo "$payload")
     OUT=$(QUERY_STRING="action=delete_file&file=${enc}&token=$TOKEN" sh "$CGI" 2>/dev/null)
-    if [ ! -f /etc/wardriving_traversal_test/keep.txt ]; then
+    if [ ! -f "$TEST_TRAVERSAL/keep.txt" ]; then
         ATTACKS_OK=0
     fi
 done
@@ -325,7 +327,7 @@ if [ "$ATTACKS_OK" = "1" ] && [ ! -f /tmp/should_not_exist ]; then
 else
     FAIL=$((FAIL + 1)); echo "  ✗ delete_file allowed a traversal payload"
 fi
-rm -rf /etc/wardriving_traversal_test
+rm -rf "$TEST_TRAVERSAL"
 
 # Test 7: Heatmap data
 echo "  Test: action=heatmap_data"
@@ -646,15 +648,19 @@ else
 fi
 
 echo "  Test: set_pcap_retention validates keep value"
-rm -f /etc/wardriving_keep_pcap.txt
-OUT=$(QUERY_STRING="action=set_pcap_retention&keep=evil&token=$TOKEN" sh "$CGI" 2>/dev/null)
+# Use a /tmp test path; the handler now respects WARDRIVING_KEEP_PCAP_FILE.
+TEST_KEEP_PCAP="/tmp/test_wardriving_keep_pcap.txt"
+# shellcheck disable=SC2034 # Consumed by the CGI subprocess.
+WARDRIVING_KEEP_PCAP_FILE="$TEST_KEEP_PCAP"
+rm -f "$TEST_KEEP_PCAP"
+OUT=$(WARDRIVING_KEEP_PCAP_FILE="$TEST_KEEP_PCAP" QUERY_STRING="action=set_pcap_retention&keep=evil&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_contains "set_pcap_retention rejects garbage" "$OUT" "invalid keep value"
-OUT=$(QUERY_STRING="action=set_pcap_retention&keep=1&token=$TOKEN" sh "$CGI" 2>/dev/null)
+OUT=$(WARDRIVING_KEEP_PCAP_FILE="$TEST_KEEP_PCAP" QUERY_STRING="action=set_pcap_retention&keep=1&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_contains "set_pcap_retention enables on 1" "$OUT" "\"keep\": \"true\""
-[ -f /etc/wardriving_keep_pcap.txt ] && PASS=$((PASS + 1)) && echo "  ✓ set_pcap_retention 1 creates marker" || { FAIL=$((FAIL + 1)); echo "  ✗ set_pcap_retention 1 missing marker"; }
-OUT=$(QUERY_STRING="action=set_pcap_retention&keep=0&token=$TOKEN" sh "$CGI" 2>/dev/null)
+[ -f "$TEST_KEEP_PCAP" ] && PASS=$((PASS + 1)) && echo "  ✓ set_pcap_retention 1 creates marker" || { FAIL=$((FAIL + 1)); echo "  ✗ set_pcap_retention 1 missing marker"; }
+OUT=$(WARDRIVING_KEEP_PCAP_FILE="$TEST_KEEP_PCAP" QUERY_STRING="action=set_pcap_retention&keep=0&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_contains "set_pcap_retention disables on 0" "$OUT" "\"keep\": \"false\""
-[ ! -f /etc/wardriving_keep_pcap.txt ] && PASS=$((PASS + 1)) && echo "  ✓ set_pcap_retention 0 removes marker" || { FAIL=$((FAIL + 1)); echo "  ✗ set_pcap_retention 0 keeps marker"; }
+[ ! -f "$TEST_KEEP_PCAP" ] && PASS=$((PASS + 1)) && echo "  ✓ set_pcap_retention 0 removes marker" || { FAIL=$((FAIL + 1)); echo "  ✗ set_pcap_retention 0 keeps marker"; }
 
 echo "  Test: gps_push does not block without vGPS reader"
 if grep -q "socat.*vGPS" openwrt_files/usr/lib/wardriving/handlers/status.sh && grep -q "printf.*vGPS_fifo" openwrt_files/usr/lib/wardriving/handlers/status.sh; then
@@ -711,13 +717,18 @@ DEC=$(url_decode "")
 assert_status "url_decode empty" "" "$DEC"
 
 echo "  Test: add_exclusion URL-decodes SSID with spaces"
-: > /etc/wardriving_excluded.txt /etc/wardriving_removed.txt
-OUT=$(QUERY_STRING="action=add_exclusion&ssid=Mi%20Red%20WiFi&token=$TOKEN" sh "$CGI" 2>/dev/null)
+# Use /tmp test paths so the CI runner (no /etc write access) can run these.
+TEST_EXCL="/tmp/test_wardriving_excluded.txt"
+TEST_RMV="/tmp/test_wardriving_removed.txt"
+: > "$TEST_EXCL" "$TEST_RMV"
+OUT=$(WARDRIVING_EXCLUDED_FILE="$TEST_EXCL" WARDRIVING_REMOVED_FILE="$TEST_RMV" \
+       QUERY_STRING="action=add_exclusion&ssid=Mi%20Red%20WiFi&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_contains "add_exclusion with spaces" "$OUT" '"status":"added"'
-grep -Fxq "Mi Red WiFi" /etc/wardriving_excluded.txt && PASS=$((PASS + 1)) && echo "  ✓ add_exclusion stored decoded SSID" || { FAIL=$((FAIL + 1)); echo "  ✗ add_exclusion did not store decoded SSID"; }
-OUT=$(QUERY_STRING="action=remove_exclusion&ssid=Mi%20Red%20WiFi&token=$TOKEN" sh "$CGI" 2>/dev/null)
+grep -Fxq "Mi Red WiFi" "$TEST_EXCL" && PASS=$((PASS + 1)) && echo "  ✓ add_exclusion stored decoded SSID" || { FAIL=$((FAIL + 1)); echo "  ✗ add_exclusion did not store decoded SSID"; }
+OUT=$(WARDRIVING_EXCLUDED_FILE="$TEST_EXCL" WARDRIVING_REMOVED_FILE="$TEST_RMV" \
+       QUERY_STRING="action=remove_exclusion&ssid=Mi%20Red%20WiFi&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_contains "remove_exclusion with spaces" "$OUT" '"status":"removed"'
-grep -Fxq "Mi Red WiFi" /etc/wardriving_excluded.txt && FAIL=$((FAIL + 1)) && echo "  ✗ remove_exclusion did not delete SSID" || { PASS=$((PASS + 1)); echo "  ✓ remove_exclusion deleted decoded SSID"; }
+grep -Fxq "Mi Red WiFi" "$TEST_EXCL" && FAIL=$((FAIL + 1)) && echo "  ✗ remove_exclusion did not delete SSID" || { PASS=$((PASS + 1)); echo "  ✓ remove_exclusion deleted decoded SSID"; }
 
 echo ""
 echo "=== NMEA Parser Tests ==="

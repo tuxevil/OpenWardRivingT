@@ -110,8 +110,22 @@ assert_contains() {
         PASS=$((PASS + 1))
         echo "  ✓ $desc"
     else
-        FAIL=$((FAIL + 1))
-        echo "  ✗ $desc — expected '$pattern' not found"
+        FAIL=$((FAIL + 1)); echo "  ✗ $desc — expected '$pattern' not found"
+    fi
+}
+
+# assert_header matches a header line in the raw response (before the
+# blank line that separates headers from the body). Used for security
+# header checks where the assert_contains body-strip would lose the match.
+assert_header() {
+    local desc="$1"
+    local output="$2"
+    local pattern="$3"
+    if printf "%s" "$output" | grep -qF "$pattern"; then
+        PASS=$((PASS + 1))
+        echo "  ✓ $desc"
+    else
+        FAIL=$((FAIL + 1)); echo "  ✗ $desc — header '$pattern' not found"
     fi
 }
 
@@ -191,11 +205,28 @@ assert_contains "list_files requires token" "$OUT" "unauthorized"
 echo "  Test: action=export_gpx"
 OUT=$(QUERY_STRING="action=export_gpx&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_contains "export_gpx returns XML" "$OUT" "<?xml"
+assert_header "export_gpx sends nosniff" "$OUT" "X-Content-Type-Options: nosniff"
+assert_header "export_gpx sends frame deny" "$OUT" "X-Frame-Options: DENY"
+assert_header "export_gpx sends no-referrer" "$OUT" "Referrer-Policy: no-referrer"
 
-# Test 6: Export KML  
+# Test 6: Export KML
 echo "  Test: action=export_kml"
 OUT=$(QUERY_STRING="action=export_kml&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_contains "export_kml returns XML" "$OUT" "<?xml"
+assert_header "export_kml sends nosniff" "$OUT" "X-Content-Type-Options: nosniff"
+
+# Test 7: status sends security headers
+echo "  Test: action=status security headers"
+OUT=$(QUERY_STRING="action=status" sh "$CGI" 2>/dev/null)
+assert_header "status sends nosniff" "$OUT" "X-Content-Type-Options: nosniff"
+assert_header "status sends frame deny" "$OUT" "X-Frame-Options: DENY"
+assert_header "status sends no-referrer" "$OUT" "Referrer-Policy: no-referrer"
+assert_header "status sends cache no-store" "$OUT" "Cache-Control: no-store"
+if printf "%s" "$OUT" | grep -q "Access-Control-Allow-Origin"; then
+    FAIL=$((FAIL + 1)); echo "  ✗ status still sends wildcard CORS"
+else
+    PASS=$((PASS + 1)); echo "  ✓ status omits wildcard CORS"
+fi
 
 # Test 7: Heatmap data
 echo "  Test: action=heatmap_data"

@@ -2,18 +2,13 @@
 # shellcheck shell=sh
 
 handle_download_all() {
-echo "Content-Type: application/gzip"
-echo "Content-Disposition: attachment; filename=\"openwardrivingt_captures_$(date +%Y%m%d_%H%M).tar.gz\""
-echo ""
+emit_headers "application/gzip" "attachment; filename=\"openwardrivingt_captures_$(date +%Y%m%d_%H%M).tar.gz\""
 cd "$WARD_MNT" && tar -czf - *.pcapng *.nmea *.hc2200 *.txt 2>/dev/null
 exit 0
 }
 
 handle_export_gpx() {
-echo "Content-Type: application/gpx+xml"
-echo "Access-Control-Allow-Origin: *"
-echo "Content-Disposition: attachment; filename=\"wardriving_route_$(date +%Y%m%d_%H%M).gpx\""
-echo ""
+emit_headers "application/gpx+xml" "attachment; filename=\"wardriving_route_$(date +%Y%m%d_%H%M).gpx\""
 cat "$WARD_MNT"/*.nmea 2>/dev/null | awk '
 BEGIN {
     print "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
@@ -40,10 +35,7 @@ exit 0
 }
 
 handle_export_kml() {
-echo "Content-Type: application/vnd.google-earth.kml+xml"
-echo "Access-Control-Allow-Origin: *"
-echo "Content-Disposition: attachment; filename=\"wardriving_route_$(date +%Y%m%d_%H%M).kml\""
-echo ""
+emit_headers "application/vnd.google-earth.kml+xml" "attachment; filename=\"wardriving_route_$(date +%Y%m%d_%H%M).kml\""
 cat "$WARD_MNT"/*.nmea 2>/dev/null | awk '
 BEGIN {
     print "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
@@ -72,9 +64,7 @@ exit 0
 }
 
 handle_export_hashcat() {
-echo "Content-Type: application/octet-stream"
-echo "Content-Disposition: attachment; filename=\"openwardrivingt_handshakes_$(date +%Y%m%d).hc2200\""
-echo ""
+emit_headers "application/octet-stream" "attachment; filename=\"openwardrivingt_handshakes_$(date +%Y%m%d).hc2200\""
 cat "$WARD_MNT"/master.hc2200 2>/dev/null
 exit 0
 }

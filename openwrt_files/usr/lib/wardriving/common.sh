@@ -59,8 +59,36 @@ url_decode() {
 
 emit_json_headers() {
     echo "Content-Type: application/json"
-    echo "Access-Control-Allow-Origin: *"
+    emit_security_headers
+    echo "Cache-Control: no-store"
     echo ""
+}
+
+# Emit the standard headers for non-JSON responses (XML, gzip, octet-stream,
+# etc.) with an optional Content-Disposition. Centralises the security
+# headers and avoids copy-paste between handle_download_all, export_gpx,
+# export_kml, and export_hashcat.
+emit_headers() {
+    _em_ct="$1"
+    _em_disp="$2"
+    echo "Content-Type: $_em_ct"
+    [ -n "$_em_disp" ] && echo "Content-Disposition: $_em_disp"
+    emit_security_headers
+    echo ""
+}
+
+# Security headers applied to all CGI responses (JSON, XML, tar, etc.).
+# These mirror the recommendations in the audit:
+#   - nosniff prevents content-type sniffing attacks on attacker-supplied
+#     filenames (download_all, pcapng, hc2200) which would otherwise
+#     let a malicious pcap be rendered as HTML.
+#   - DENY blocks clickjacking by preventing the CGI from being framed.
+#   - no-referrer stops the dashboard's URL from leaking to third-party
+#     tile servers (OpenStreetMap) when the browser fetches tiles.
+emit_security_headers() {
+    echo "X-Content-Type-Options: nosniff"
+    echo "X-Frame-Options: DENY"
+    echo "Referrer-Policy: no-referrer"
 }
 
 json_error() {

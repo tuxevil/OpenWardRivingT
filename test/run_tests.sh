@@ -621,6 +621,29 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ service worker cache refresh safeguards missing"
 fi
 
+echo "  Test: service worker uses conditional skipWaiting"
+# v10 pattern: skipWaiting() only inside the 'message' handler (so
+# the dashboard can opt-in via postMessage), NOT in 'install'. The
+# previous v9 had skipWaiting() in install which combined with
+# clients.claim() in activate caused any open dashboard tab to be
+# hijacked on deploy (losing map state, GPS position, etc).
+# Lock the pattern down so a refactor that puts skipWaiting() back
+# in install fails CI.
+SW_FILE=openwrt_files/www/wardriving/sw.js
+if grep -qE "self\\.skipWaiting\\(\\)" "$SW_FILE" && \
+   awk '
+    /addEventListener\(.install./ { in_install=1; next }
+    /addEventListener\(.activate./ { in_install=0; in_activate=1; next }
+    /addEventListener\(.message./ { in_install=0; in_activate=0; in_message=1; next }
+    in_install && /self\.skipWaiting\(\)/ { print "skipWaiting in install handler"; exit 1 }
+    in_activate && /self\.skipWaiting\(\)/ { print "skipWaiting in activate handler"; exit 1 }
+    END { exit 0 }
+   ' "$SW_FILE"; then
+    PASS=$((PASS + 1)); echo "  ✓ skipWaiting is conditional (message handler only)"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ skipWaiting called outside message handler"
+fi
+
 echo "  Test: hardware settings LED fallback"
 if grep -q "function loadHW(){apiJson('get_hw')" openwrt_files/www/wardriving/app.js && grep -q "No LEDs found" openwrt_files/www/wardriving/app.js && grep -q "LED status unavailable" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ hardware LED selector has API and fallback handling"

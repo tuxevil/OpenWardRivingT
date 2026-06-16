@@ -2,6 +2,12 @@
 # wardriving_sync.sh - Oportunistic Synchronization Script
 # Checks if connected to a known home/lab network and syncs captures.
 
+# set -e: bail out on unexpected failure. The script is run from cron every
+# 5 minutes; an unhandled error here would otherwise silently keep retrying
+# the same broken rsync/SSH call until the next config edit.
+
+set -e
+
 # ================= CONFIGURATION =================
 # Config file: /etc/wardriving_sync.conf
 # Format:

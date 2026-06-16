@@ -1,5 +1,11 @@
 #!/bin/sh
 # OpenWardRivingT Local Installer Script
+#
+# set -e: abort on any unexpected failure so the router is never left in
+# a half-installed state (which historically could keep hcxdumptool writing
+# pcapngs to internal flash and burn the NAND).
+
+set -e
 
 echo "[*] Installing OpenWardRivingT..."
 
@@ -130,19 +136,20 @@ if uci get wireless.radio1 >/dev/null 2>&1; then
 fi
 
 # Configurar cron para sincronizacion oportunista
-sed -i '/wardriving_sync.sh/d' /etc/crontabs/root 2>/dev/null
+mkdir -p /etc/crontabs
+sed -i '/wardriving_sync.sh/d' /etc/crontabs/root 2>/dev/null || true
 echo "*/5 * * * * /usr/bin/wardriving_sync.sh" >> /etc/crontabs/root
-/etc/init.d/cron enable
+/etc/init.d/cron enable || true
 
 # Reload services
-/etc/init.d/system reload
-wifi up radio1 2>/dev/null
+/etc/init.d/system reload || true
+wifi up radio1 2>/dev/null || true
 /etc/init.d/wardriving enable
 
 # Restart daemon if already running so it picks up the new files
 if /etc/init.d/wardriving running 2>/dev/null; then
     echo "[*] Restarting wardriving daemon to apply updated files..."
-    /etc/init.d/wardriving restart 2>/dev/null
+    /etc/init.d/wardriving restart 2>/dev/null || true
 fi
 
 echo "[*] Installation Complete!"

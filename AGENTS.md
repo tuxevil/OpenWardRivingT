@@ -106,6 +106,9 @@ The test runner runs as a non-root user (CI), so handlers that write to `/etc/..
 - `WARDRIVING_API_CACHE_DIR`
 - `WARDRIVING_MNT`
 - `WARDRIVING_LIB_DIR`
+- `WARDRIVING_TARGETS_FILE`
+- `WARDRIVING_WIGLE_TOKEN_FILE`
+- `WARDRIVING_PWN_HOST`
 
 When adding a new handler that writes to a fixed path, also add a `${WARDRIVING_X_FILE:-/etc/...}` wrapper in `common.sh` so the handler can be unit-tested without root.
 

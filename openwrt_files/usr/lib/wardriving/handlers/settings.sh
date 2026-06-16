@@ -139,6 +139,25 @@ BTN=$(echo "$QUERY_STRING" | grep -o "btn=[^&]*" | cut -d= -f2)
 MODE=$(echo "$QUERY_STRING" | grep -o "mode=[^&]*" | cut -d= -f2 | tr -cd 'a-z')
 case "$MODE" in active|passive|smart) ;; *) MODE="active" ;; esac
 [ -z "$LED" ] && { json_error "invalid led"; exit 0; }
+
+# Serialize concurrent set_hw requests. The handler writes four critical
+# files (init.d/wardriving, /etc/rc.button/wps, /etc/rc.button/rfkill,
+# mode file) via mktemp+mv. Two requests racing can interleave the writes
+# and leave the init script or button handlers half-written. flock is the
+# lightest primitive available on BusyBox and keeps the lock local.
+SET_HW_LOCK="/var/lock/wardriving_set_hw.lock"
+exec 9>"$SET_HW_LOCK"
+if ! flock -n 9; then
+    # Wait briefly for the holder; if still busy, fail rather than block
+    # the CGI (uhttpd has a finite worker pool).
+    if ! flock -w 5 9; then
+        exec 9>&-
+        json_error "set_hw busy, try again"
+        exit 0
+    fi
+fi
+trap 'flock -u 9; exec 9>&-' EXIT
+
 echo "$MODE" > "$MODE_FILE"
 
 # Atomic sed: write to temp, then mv

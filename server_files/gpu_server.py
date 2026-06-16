@@ -214,35 +214,6 @@ def tar_bytes(files):
     data.seek(0)
     return data.getvalue()
 
-@app.route('/upload', methods=['POST'])
-def receive_pcap():
-    auth_error = require_auth()
-    if auth_error:
-        return auth_error
-    if 'pcap' not in request.files:
-        return jsonify({"error": "no_pcap_file"}), 400
-        
-    pcap_file = request.files['pcap']
-    pcap_path = upload_path(pcap_file.filename, "capture.pcapng")
-    pcap_file.save(pcap_path)
-    
-    hc2200_path = pcap_path + ".hc2200"
-    csv_path = pcap_path + ".csv"
-    
-    subprocess.run([HCXPCAPNGTOOL_BIN, "-o", hc2200_path, "--csv", csv_path, pcap_path], capture_output=True)
-    
-    rows = parse_csv_rows(csv_path)
-    
-    if os.path.exists(hc2200_path) and os.path.getsize(hc2200_path) > 0:
-        subprocess.Popen(["bash", RUN_HASHCAT, hc2200_path, ROUTER_IP, ROUTER_TOKEN, DICT_DIR])
-    else:
-        if os.path.exists(hc2200_path): os.remove(hc2200_path)
-    
-    if os.path.exists(pcap_path): os.remove(pcap_path)
-    if os.path.exists(csv_path): os.remove(csv_path)
-
-    return Response(rows_to_jsonl(rows), mimetype="application/x-ndjson")
-
 @app.route('/extract', methods=['POST'])
 def extract_pcap_bundle():
     auth_error = require_auth()

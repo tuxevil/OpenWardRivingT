@@ -279,9 +279,9 @@ echo "  Test: set_hw serializes concurrent requests"
 # valid. Without the flock, the second mv could overwrite a half-written
 # first file.
 rm -f /var/lock/wardriving_set_hw.lock
-OUT1=$(QUERY_STRING="action=set_hw&led=green%3Awps&btn=wps&mode=passive&token=$TOKEN" sh "$CGI" 2>/dev/null) &
+QUERY_STRING="action=set_hw&led=green%3Awps&btn=wps&mode=passive&token=$TOKEN" sh "$CGI" >/dev/null 2>&1 &
 PID1=$!
-OUT2=$(QUERY_STRING="action=set_hw&led=amber%3Astatus&btn=wifi&mode=active&token=$TOKEN" sh "$CGI" 2>/dev/null) &
+QUERY_STRING="action=set_hw&led=amber%3Astatus&btn=wifi&mode=active&token=$TOKEN" sh "$CGI" >/dev/null 2>&1 &
 PID2=$!
 wait $PID1
 wait $PID2
@@ -572,7 +572,9 @@ else
 fi
 # Functional: inject a SSID with control chars and confirm JSON stays valid.
 if command -v sqlite3 >/dev/null 2>&1; then
-    TAB_SSID=$'net\twith\ttabs'
+    # BusyBox ash does not support $'..' ANSI-C quoting, so we assemble
+    # the tab bytes via printf at insertion time.
+    TAB_SSID=$(printf 'net\twith\ttabs')
     sqlite3 /tmp/test_wardriving_mnt/wardriving.db "DELETE FROM networks WHERE mac='00:99:88:77:66:55';" >/dev/null 2>&1
     sqlite3 /tmp/test_wardriving_mnt/wardriving.db "INSERT INTO networks VALUES ('00:99:88:77:66:55','${TAB_SSID}','WPA2',6,40.0,-74.0,'2026-01-01','2026-01-01',-50);" >/dev/null 2>&1
     printf 'WPA*02*009988776655*4a1f5e6c7d8e9a0b1c2d3e4f5a6b7c8d*70617373776F7264* ***\n' >> /tmp/test_wardriving_mnt/master.hc2200

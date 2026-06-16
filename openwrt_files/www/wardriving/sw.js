@@ -1,4 +1,4 @@
-const CACHE_NAME = 'owrt-store-v9';
+const CACHE_NAME = 'owrt-store-v10';
 const APP_ASSETS = [
   './',
   './index.html',
@@ -10,8 +10,15 @@ const APP_ASSETS = [
   './manifest.json'
 ];
 
+// Don't auto-skipWaiting on install. The previous version (v9) used
+// self.skipWaiting() in the install handler, which combined with
+// clients.claim() in activate caused any open dashboard tab to
+// suddenly be hijacked by the new SW on deploy — losing the live
+// GPS position, the map state, and any in-flight UI state.
+// Instead we let the new SW wait for all tabs to close naturally
+// (or until the user explicitly reloads). Active users stay on
+// the old SW; new navigations pick up the new one.
 self.addEventListener('install', (e) => {
-  self.skipWaiting();
   e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_ASSETS)));
 });
 
@@ -19,8 +26,19 @@ self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
       .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+      // clients.claim() only takes over tabs that load AFTER
+      // activation, not the ones that triggered the activation.
       .then(() => self.clients.claim())
   );
+});
+
+// Allow the dashboard to force-activate the waiting SW via a
+// postMessage: navigator.serviceWorker.controller.postMessage({type: 'SKIP_WAITING'})
+// Useful for an "update available" toast the dashboard can show.
+self.addEventListener('message', (e) => {
+  if (e.data && e.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 function isAppShellRequest(request) {

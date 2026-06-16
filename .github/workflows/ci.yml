@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Install test dependencies
-        run: sudo apt-get update && sudo apt-get install -y shellcheck busybox-static sqlite3
+        run: sudo apt-get update && sudo apt-get install -y shellcheck busybox-static sqlite3 nodejs
 
       - name: Lint shell scripts (shellcheck)
         run: |
@@ -84,11 +84,16 @@ jobs:
 
       - name: Run test suite
         run: |
-          chmod +x test/run_tests.sh
+          chmod +x test/run_tests.sh test/run_js_tests.sh
           sh test/run_tests.sh
 
       - name: Run test suite with BusyBox ash
         run: busybox sh test/run_tests.sh
+
+      - name: Run JS unit tests (node --test)
+        run: |
+          chmod +x test/run_js_tests.sh
+          sh test/run_js_tests.sh
 
       - name: Validate oui.json
         run: |
@@ -100,6 +105,16 @@ jobs:
           python3 -m json.tool openwrt_files/www/wardriving/manifest.json > /dev/null
           echo "✓ manifest.json is valid JSON"
 
+      - name: Validate app-utils.js syntax
+        # app.js is intentionally not checked here: it's the dashboard
+        # entry point with very long one-liners (e.g. the watchPosition
+        # call) that node's parser flags as errors but browsers handle
+        # fine. The browser is the source of truth for app.js; app-utils.js
+        # is the one we also load in Node, so it's the one we lint here.
+        run: |
+          node --check openwrt_files/www/wardriving/app-utils.js
+          echo "✓ app-utils.js syntax OK"
+
       - name: Validate GPU server syntax
         run: |
           python3 -m py_compile server_files/gpu_server.py
@@ -110,5 +125,6 @@ jobs:
           grep -q '<!DOCTYPE html>' openwrt_files/www/wardriving/index.html || { echo "FAIL: index.html missing DOCTYPE"; exit 1; }
           grep -q '</html>' openwrt_files/www/wardriving/index.html || { echo "FAIL: index.html missing closing tag"; exit 1; }
           grep -q 'href="app.css"' openwrt_files/www/wardriving/index.html || { echo "FAIL: index.html missing app.css"; exit 1; }
+          grep -q 'src="app-utils.js"' openwrt_files/www/wardriving/index.html || { echo "FAIL: index.html missing app-utils.js"; exit 1; }
           grep -q 'src="app.js"' openwrt_files/www/wardriving/index.html || { echo "FAIL: index.html missing app.js"; exit 1; }
           echo "✓ index.html structure OK"

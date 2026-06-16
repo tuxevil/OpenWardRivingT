@@ -1,17 +1,13 @@
 // API_TOKEN_PLACEHOLDER
 if(typeof window.API_TOKEN==='undefined')window.API_TOKEN='';
-// Helper: attach Authorization: Bearer header for the wardriving API.
-// The CGI accepts both header and query-string tokens; the header is
-// preferred so the token never lands in access logs or Referer headers.
-// Callers that genuinely cannot set a header (window.open for downloads)
-// keep the &token= in the URL as the secondary path.
-function withApiAuth(options){
-  options=options||{};
-  if(!window.API_TOKEN)return options;
-  const headers=Object.assign({},options.headers||{});
-  if(!headers.Authorization)headers.Authorization='Bearer '+window.API_TOKEN;
-  return Object.assign({},options,{headers});
-}
+// Pure helpers (esc, dim, withApiAuth, apiUrl) live in app-utils.js
+// so they can be unit-tested under Node.js without a browser.
+// fetchWithTimeout stays here because it patches window.fetch and
+// needs the original fetch reference at module load time. setHtml and
+// setText also stay here because they touch document.getElementById.
+const {esc,dim,apiUrl,withApiAuth}=window.OWRT_UTILS;
+function setHtml(id,html){let el=document.getElementById(id);if(el)el.innerHTML=html;}
+function setText(id,text){let el=document.getElementById(id);if(el)el.innerText=text;}
 const _origFetch=window.fetch;
 window.fetch=function(url,options){
   if(typeof url==='string'&&url.includes('/cgi-bin/wardriving_api')&&window.API_TOKEN){
@@ -19,12 +15,6 @@ window.fetch=function(url,options){
   }
   return _origFetch(url,options);
 };
-function apiUrl(action,params){
-  let url='/cgi-bin/wardriving_api?action='+encodeURIComponent(action);
-  if(params)Object.keys(params).forEach(k=>{url+='&'+encodeURIComponent(k)+'='+encodeURIComponent(params[k]);});
-  if(window.API_TOKEN)url+='&token='+encodeURIComponent(window.API_TOKEN);
-  return url;
-}
 // fetchWithTimeout: wrap fetch with an AbortController that fires
 // after `ms` milliseconds. Returns a promise that rejects with a
 // TimeoutError. Used by apiJson so the dashboard never sits waiting
@@ -45,10 +35,6 @@ function fetchWithTimeout(url,options){
     })
     .finally(()=>clearTimeout(timer));
 }
-function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function setHtml(id,html){let el=document.getElementById(id);if(el)el.innerHTML=html;}
-function setText(id,text){let el=document.getElementById(id);if(el)el.innerText=text;}
-function dim(msg){return '<span style="color:var(--c-dim)">'+esc(msg)+'</span>';}
 function apiJson(action,params,options){
   return fetchWithTimeout(apiUrl(action,params),withApiAuth(options)).then(r=>r.json().catch(()=>({error:'bad json'}))).then(d=>{
     if(d&&d.error)throw new Error(d.error);

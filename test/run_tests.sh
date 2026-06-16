@@ -265,9 +265,13 @@ else
 fi
 
 echo "  Test: dashboard sends Authorization header for API calls"
-if grep -q "withApiAuth" openwrt_files/www/wardriving/app.js && \
-   grep -q "'Bearer '+window.API_TOKEN" openwrt_files/www/wardriving/app.js && \
-   grep -q "headers.Authorization" openwrt_files/www/wardriving/app.js; then
+# withApiAuth lives in app-utils.js (unit-tested under node) and is
+# re-exported via window.OWRT_UTILS. The dashboard still pulls it in
+# at the top of app.js, so check both files for the contract.
+if grep -q "withApiAuth" openwrt_files/www/wardriving/app-utils.js && \
+   grep -q "withApiAuth" openwrt_files/www/wardriving/app.js && \
+   grep -qE "'Bearer ' \\+ (window|root)\\.API_TOKEN" openwrt_files/www/wardriving/app-utils.js && \
+   grep -q "headers.Authorization" openwrt_files/www/wardriving/app-utils.js; then
     PASS=$((PASS + 1)); echo "  ✓ dashboard attaches Bearer header in fetch override"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ dashboard missing Bearer header injection"
@@ -482,7 +486,9 @@ assert_json "replay_pause returns JSON" "$OUT"
 assert_contains "replay_pause has paused status" "$OUT" "paused"
 
 echo "  Test: frontend has escaping helper"
-if grep -q "function esc" openwrt_files/www/wardriving/app.js && grep -q "esc(n.ssid" openwrt_files/www/wardriving/app.js; then
+# esc() lives in app-utils.js (unit-tested under node). app.js still
+# uses it via the OWRT_UTILS destructure, so check both.
+if grep -q "function esc" openwrt_files/www/wardriving/app-utils.js && grep -q "esc(n.ssid" openwrt_files/www/wardriving/app.js; then
     PASS=$((PASS + 1)); echo "  ✓ frontend escaping helper present"
 else
     FAIL=$((FAIL + 1)); echo "  ✗ frontend escaping helper missing"
@@ -941,6 +947,48 @@ $1 ~ /^\$[A-Z]{2}RMC/ && $3 == "A" {
     printf "%.4f", lat_dec
 }')
 assert_status "southern hemisphere negative" "-33" "$(echo "$RESULT" | cut -c1-3)"
+
+echo ""
+echo "=== JS Helper Tests ==="
+
+# Run the Node-based unit tests for app-utils.js. We delegate to
+# run_js_tests.sh so the JS test setup (node version check, etc.)
+# stays in one place. Skips gracefully if node is unavailable.
+if command -v node >/dev/null 2>&1; then
+    JS_OUT=$(sh test/run_js_tests.sh 2>&1)
+    if echo "$JS_OUT" | grep -qE "pass [1-9]"; then
+        PASS=$((PASS + 1))
+        # Count individual passing tests for a richer log line.
+        N=$(echo "$JS_OUT" | grep -oE "pass [0-9]+" | tail -1 | awk '{print $2}')
+        echo "  ✓ app-utils.js unit tests ($N passing)"
+    else
+        FAIL=$((FAIL + 1)); echo "  ✗ app-utils.js unit tests failed"
+        echo "$JS_OUT" | tail -10
+    fi
+else
+    echo "  ⚠ node not installed; skipping app-utils.js tests"
+fi
+
+echo "  Test: app.js uses utils from app-utils.js"
+# The pure helpers (esc, dim, withApiAuth, apiUrl) are destructured
+# from window.OWRT_UTILS at the top of app.js. This keeps them
+# testable under Node and means future changes to esc() etc. don't
+# risk diverging between the dashboard and the unit tests.
+if grep -q "window.OWRT_UTILS" openwrt_files/www/wardriving/app.js && \
+   grep -q "esc,dim,apiUrl,withApiAuth" openwrt_files/www/wardriving/app.js; then
+    PASS=$((PASS + 1)); echo "  ✓ app.js destructures helpers from OWRT_UTILS"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ app.js does not import helpers from app-utils.js"
+fi
+
+echo "  Test: app-utils.js exposed before app.js in index.html"
+# Script load order matters: app.js reads window.OWRT_UTILS at the
+# top, so app-utils.js must come first.
+if awk '/<script src="app-utils.js">/{utils=NR} /<script src="app.js">/{app=NR} END{exit (utils>0 && app>0 && utils<app)?0:1}' openwrt_files/www/wardriving/index.html; then
+    PASS=$((PASS + 1)); echo "  ✓ app-utils.js loads before app.js"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ app-utils.js missing or loaded after app.js"
+fi
 
 echo ""
 echo "=== Shell Script Tests ==="

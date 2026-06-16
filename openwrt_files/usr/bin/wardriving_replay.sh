@@ -350,12 +350,20 @@ while IFS='	' read -r TS MAC SSID _ RSSI LAT LON; do
     if [ -f "$SEEKFILE" ]; then
         SEEK=$(cat "$SEEKFILE" 2>/dev/null | tr -cd '0-9')
         rm -f "$SEEKFILE"
+        # If the user asked to jump forward, drop the current line from the
+        # buffer and skip enough lines from stdin that the next outer loop
+        # read returns line $SEEK. After the skip, the next iteration's
+        # IDX++ yields $SEEK exactly (no off-by-one with the on-screen
+        # rpPoint counter, which mirrors IDX).
         if [ -n "$SEEK" ] && [ "$SEEK" -gt "$IDX" ] 2>/dev/null; then
-            while [ "$IDX" -lt "$SEEK" ] && IFS='	' read -r TS MAC SSID _ RSSI LAT LON; do
-                IDX=$((IDX + 1))
+            TO_SKIP=$((SEEK - IDX - 1))
+            while [ "$TO_SKIP" -gt 0 ] && IFS='	' read -r _; do
+                TO_SKIP=$((TO_SKIP - 1))
             done
+            IDX=$((SEEK - 1))
+            continue
         fi
-        append_event "seek" "jumped to point $IDX"
+        append_event "seek" "jumped to point $((IDX + 1))"
     fi
 
     LAST_LAT="$LAT"

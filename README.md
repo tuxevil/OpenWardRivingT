@@ -492,7 +492,7 @@ threads.
 
 ## License
 
-Copyright © 2025 OpenWardRivingT contributors.
+Copyright © 2026 OpenWardRivingT contributors.
 
 OpenWardRivingT is licensed under the **GNU General Public License v3.0** (GPL-3.0).
 See [LICENSE](LICENSE) for the full text.

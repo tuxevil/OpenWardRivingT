@@ -72,7 +72,7 @@ The installer generates `/etc/wardriving_api_token` and injects it into the dash
 | Endpoint | Auth Required | Notes |
 |---|---|---|
 | `action=status` | ❌ No | Public health check — exposes running state only |
-| All other actions | ✅ Yes | Token required via `token=` query param |
+| All other actions | ✅ Yes | Token via `Authorization: Bearer` header (preferred) or `?token=…` query param (fallback for `window.open()` downloads) |
 
 > **Security note**: `action=status` is the **only** unauthenticated endpoint. It intentionally exposes minimal information (running state, network counts) so monitoring tools can poll without a secret. All write operations and sensitive data exports (captures, hashes, GPS data, history) require a valid API token.
 

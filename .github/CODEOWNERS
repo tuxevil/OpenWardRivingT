@@ -1,5 +1,4 @@
 # Default code owners. Individual paths can override with a more specific
-# pattern (last match wins). @maintainers should be replaced with the actual
-# GitHub team or user that should review changes in this project.
+# pattern (last match wins).
 
-* @maintainers
+* @tuxevil

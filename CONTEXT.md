@@ -33,7 +33,7 @@ It uses a completely serverless backend approach: the "backend" is a collection 
     - `gpu_cracking_enabled=0|1`: controls only hashcat enqueueing; SQLite, map, history, and live network views remain local sources of truth.
   - New router flows use `/extract` for extraction bundles and `/upload_hc2200` for cracking hashes. The GPU's legacy `/upload` endpoint has been removed (was only kept for compat).
   - Shares SQLite and remote upload helpers with replay/API through `/usr/lib/wardriving/db.sh` and `/usr/lib/wardriving/remote.sh`.
-  - In the test topology, the GPU is reached at `10.128.128.254`; if WireGuard is used, route that host as `10.128.128.254/32` rather than the whole `10.128.128.0/24` when WAN also lives on `10.128.128.0/24`.
+  - When WireGuard is used to reach the GPU, route only the GPU host as `/32` (e.g. `<GPU_WG_HOST>/32`); never the whole WireGuard subnet, especially when WAN also lives in that range.
   - **Performance Note**: Capture rollover is CPU-heavy. We run these heavy tasks with `nice -n 10` so they don't freeze the router's UI. Handshake count is cached in `/tmp/wardriving_handshake_count` (refreshed on each `merge_hash_file`, read every 5s by the dashboard) to avoid running `wc -l` on the full hash file on every poll.
 
 - **`openwrt_files/etc/init.d/wardriving`**: The Service Manager.

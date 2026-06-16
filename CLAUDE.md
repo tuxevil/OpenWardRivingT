@@ -96,7 +96,7 @@ bd close <id>         # Complete work
 ### Test Router Operations
 - OpenWrt 24/25 images can use `apk` instead of `opkg`; use `apk update` / `apk add` when `opkg` is absent.
 - Modern `scp` requires the router-side SFTP subsystem. Install `openssh-sftp-server` so file copies work without `scp -O`.
-- In the current test topology, WireGuard is only needed for GPU access at `10.128.128.254`. Route/allow `10.128.128.254/32`; do not route all of `10.128.128.0/24` through WireGuard if WAN also uses that subnet, or package updates and default routing can break.
+- When using WireGuard to reach the GPU, route only the GPU host as a `/32` (e.g. `<GPU_WG_HOST>/32`); do not route the full WireGuard subnet through WireGuard if WAN also uses that subnet, or package updates and default routing can break.
 
 ### Data Flow
 ```

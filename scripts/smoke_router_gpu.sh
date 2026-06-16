@@ -2,8 +2,9 @@
 set -eu
 
 ROUTER_HOST="${ROUTER_HOST:-root@192.168.1.1}"
-GPU_HOST="${GPU_HOST:-root@10.128.128.254}"
-GPU_URL="${GPU_URL:-http://10.128.128.254:5000}"
+# Override GPU_HOST/GPU_URL for your environment. Defaults are placeholders.
+GPU_HOST="${GPU_HOST:-root@gpu.lan}"
+GPU_URL="${GPU_URL:-http://gpu.lan:5000}"
 SSH_OPTS="${SSH_OPTS:--o BatchMode=yes -o ConnectTimeout=8}"
 
 GPU_URL="${GPU_URL%/}"

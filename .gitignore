@@ -1,8 +1,14 @@
 
-# Beads / Dolt files (added by bd init)
+# Beads / Dolt files (added by bd init). Local issue tracker, not for the public repo.
+.beads/
 .dolt/
 *.db
 .beads-credential-key
 /tmp*.pyc
 __pycache__/
+
+# Local scratch / large untracked artifacts (CSV exports, backups, logs)
+tmp/
+
+# Absolute /tmp (system tmpfs paths used by the running scripts at runtime)
 /tmp

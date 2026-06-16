@@ -11,9 +11,9 @@ ROUTER_IP=$2
 ROUTER_TOKEN=$3
 DICT_DIR=$4
 
-HASHCAT_BIN="/root/hashcat-7.1.2/hashcat.bin"
-POTFILE="/root/hashcat-7.1.2/hashcat.potfile"
-PENDING_SYNC="/root/pending_sync.txt"
+HASHCAT_BIN="/var/lib/openwardrivingt/hashcat-7.1.2/hashcat.bin"
+POTFILE="/var/lib/openwardrivingt/hashcat-7.1.2/hashcat.potfile"
+PENDING_SYNC="/var/lib/openwardrivingt/pending_sync.txt"
 
 exec 9>/tmp/hashcat_queue.lock
 flock 9

@@ -62,7 +62,7 @@ echo "$API_TOKEN" > /etc/wardriving_api_token
 chmod 600 /etc/wardriving_api_token
 
 echo "[*] Backing up existing files and deploying..."
-BACKUP_DIR="/root/openwardrivingt_backup_$(date +%Y%m%d_%H%M%S)"
+BACKUP_DIR="${WARDRIVING_BACKUP_DIR:-/var/backups/openwardrivingt}/openwardrivingt_backup_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 
 # Backup and deploy: copy per-directory with safety checks
@@ -123,8 +123,11 @@ uci commit system
 if uci get wireless.radio1 >/dev/null 2>&1; then
     echo "[*] Configuring 5GHz Radio for Control Panel access..."
     WIFI_PASS=$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 12)
-    [ -z "$WIFI_PASS" ] && WIFI_PASS="wardriving" # fallback
-    
+    if [ -z "$WIFI_PASS" ]; then
+        echo "[!] FATAL: failed to generate a random WiFi password (no entropy?). Aborting." >&2
+        exit 1
+    fi
+
     uci set wireless.default_radio1.ssid='OpenWardRivingT'
     uci set wireless.default_radio1.encryption='psk2'
     uci set wireless.default_radio1.key="$WIFI_PASS"
@@ -132,7 +135,9 @@ if uci get wireless.radio1 >/dev/null 2>&1; then
     uci set wireless.radio1.disabled='0'
     uci commit wireless
     echo "[!] IMPORTANT: The new WiFi Password for 'OpenWardRivingT' is: $WIFI_PASS"
-    echo "$WIFI_PASS" > /root/wardriving_wifi_pass.txt
+    mkdir -p /etc
+    printf '%s\n' "$WIFI_PASS" > /etc/wardriving_wifi_pass
+    chmod 600 /etc/wardriving_wifi_pass
 fi
 
 # Configurar cron para sincronizacion oportunista
@@ -153,5 +158,5 @@ if /etc/init.d/wardriving running 2>/dev/null; then
 fi
 
 echo "[*] Installation Complete!"
-echo "[*] Connect your tablet/phone to the 5GHz network (Check /root/wardriving_wifi_pass.txt for password)"
+echo "[*] Connect your tablet/phone to the 5GHz network (Check /etc/wardriving_wifi_pass for password)"
 echo "[*] Go to http://192.168.1.1/wardriving/index.html (or your router's IP)"

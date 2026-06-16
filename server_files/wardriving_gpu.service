@@ -5,15 +5,14 @@ After=network.target
 [Service]
 Type=simple
 User=root
-# Cambia esta ruta si guardaste gpu_server.py en otra carpeta
-WorkingDirectory=/root/
+WorkingDirectory=/var/lib/openwardrivingt
 # Required: must match /etc/wardriving_remote_secret on the router.
 Environment=OWRT_GPU_SHARED_SECRET=change-me
 Environment=OWRT_ROUTER_IP=192.168.1.1
 Environment=OWRT_ROUTER_TOKEN=
-Environment=OWRT_GPU_UPLOAD_DIR=/root/wardriving_uploads
-Environment=OWRT_GPU_DICT_DIR=/root/dicts
-ExecStart=/usr/bin/python3 /root/gpu_server.py
+Environment=OWRT_GPU_UPLOAD_DIR=/var/lib/openwardrivingt/wardriving_uploads
+Environment=OWRT_GPU_DICT_DIR=/var/lib/openwardrivingt/dicts
+ExecStart=/usr/bin/python3 /var/lib/openwardrivingt/gpu_server.py
 Restart=always
 RestartSec=5
 

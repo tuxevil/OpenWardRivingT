@@ -52,12 +52,12 @@ OpenWrt 24/25 images may not include `opkg`; use `apk update` and `apk add ...` 
    chmod +x install.sh
    ./install.sh
    ```
-4. The script will automatically configure the 5GHz network (`owrt` / pass: `wardriving`), deploy the web app, and enable the service on boot.
+4. The script will automatically configure the 5GHz network (`OpenWardRivingT`) with a freshly generated random password (printed to the console and written to `/etc/wardriving_wifi_pass`), deploy the web app, and enable the service on boot. No default password is used.
 
 ## 🚙 Basic Usage
 1. Power up the router in your vehicle with the USB drive attached.
 2. **(GPS Setup)**: Toggle the **Browser GPS Override** on the dashboard to use your device's native browser location. The dashboard posts synthetic NMEA to the CGI API, which forwards it through `/tmp/vGPS_fifo` into the `/tmp/vGPS` virtual PTY used by `hcxdumptool`.
-3. Connect your tablet to the 5GHz WiFi network (`owrt`).
+3. Connect your tablet to the 5GHz WiFi network (`OpenWardRivingT`) using the password printed during install.
 4. Navigate to `http://192.168.1.1/wardriving/index.html` (or your router's IP).
 5. Hit **START** on the screen or press the configured physical router button. Start driving!
 
@@ -94,7 +94,7 @@ Processing now has two independent settings:
 
 The dashboard never reads the GPU directly. Live "Redes Ahora" comes from local `hcxdumptool` status, and map/history/client/cracked views read the router's local SQLite and pot/hash files. If remote extraction fails or returns an invalid bundle, the router falls back to local extraction.
 
-If the router reaches the GPU over WireGuard, route only the GPU host when that address overlaps with the router's WAN network. For the test topology, `10.128.128.254/32` should be allowed/routed through WireGuard, not the whole `10.128.128.0/24`; advertising the whole `/24` can steal the WAN gateway route and break `apk update`.
+If the router reaches the GPU over WireGuard, route only the GPU host when that address overlaps with the router's WAN network. Configure WireGuard with a host route (e.g. `<GPU_WG_HOST>/32`) instead of the full WireGuard subnet (`<WG_SUBNET>/24`); advertising the whole `/24` can steal the WAN gateway route and break `apk update`.
 
 ## 🐾 Pwnagotchi Bridge & Virtual Pet
 As an homage to the legendary [evilsocket/pwnagotchi](https://github.com/evilsocket/pwnagotchi) project, the dashboard features its very own JavaScript-based virtual pet.

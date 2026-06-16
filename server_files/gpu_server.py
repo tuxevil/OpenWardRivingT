@@ -12,13 +12,13 @@ app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("OWRT_GPU_MAX_UPLOAD", str(50 * 1024 * 1024)))
 
 # ================= RUTAS Y CONFIGURACIÓN =================
-UPLOAD_DIR = os.environ.get("OWRT_GPU_UPLOAD_DIR", "/root/wardriving_uploads")
-DICT_DIR = os.environ.get("OWRT_GPU_DICT_DIR", "/root/dicts")
+UPLOAD_DIR = os.environ.get("OWRT_GPU_UPLOAD_DIR", "/var/lib/openwardrivingt/wardriving_uploads")
+DICT_DIR = os.environ.get("OWRT_GPU_DICT_DIR", "/var/lib/openwardrivingt/dicts")
 ROUTER_IP = os.environ.get("OWRT_ROUTER_IP", "192.168.1.1")
 ROUTER_TOKEN = os.environ.get("OWRT_ROUTER_TOKEN", "")
 GPU_SHARED_SECRET = os.environ.get("OWRT_GPU_SHARED_SECRET", "")
 HCXPCAPNGTOOL_BIN = os.environ.get("HCXPCAPNGTOOL_BIN", "hcxpcapngtool")
-RUN_HASHCAT = os.environ.get("OWRT_RUN_HASHCAT", "/root/run_hashcat.sh")
+RUN_HASHCAT = os.environ.get("OWRT_RUN_HASHCAT", "/var/lib/openwardrivingt/run_hashcat.sh")
 # =========================================================
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)

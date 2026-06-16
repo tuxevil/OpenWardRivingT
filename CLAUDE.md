@@ -74,10 +74,12 @@ bd close <id>         # Complete work
 - Shell CGI under uhttpd at `/cgi-bin/wardriving_api`
 - Dispatcher sources shared modules from `/usr/lib/wardriving/` and grouped handlers from `/usr/lib/wardriving/handlers/`
 - Token-authenticated for write operations and sensitive read/export operations (read from `/etc/wardriving_api_token`)
+- **Auth methods**: prefers `Authorization: Bearer <token>` header (avoids token in access logs and Referer); falls back to `?token=...` query string for backward compat with `window.open()` downloads and `run_hashcat.sh`
 - Public endpoint: status
 - Sensitive read/export endpoints: map_data, heatmap_data, scored_networks, history, list_files, cracked_networks, export_*.
 - Write endpoints: start, stop, delete_file, set_hw, set_processing, wigle_upload, upload_tiles, upload_potfile, pwnagotchi_sync.
-- Remote GPU extraction uses authenticated bundles only. Legacy `/upload` JSONL remains server-side for compatibility; the dashboard and map never use the GPU as a direct data source.
+- Remote GPU extraction uses authenticated bundles only. The dashboard and map never use the GPU as a direct data source.
+- **Security headers** (all responses): `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `Cache-Control: no-store` (JSON only). CORS is same-origin; no `Access-Control-Allow-Origin: *`.
 
 ### Layer 4: Web Dashboard (`index.html`, `app.css`, `app.js`)
 - Single-page app, 4-column responsive layout (car head unit optimized)
@@ -142,7 +144,9 @@ echo '$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A' | aw
 - **Signal traps**: Every infinite-loop script MUST have `trap cleanup SIGTERM SIGINT SIGHUP`
 - **Temp files**: Use `mktemp` for atomic writes. Never write directly to system config paths.
 - **Logging**: Use `logger -t "openwardrivingt"` for syslog. Write runtime logs to `/tmp/` (tmpfs).
-- **USB safety**: Always check `mount | grep /mnt/wardriving` before writing to flash.
+- **USB safety**: Always check `/proc/mounts` for `/mnt/wardriving` before writing to flash. Do NOT use `mountpoint -q` or `findmnt` — they're not in OpenWrt's BusyBox build. Verify the SOURCE device across iterations to detect mid-loop unmounts.
+- **`set -e`**: scripts that drive long-running loops (`wardriving_core.sh`, `wardriving_clients.sh`) should set `-e` with `|| true` / `|| echo <fallback>` on the few commands that legitimately fail (pkill without targets, grep without matches, curl on downed router). Interactive scripts (`wardriving_replay.sh`) use `set -u` only — `-e` would abort a replay on a transient error.
+- **Test env vars**: handlers that write to `/etc/wardriving_*` paths must respect `WARDRIVING_*_FILE` overrides so the test suite (running as non-root in CI) can target `/tmp/test_wardriving_*` instead. The full list lives in `common.sh`; add a new entry there for any new fixed-path handler.
 
 ### CGI Patterns
 - **Auth**: Extract token, check against `/etc/wardriving_api_token` for write actions and sensitive read/export actions. `action=status` is the **only** public (token-free) endpoint — explicitly documented to clarify attack surface.
@@ -156,9 +160,11 @@ echo '$GPRMC,123519,A,4807.038,N,01131.000,E,022.4,084.4,230394,003.1,W*6A' | aw
 - **No build step**: Vanilla JS only. No npm, no bundler.
 - **Static split**: Keep behavior in `app.js`, styles in `app.css`, and the DOM shell in `index.html`.
 - **localStorage**: Only for UI preferences (night mode, map toggle, audio). Never for secrets.
-- **Polling**: `setInterval` for status(3s), map(4s), scores(5s). Respect router CPU.
-- **Fetch override**: Monkey-patched with auth token injection. All `fetch()` calls auto-include token.
+- **Polling**: `setInterval` for status(5s), map(20s), scores(5s). Respect router CPU and use `pollVisible()` to throttle when the tab is hidden.
+- **Fetch override**: Monkey-patched with `withApiAuth()` which injects `Authorization: Bearer <token>` header. All `fetch()` calls auto-include the token via header (preferred) and `?token=` query string (fallback for `window.open()` downloads).
+- **Service worker**: `sw.js` uses `CACHE_NAME = 'owrt-store-vN'`. Bump the version to force a refresh. `skipWaiting()` is called ONLY from the `message` handler (dashboard opts in via `postMessage({type: 'SKIP_WAITING'})`); do NOT call it from `install` — that would hijack active tabs on deploy.
 - **Escaping**: Any SSID, filename, target, exclusion, or remote status shown via `innerHTML` must pass through the dashboard `esc()` helper or be inserted with DOM text APIs.
+- **GPS buffer bounds**: `window.nmeaBuffer` is bounded to `GPS_BUFFER_MAX=32` entries; drop-oldest on overflow. Clear the buffer only on successful `gps_push` response (not in the success branch of the request).
 
 ### Git Hygiene
 - **No large binaries**: `oui.csv` (3.7MB) is source; `oui.json` (869KB) is the deployed artifact

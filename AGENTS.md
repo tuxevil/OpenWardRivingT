@@ -87,3 +87,30 @@ bd close <id>         # Complete work
 **CRITICAL: ALWAYS include the `API_TOKEN`** in frontend dashboard requests and API interactions.
 This is a recurring mistake. When adding new endpoints or `fetch` calls in the dashboard, you MUST use the `apiUrl(action, params)` wrapper (or ensure `token` is appended appropriately if constructing raw URLs). 
 Failing to include the API token results in silent 401 Unauthorized errors that break UI state and dashboard features like stop/start toggle, history loading, or target exclusions.
+
+### Auth: Bearer header preferred
+The CGI accepts `Authorization: Bearer <token>` (case-insensitive) and falls back to `?token=...` for backward compatibility. The dashboard's `withApiAuth()` and `apiUrl()` helpers attach the header automatically. New clients should use the header; the query string path is kept for `window.open()` downloads and old scripts.
+
+### Test env vars for files normally under /etc
+The test runner runs as a non-root user (CI), so handlers that write to `/etc/...` need env-var overrides to land in `/tmp` instead. The supported overrides:
+- `WARDRIVING_TOKEN_FILE`
+- `WARDRIVING_MODE_FILE`
+- `WARDRIVING_KEEP_PCAP_FILE`
+- `WARDRIVING_EXCLUDED_FILE`
+- `WARDRIVING_REMOVED_FILE`
+- `WARDRIVING_EXTRACTION_MODE_FILE`
+- `WARDRIVING_GPU_CRACKING_FILE`
+- `WARDRIVING_REMOTE_ENABLED_FILE`
+- `WARDRIVING_REMOTE_URL_FILE`
+- `WARDRIVING_REMOTE_SECRET_FILE`
+- `WARDRIVING_API_CACHE_DIR`
+- `WARDRIVING_MNT`
+- `WARDRIVING_LIB_DIR`
+
+When adding a new handler that writes to a fixed path, also add a `${WARDRIVING_X_FILE:-/etc/...}` wrapper in `common.sh` so the handler can be unit-tested without root.
+
+### BusyBox applet compatibility
+OpenWrt's BusyBox build does not include `mountpoint` or `findmnt`. Always use `/proc/mounts` for mountpoint checks. The CI does not catch this — only deployment does.
+
+### Service worker cache bumps
+The service worker (sw.js) uses `CACHE_NAME = 'owrt-store-vN'`. To force a fresh install on all clients, bump the version. `skipWaiting()` is only called from the `message` handler (not from `install`); do not move it back to install without good reason.

@@ -495,6 +495,29 @@ else
     FAIL=$((FAIL + 1)); echo "  ✗ frontend token injection hook missing"
 fi
 
+echo "  Test: deploy sed pattern matches the placeholder"
+# install.sh and deploy_test_env.sh inject the API token with:
+#   sed -i "s|^[[:space:]]*// API_TOKEN_PLACEHOLDER[[:space:]]*$|window.API_TOKEN = ...|"
+# If app.js is refactored (e.g. extra text after the comment, or
+# non-standard indent) the sed silently no-ops and the dashboard
+# never receives the token. Lock the placeholder format down so any
+# drift fails CI.
+if grep -qE '^[[:space:]]*// API_TOKEN_PLACEHOLDER[[:space:]]*$' openwrt_files/www/wardriving/app.js; then
+    PASS=$((PASS + 1)); echo "  ✓ deploy sed pattern still matches app.js placeholder"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ deploy sed pattern would silently miss app.js placeholder"
+fi
+# And confirm the install.sh / deploy_test_env.sh sed still uses a
+# pattern compatible with the placeholder. Both end with
+# 'API_TOKEN_PLACEHOLDER[[:space:]]' followed by the regex
+# terminator. Match that common tail with a fixed-string grep.
+if grep -qF 'API_TOKEN_PLACEHOLDER[[:space:]]' install.sh && \
+   grep -qF 'API_TOKEN_PLACEHOLDER[[:space:]]' scripts/deploy_test_env.sh; then
+    PASS=$((PASS + 1)); echo "  ✓ install.sh and deploy_test_env.sh share the placeholder sed pattern"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ install.sh / deploy_test_env.sh sed pattern drifted from app.js"
+fi
+
 echo "  Test: frontend static asset split"
 if grep -q 'href="app.css"' openwrt_files/www/wardriving/index.html && grep -q 'src="app.js"' openwrt_files/www/wardriving/index.html && ! grep -q "API_TOKEN_PLACEHOLDER" openwrt_files/www/wardriving/index.html; then
     PASS=$((PASS + 1)); echo "  ✓ frontend references split app.css/app.js"

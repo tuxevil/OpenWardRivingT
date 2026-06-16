@@ -16,8 +16,26 @@ query_param() {
     printf "%s" "$QUERY_STRING" | tr '&' '\n' | awk -F= -v key="$_qp_key" '$1 == key {print substr($0, index($0, "=") + 1); exit}'
 }
 
+# extract_bearer_token: returns the token from the Authorization header
+# (if present and well-formed), or empty string. uhttpd exposes request
+# headers as HTTP_* environment variables; the standard Authorization
+# header becomes HTTP_AUTHORIZATION.
+extract_bearer_token() {
+    _hdr="${HTTP_AUTHORIZATION:-}"
+    case "$_hdr" in
+        [Bb]earer\ *) printf "%s" "${_hdr#* }" ;;
+        *) ;;
+    esac
+}
+
 ACTION=$(query_param action)
-TOKEN=$(query_param token)
+# Prefer the Authorization: Bearer header so the token doesn't leak into
+# access logs or Referer headers. Fall back to ?token= for backward
+# compatibility with older clients and with run_hashcat.sh on the GPU
+# server (which posts via curl and was authored before the header
+# migration).
+TOKEN=$(extract_bearer_token)
+[ -z "$TOKEN" ] && TOKEN=$(query_param token)
 
 # url_decode <input> -> prints the URL-decoded value.
 # Decodes '+' as space and '%XX' as the corresponding byte. Pure awk so

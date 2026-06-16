@@ -1,9 +1,21 @@
 // API_TOKEN_PLACEHOLDER
 if(typeof window.API_TOKEN==='undefined')window.API_TOKEN='';
+// Helper: attach Authorization: Bearer header for the wardriving API.
+// The CGI accepts both header and query-string tokens; the header is
+// preferred so the token never lands in access logs or Referer headers.
+// Callers that genuinely cannot set a header (window.open for downloads)
+// keep the &token= in the URL as the secondary path.
+function withApiAuth(options){
+  options=options||{};
+  if(!window.API_TOKEN)return options;
+  const headers=Object.assign({},options.headers||{});
+  if(!headers.Authorization)headers.Authorization='Bearer '+window.API_TOKEN;
+  return Object.assign({},options,{headers});
+}
 const _origFetch=window.fetch;
 window.fetch=function(url,options){
-  if(typeof url==='string'&&url.includes('/cgi-bin/wardriving_api')&&window.API_TOKEN&&!/[?&]token=/.test(url)){
-    url+=(url.includes('?')?'&':'?')+'token='+encodeURIComponent(window.API_TOKEN);
+  if(typeof url==='string'&&url.includes('/cgi-bin/wardriving_api')&&window.API_TOKEN){
+    options=withApiAuth(options);
   }
   return _origFetch(url,options);
 };
@@ -18,7 +30,7 @@ function setHtml(id,html){let el=document.getElementById(id);if(el)el.innerHTML=
 function setText(id,text){let el=document.getElementById(id);if(el)el.innerText=text;}
 function dim(msg){return '<span style="color:var(--c-dim)">'+esc(msg)+'</span>';}
 function apiJson(action,params,options){
-  return fetch(apiUrl(action,params),options).then(r=>r.json().catch(()=>({error:'bad json'}))).then(d=>{
+  return fetch(apiUrl(action,params),withApiAuth(options)).then(r=>r.json().catch(()=>({error:'bad json'}))).then(d=>{
     if(d&&d.error)throw new Error(d.error);
     return d;
   });

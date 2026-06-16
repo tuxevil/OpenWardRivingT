@@ -228,6 +228,51 @@ else
     PASS=$((PASS + 1)); echo "  ✓ status omits wildcard CORS"
 fi
 
+echo "  Test: Authorization header auth"
+OUT=$(HTTP_AUTHORIZATION="Bearer $TOKEN" QUERY_STRING="action=history" sh "$CGI" 2>/dev/null)
+body=$(printf "%s" "$OUT" | sed '1,/^$/d')
+if echo "$body" | python3 -m json.tool >/dev/null 2>&1; then
+    PASS=$((PASS + 1)); echo "  ✓ history accepts Bearer header"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ history rejected Bearer header"
+fi
+
+echo "  Test: Authorization header takes precedence over wrong query"
+OUT=$(HTTP_AUTHORIZATION="Bearer $TOKEN" QUERY_STRING="action=history&token=wrong_token" sh "$CGI" 2>/dev/null)
+body=$(printf "%s" "$OUT" | sed '1,/^$/d')
+if echo "$body" | python3 -m json.tool >/dev/null 2>&1; then
+    PASS=$((PASS + 1)); echo "  ✓ header auth wins over wrong query token"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ header auth should override wrong query"
+fi
+
+echo "  Test: lowercase bearer accepted"
+OUT=$(HTTP_AUTHORIZATION="bearer $TOKEN" QUERY_STRING="action=history" sh "$CGI" 2>/dev/null)
+body=$(printf "%s" "$OUT" | sed '1,/^$/d')
+if echo "$body" | python3 -m json.tool >/dev/null 2>&1; then
+    PASS=$((PASS + 1)); echo "  ✓ history accepts lowercase bearer"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ history rejected lowercase bearer"
+fi
+
+echo "  Test: malformed Authorization falls back to query"
+OUT=$(HTTP_AUTHORIZATION="Basic dXNlcjpwYXNz" QUERY_STRING="action=history&token=$TOKEN" sh "$CGI" 2>/dev/null)
+body=$(printf "%s" "$OUT" | sed '1,/^$/d')
+if echo "$body" | python3 -m json.tool >/dev/null 2>&1; then
+    PASS=$((PASS + 1)); echo "  ✓ malformed header falls back to query token"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ malformed header should fall back to query"
+fi
+
+echo "  Test: dashboard sends Authorization header for API calls"
+if grep -q "withApiAuth" openwrt_files/www/wardriving/app.js && \
+   grep -q "'Bearer '+window.API_TOKEN" openwrt_files/www/wardriving/app.js && \
+   grep -q "headers.Authorization" openwrt_files/www/wardriving/app.js; then
+    PASS=$((PASS + 1)); echo "  ✓ dashboard attaches Bearer header in fetch override"
+else
+    FAIL=$((FAIL + 1)); echo "  ✗ dashboard missing Bearer header injection"
+fi
+
 # Test 7: Heatmap data
 echo "  Test: action=heatmap_data"
 OUT=$(QUERY_STRING="action=heatmap_data&token=$TOKEN" sh "$CGI" 2>/dev/null)

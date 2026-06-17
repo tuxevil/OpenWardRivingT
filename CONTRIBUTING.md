@@ -142,11 +142,47 @@ shellcheck -e SC1090,SC2002,SC2010,SC2012,SC2015,SC2016,SC2018,SC2035,SC2045,SC3
 New tests live in `test/` (shell) or `test/js/` (Node). Each new handler
 or env-var override must be covered.
 
+## Local pre-commit and commit-msg hooks
+
+Pure POSIX `sh` hooks live in [`.githooks/`](.githooks). They are not
+installed by `git clone` — run the installer once per clone:
+
+```bash
+sh scripts/install_hooks.sh           # install (idempotent)
+sh scripts/install_hooks.sh --status  # show current state
+sh scripts/install_hooks.sh --uninstall
+```
+
+The installer writes small wrapper files into whatever directory git
+already uses for hooks (it honours `core.hooksPath` — for example, it
+chains cleanly with `bd`/beads). It never modifies `core.hooksPath`
+itself. The wrappers are recognised on uninstall by an
+"installed by scripts/install_hooks.sh" marker and removed only if that
+marker is present.
+
+What the hooks do:
+
+- **`pre-commit`** — runs shellcheck (`-x` with the project's exclusion
+  list), `sh -n`, `py_compile`, `node --check` (skipping the dashboard
+  entry-point `app.js`), and JSON validation on the staged files. Fails
+  the commit if any check fails. Bypass once with
+  `git commit --no-verify`.
+- **`commit-msg`** — validates the commit message against the
+  [Conventional Commits](https://www.conventionalcommits.org/) spec
+  (type allowlist, scope optional, breaking-change marker, 72-char
+  subject, 100-char header, no trailing period, imperative mood). Merge
+  and squash commits are passed through. Bypass once with
+  `git commit --no-verify`.
+
+CI does not depend on these hooks — `.github/workflows/ci.yml` runs the
+same checks on every push.
+
 ## Commit messages
 
 We use [Conventional Commits](https://www.conventionalcommits.org/)
-prefixes. The CI does not enforce them yet, but the release tool reads
-them to generate changelogs:
+prefixes. The `commit-msg` hook (see [Local pre-commit and commit-msg hooks](#local-pre-commit-and-commit-msg-hooks))
+enforces them locally; the release workflow reads them to generate
+changelogs:
 
 ```
 <type>(<scope>): <short summary>

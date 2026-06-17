@@ -1,0 +1,52 @@
+name: Sync labels
+
+# Keep the GitHub issue label vocabulary in sync with `.github/labels.yml`.
+# Triggered whenever that file (or this workflow) changes, plus a manual
+# dispatch button for first-run bootstrap.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/labels.yml'
+      - '.github/labeler.yml'
+      - '.github/workflows/labels.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync-labels:
+    name: Sync label definitions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate labels.yml
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import yaml
+          docs = [d for d in yaml.safe_load_all(open('.github/labels.yml')) if d]
+          names = [d['name'] for d in docs]
+          assert len(names) == len(set(names)), f"Duplicate label names: {names}"
+          for d in docs:
+              for key in ('name', 'description', 'color'):
+                  assert key in d, f"Missing key {key} in {d}"
+              assert isinstance(d['color'], str) and len(d['color']) == 6, \
+                  f"color must be a 6-char hex string: {d}"
+              int(d['color'], 16)  # raises if not hex
+          print(f"OK: {len(names)} label definitions, all unique and well-formed")
+          PY
+
+      - name: Sync labels to GitHub
+        uses: crazy-max/ghaction-github-labeler@v5
+        with:
+          yaml-file: .github/labels.yml
+          skip-delete: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -12,3 +12,6 @@ tmp/
 
 # Absolute /tmp (system tmpfs paths used by the running scripts at runtime)
 /tmp
+
+# githooks installer state (per-clone, not for the public repo)
+.githooks/.installed

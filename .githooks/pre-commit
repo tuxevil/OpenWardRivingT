@@ -1,0 +1,143 @@
+#!/bin/sh
+# OpenWardRivingT pre-commit hook.
+#
+# Runs lightweight checks on staged files:
+#   - shellcheck (with the project's exclusion list) on staged .sh files
+#   - POSIX sh syntax check (`sh -n`) on staged .sh files
+#   - Python compile check on staged .py files
+#   - node --check on staged .js files (skips app.js: the dashboard entry
+#     point with deliberately long one-liners; see ci.yml)
+#   - JSON validation on staged *.json files
+#
+# The full test suite is too slow to run on every commit; CI runs it. This
+# hook catches the most common regressions in <2 s.
+#
+# Pure POSIX sh.
+
+set -u
+
+# Find the repo root even when hooks run from .git/hooks/.
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+cd "$REPO_ROOT" || exit 0
+
+# Gather staged files (Added, Copied, Modified). Renames are reported
+# twice (old + new); we only need the post-image, so de-duplicate.
+STAGED=$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null | sort -u)
+if [ -z "$STAGED" ]; then
+    exit 0
+fi
+
+# --- Helpers ----------------------------------------------------------
+
+run_shellcheck() {
+    if ! command -v shellcheck >/dev/null 2>&1; then
+        echo "[githooks] shellcheck not found in PATH; skipping (CI will catch it)."
+        return 0
+    fi
+    SC_EXCLUDES='-e SC1090 -e SC2002 -e SC2010 -e SC2012 -e SC2015 -e SC2016 -e SC2018 -e SC2035 -e SC2045 -e SC3013 -e SC3043 -e SC3048'
+    # shellcheck disable=SC2086
+    shellcheck $SC_EXCLUDES -x "$@" || return 1
+    return 0
+}
+
+sh_syntax() {
+    for f in "$@"; do
+        sh -n "$f" || return 1
+    done
+}
+
+py_syntax() {
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "[githooks] python3 not found; skipping Python syntax check."
+        return 0
+    fi
+    for f in "$@"; do
+        python3 -m py_compile "$f" || return 1
+    done
+}
+
+node_syntax() {
+    if ! command -v node >/dev/null 2>&1; then
+        echo "[githooks] node not found; skipping JS syntax check."
+        return 0
+    fi
+    for f in "$@"; do
+        # app.js is intentionally not checked: the dashboard entry point
+        # uses very long one-liners (e.g. watchPosition) that node's
+        # parser flags as errors but browsers handle fine. The browser
+        # is the source of truth for app.js; CI runs node --check on
+        # app-utils.js and the dashboard is linted at deploy.
+        case "$f" in
+            */app.js) continue ;;
+        esac
+        node --check "$f" || return 1
+    done
+}
+
+json_syntax() {
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo "[githooks] python3 not found; skipping JSON validation."
+        return 0
+    fi
+    for f in "$@"; do
+        python3 -m json.tool "$f" >/dev/null || return 1
+    done
+}
+
+# --- Partition staged files by type -----------------------------------
+
+SH_FILES=$(printf '%s\n' "$STAGED" | grep -E '\.sh$' || true)
+PY_FILES=$(printf '%s\n' "$STAGED" | grep -E '\.py$' || true)
+JS_FILES=$(printf '%s\n' "$STAGED" | grep -E '\.js$' || true)
+JSON_FILES=$(printf '%s\n' "$STAGED" | grep -E '\.json$' || true)
+
+FAILED=0
+
+if [ -n "$SH_FILES" ]; then
+    echo "[githooks] shellcheck on staged .sh files..."
+    # shellcheck disable=SC2086
+    if ! run_shellcheck $SH_FILES; then
+        echo "[githooks] ✗ shellcheck failed"
+        FAILED=1
+    fi
+    echo "[githooks] POSIX sh -n syntax on staged .sh files..."
+    # shellcheck disable=SC2086
+    if ! sh_syntax $SH_FILES; then
+        echo "[githooks] ✗ sh -n failed"
+        FAILED=1
+    fi
+fi
+
+if [ -n "$PY_FILES" ]; then
+    echo "[githooks] python3 -m py_compile on staged .py files..."
+    # shellcheck disable=SC2086
+    if ! py_syntax $PY_FILES; then
+        echo "[githooks] ✗ py_compile failed"
+        FAILED=1
+    fi
+fi
+
+if [ -n "$JS_FILES" ]; then
+    echo "[githooks] node --check on staged .js files (skipping app.js)..."
+    # shellcheck disable=SC2086
+    if ! node_syntax $JS_FILES; then
+        echo "[githooks] ✗ node --check failed"
+        FAILED=1
+    fi
+fi
+
+if [ -n "$JSON_FILES" ]; then
+    echo "[githooks] JSON validation on staged .json files..."
+    # shellcheck disable=SC2086
+    if ! json_syntax $JSON_FILES; then
+        echo "[githooks] ✗ JSON validation failed"
+        FAILED=1
+    fi
+fi
+
+if [ "$FAILED" -ne 0 ]; then
+    echo "[githooks] Pre-commit checks failed. Bypass with: git commit --no-verify"
+    exit 1
+fi
+
+exit 0

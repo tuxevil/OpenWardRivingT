@@ -358,6 +358,24 @@ frontend, or the request will silently fail with `401 Unauthorized`.
 
 ## Development
 
+### Local hooks (recommended)
+
+Pure POSIX `sh` hooks live in [`.githooks/`](.githooks). Install them
+once per clone so the pre-commit lint and Conventional-Commits
+commit-msg validator run automatically:
+
+```bash
+sh scripts/install_hooks.sh           # install (idempotent)
+sh scripts/install_hooks.sh --status  # show current state
+sh scripts/install_hooks.sh --uninstall
+```
+
+The installer writes small wrappers into git's active hooks directory
+(`.git/hooks/` by default; honours `core.hooksPath` so it chains with
+`bd`/beads). It does **not** modify `core.hooksPath`. Bypass once with
+`git commit --no-verify`. See [CONTRIBUTING.md](CONTRIBUTING.md#local-pre-commit-and-commit-msg-hooks)
+for the full convention.
+
 ### Running the test suite
 
 The CI runs `test/run_tests.sh` against the project tree (≈ 159 assertions covering
@@ -382,6 +400,9 @@ sh test/run_js_tests.sh
 ```
 
 CI also runs on every push and pull request (see `.github/workflows/ci.yml`).
+A path-based PR labeler (`.github/labeler.yml`) and a label-sync workflow
+(`.github/workflows/labels.yml`) keep the issue-tracker vocabulary
+in sync with [`.github/labels.yml`](.github/labels.yml).
 
 ### Conventions
 
@@ -420,11 +441,12 @@ audience can read just what they need.
 | [AGENTS.md](AGENTS.md) | AI agents | Beads workflow, session close protocol, env-var list |
 | [CLAUDE.md](CLAUDE.md) | AI agents | End-to-end architecture, conventions, test commands |
 | [CHANGELOG.md](CHANGELOG.md) | Operators, integrators | Release notes (rolling `Unreleased` section) |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Contributors | Workflow, conventions, testing, commit messages |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contributors | Workflow, conventions, testing, commit messages, hooks |
 | [SECURITY.md](SECURITY.md) | Operators, security researchers | Vulnerability disclosure, supported versions, hardening |
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Contributors | Behavioural expectations, enforcement |
 | [VERSION](VERSION) | Tooling | Pinned SemVer for the current tree |
 | [docs/adr/](docs/adr/README.md) | Maintainers | Architecture Decision Records |
+| [.githooks/](.githooks/) | Developers | Pre-commit + commit-msg hooks (install via `scripts/install_hooks.sh`) |
 
 ## Known quirks
 

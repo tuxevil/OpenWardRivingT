@@ -96,6 +96,15 @@ notes are generated from conventional-commit history by
   `.github/ISSUE_TEMPLATE/config.yml` standardize issue filing; a
   `PULL_REQUEST_TEMPLATE.md` and `labels.yml` round out the GitHub
   ergonomics.
+- `.github/labeler.yml` and `.github/workflows/labeler.yml` apply
+  path-based labels (layer:1-capture … repo-meta) to every PR; the
+  `labels` workflow keeps the label definitions in `.github/labels.yml`
+  in sync with GitHub.
+- `.githooks/{commit-msg,pre-commit}` enforce Conventional Commits and
+  run shellcheck / `sh -n` / `py_compile` / `node --check` / JSON
+  validation on staged files. `scripts/install_hooks.sh` wires the
+  hooks into the active git hooks directory without touching
+  `core.hooksPath` (chains cleanly with `bd`/beads).
 
 ### Docs
 - `AGENTS.md`, `CLAUDE.md`, and `CONTEXT.md` synchronized with the

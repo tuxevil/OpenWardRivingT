@@ -1,0 +1,104 @@
+# Path-based label rules for `actions/labeler`.
+# On every PR, the labeler action applies these labels to PRs that touch
+# the matching paths. Combined with `.github/labels.yml` (label definitions
+# synced via `.github/workflows/labels.yml`), this gives both automatic
+# application and a consistent label vocabulary.
+#
+# Documentation: https://github.com/actions/labeler
+# All patterns are evaluated by `actions/labeler` against the PR's diff.
+
+# --- Areas of the codebase ----------------------------------------------
+
+# Layer 1 — capture daemon
+'layer:1-capture':
+  - changed-files:
+      - any-glob-to-any-file: 'openwrt_files/usr/bin/**'
+      - any-glob-to-any-file: 'openwrt_files/etc/config/**'
+
+# Layer 2 — GPS bridge (browser, FIFO, socat, hcxdumptool flags)
+'layer:2-gps':
+  - changed-files:
+      - any-glob-to-any-file: 'openwrt_files/www/wardriving/app-utils.js'
+      - any-glob-to-any-file: 'openwrt_files/usr/lib/wardriving/handlers/**/gps_push*'
+
+# Layer 3 — CGI API
+'layer:3-api':
+  - changed-files:
+      - any-glob-to-any-file: 'openwrt_files/www/cgi-bin/**'
+      - any-glob-to-any-file: 'openwrt_files/usr/lib/wardriving/**'
+
+# Layer 4 — web dashboard
+'layer:4-dashboard':
+  - changed-files:
+      - any-glob-to-any-file: 'openwrt_files/www/wardriving/**'
+      - any-glob-to-any-file: 'openwrt_files/www/wardriving/index.html'
+      - any-glob-to-any-file: 'openwrt_files/www/wardriving/app.css'
+      - any-glob-to-any-file: 'openwrt_files/www/wardriving/app.js'
+      - any-glob-to-any-file: 'openwrt_files/www/wardriving/app-utils.js'
+      - any-glob-to-any-file: 'openwrt_files/www/wardriving/sw.js'
+
+# Layer 5 — install / init
+'layer:5-install':
+  - changed-files:
+      - any-glob-to-any-file: 'install.sh'
+      - any-glob-to-any-file: 'uninstall.sh'
+      - any-glob-to-any-file: 'openwrt_files/etc/init.d/**'
+      - any-glob-to-any-file: 'openwrt_files/etc/wardriving_sync.conf.example'
+
+# GPU server
+'gpu-server':
+  - changed-files:
+      - any-glob-to-any-file: 'server_files/**'
+
+# --- File types ---------------------------------------------------------
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file: '**/*.md'
+      - any-glob-to-any-file: 'docs/**'
+
+shell:
+  - changed-files:
+      - any-glob-to-any-file: '**/*.sh'
+
+python:
+  - changed-files:
+      - any-glob-to-any-file: '**/*.py'
+
+javascript:
+  - changed-files:
+      - any-glob-to-any-file: '**/*.js'
+
+# --- CI / tests / repo meta --------------------------------------------
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file: '.github/workflows/**'
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file: 'test/**'
+
+repo-meta:
+  - changed-files:
+      - any-glob-to-any-file: '.github/ISSUE_TEMPLATE/**'
+      - any-glob-to-any-file: '.github/PULL_REQUEST_TEMPLATE.md'
+      - any-glob-to-any-file: '.github/CODEOWNERS'
+      - any-glob-to-any-file: '.github/labels.yml'
+      - any-glob-to-any-file: '.github/labeler.yml'
+      - any-glob-to-any-file: '.github/dependabot.yml'
+      - any-glob-to-any-file: 'VERSION'
+      - any-glob-to-any-file: 'SECURITY.md'
+      - any-glob-to-any-file: 'CODE_OF_CONDUCT.md'
+      - any-glob-to-any-file: 'CONTRIBUTING.md'
+      - any-glob-to-any-file: '.githooks/**'
+      - any-glob-to-any-file: 'scripts/install_hooks.sh'
+      - any-glob-to-any-file: 'scripts/bump_version.sh'
+      - any-glob-to-any-file: 'AGENTS.md'
+      - any-glob-to-any-file: 'CLAUDE.md'
+      - any-glob-to-any-file: 'CONTEXT.md'
+      - any-glob-to-any-file: 'ARCHITECTURE.md'
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file: '.github/dependabot.yml'

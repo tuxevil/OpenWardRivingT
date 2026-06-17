@@ -10,9 +10,8 @@ the wider wireless ecosystem seriously.
 
 **Please do not file public GitHub issues for suspected vulnerabilities.**
 
-Report privately by emailing **[security@openwardrivingt.org](mailto:security@openwardrivingt.org)**
-(placeholder — see the GitHub repository's *Security → Advisories* tab for the
-canonical contact if the address ever changes). If email is unavailable, open a
+Report privately by emailing **[tuxevil@gmail.com](mailto:tuxevil@gmail.com)**
+with `[security]` in the subject. If email is unavailable, open a
 private security advisory at
 <https://github.com/tuxevil/OpenWardRivingT/security/advisories/new>.
 

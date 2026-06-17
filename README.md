@@ -1,6 +1,7 @@
 # OpenWardRivingT
 
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE)
+[![Release](https://img.shields.io/badge/release-v0.1.0-blue.svg)](VERSION)
 [![CI](https://img.shields.io/badge/CI-passing-brightgreen.svg)](.github/workflows/ci.yml)
 [![OpenWrt](https://img.shields.io/badge/OpenWrt-23.05%20%7C%2024.x%20%7C%2025.x-orange.svg)](https://openwrt.org/)
 [![Shell](https://img.shields.io/badge/shell-BusyBox%20ash-blue.svg)](openwrt_files/)
@@ -32,6 +33,7 @@ used against networks you own or have explicit written authorization to test. Se
 - [API & security](#api--security)
 - [Development](#development)
 - [Known quirks](#known-quirks)
+- [Project documentation](#project-documentation)
 - [Legal & ethics](#legal--ethics)
 - [Contributing](#contributing)
 - [Acknowledgments](#acknowledgments)
@@ -85,7 +87,8 @@ OpenWardRivingT is built as five thin layers with no build step:
   client, and cracked view reads the router's own SQLite database and pot/hash files.
 
 For deeper architecture notes (capture state machine, GPS pipeline, dispatch table) see
-[CONTEXT.md](CONTEXT.md).
+[CONTEXT.md](CONTEXT.md) and [ARCHITECTURE.md](ARCHITECTURE.md). Significant design
+decisions are captured as [ADRs](docs/adr/README.md).
 
 ---
 
@@ -404,6 +407,25 @@ architecture) see [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md).
 
 ---
 
+## Project documentation
+
+The repository's human-facing documentation is split into several files so each
+audience can read just what they need.
+
+| File | Audience | Purpose |
+| ---- | -------- | ------- |
+| [README.md](README.md) | Operators, integrators | Features, hardware, install, configuration, API surface |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Maintainers, contributors | Five-layer model, dispatcher, data flow, conventions |
+| [CONTEXT.md](CONTEXT.md) | AI agents, maintainers | GPS pipeline, quirks, security patterns, env-var list |
+| [AGENTS.md](AGENTS.md) | AI agents | Beads workflow, session close protocol, env-var list |
+| [CLAUDE.md](CLAUDE.md) | AI agents | End-to-end architecture, conventions, test commands |
+| [CHANGELOG.md](CHANGELOG.md) | Operators, integrators | Release notes (rolling `Unreleased` section) |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contributors | Workflow, conventions, testing, commit messages |
+| [SECURITY.md](SECURITY.md) | Operators, security researchers | Vulnerability disclosure, supported versions, hardening |
+| [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Contributors | Behavioural expectations, enforcement |
+| [VERSION](VERSION) | Tooling | Pinned SemVer for the current tree |
+| [docs/adr/](docs/adr/README.md) | Maintainers | Architecture Decision Records |
+
 ## Known quirks
 
 1. **Rollover CPU spikes.** Capture windows roll over every minute; the brief period
@@ -446,33 +468,36 @@ owner in writing first.**
 
 ## Contributing
 
-Issues and pull requests are welcome on GitHub.
-
-**Before opening a pull request**
+Issues and pull requests are welcome on GitHub. The full contributor guide is
+in [CONTRIBUTING.md](CONTRIBUTING.md); the short version:
 
 1. Search existing issues to avoid duplicates.
 2. For non-trivial changes, open an issue first to discuss the approach.
 3. Fork the repo and create a feature branch off `main`.
-4. Run the full test suite locally — `sh test/run_tests.sh` and the shellcheck
-   command from [Development](#development) must both pass.
-5. Follow the project conventions in [AGENTS.md](AGENTS.md) and
-   [CLAUDE.md](CLAUDE.md) (BusyBox ash, no bashisms, mktemp for atomic writes,
-   `WARDRIVING_*_FILE` env-var overrides for any new `/etc` handler).
+4. Run the full test suite locally — `sh test/run_tests.sh`,
+   `sh test/run_js_tests.sh`, and the shellcheck command from
+   [Development](#development) must all pass.
+5. Follow the project conventions in [CONTRIBUTING.md](CONTRIBUTING.md),
+   [AGENTS.md](AGENTS.md), and [CLAUDE.md](CLAUDE.md) (BusyBox ash, no
+   bashisms, mktemp for atomic writes, `WARDRIVING_*_FILE` env-var
+   overrides for any new `/etc` handler).
 6. Keep commits focused; write a clear conventional-commit message
    (`fix:`, `feat:`, `docs:`, `security:`, `chore:`).
-7. Update [CHANGELOG.md](CHANGELOG.md) under `## Unreleased` for user-visible changes.
+7. Update [CHANGELOG.md](CHANGELOG.md) under `## Unreleased` for
+   user-visible changes.
+8. Use the PR template (`.github/PULL_REQUEST_TEMPLATE.md`).
 
 **Security issues**
 
-Please **do not** file public issues for suspected vulnerabilities. Email the
-maintainer (see GitHub profile) with a description and reproduction steps. We
-will respond within a reasonable window and coordinate a fix before disclosure.
+Please **do not** file public issues for suspected vulnerabilities. Follow
+the disclosure process in [SECURITY.md](SECURITY.md) — private email or
+GitHub private advisory. We acknowledge reports within 72 hours.
 
 **Code of conduct**
 
-Be respectful in issues and PRs. Assume good faith; ask for clarification rather
-than assuming malice. The maintainers reserve the right to close unproductive
-threads.
+All participants are expected to follow the
+[Code of Conduct](CODE_OF_CONDUCT.md). The maintainers reserve the right to
+close unproductive threads.
 
 ---
 

@@ -1,0 +1,79 @@
+name: Feature request
+description: New behaviour for capture, dashboard, API, GPU offload, or developer workflow.
+title: "[feat]: "
+labels: ["enhancement"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        OpenWardRivingT is a pure-shell + vanilla-JS project with **no build step**.
+        New features must respect the conventions in
+        [AGENTS.md](https://github.com/tuxevil/OpenWardRivingT/blob/main/AGENTS.md) and
+        the architecture in [ARCHITECTURE.md](https://github.com/tuxevil/OpenWardRivingT/blob/main/ARCHITECTURE.md).
+
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Affected layer
+      options:
+        - "Layer 1 — Capture daemon"
+        - "Layer 2 — GPS bridge"
+        - "Layer 3 — CGI API"
+        - "Layer 4 — Web dashboard"
+        - "Layer 5 — Install / init"
+        - "GPU server"
+        - "Tests / CI / docs"
+        - "Cross-cutting"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: "How invasive is the change?"
+      options:
+        - "Small — single handler / endpoint / JS function"
+        - "Medium — adds a new endpoint or daemon behaviour"
+        - "Large — new module, storage format, or external dependency"
+    validations:
+      required: true
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Problem / motivation
+      description: "What user pain or workflow gap does this address?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: "Sketch the API / UI / shell changes. Mention any new files, config keys, or env vars."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: "Other approaches you weighed and why you chose this one."
+
+  - type: textarea
+    id: compat
+    attributes:
+      label: Compatibility impact
+      description: "Does it break the CGI contract, the SQLite schema, `master.hc2200` format, the API token, or existing `/etc/wardriving_*` config files?"
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submit checks
+      options:
+        - label: I searched existing issues and found no duplicate.
+        - label: I am willing to open a draft PR that includes test coverage in `test/run_tests.sh` or `test/js/`.
+        - label: The change keeps the project 0-build (no npm / pip step) and BusyBox ash compatible.

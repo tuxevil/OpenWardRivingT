@@ -1,0 +1,97 @@
+name: Bug report
+description: Capture, dashboard, CGI, GPU server or install behaviour that is broken or unexpected.
+title: "[bug]: "
+labels: ["bug"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Please fill in the sections below.
+        For suspected security issues, **do not** use this template — follow
+        [SECURITY.md](https://github.com/tuxevil/OpenWardRivingT/blob/main/SECURITY.md) instead.
+
+  - type: input
+    id: router
+    attributes:
+      label: Router / device
+      description: "Model, chipset, OpenWrt version (e.g. `GL.iNet GL-A1300, IPQ4018, OpenWrt 24.10`)."
+      placeholder: "Netgear WNDR3700v2, AR9220, OpenWrt 23.05"
+    validations:
+      required: true
+
+  - type: input
+    id: commit
+    attributes:
+      label: Commit / version
+      description: "Output of `git rev-parse HEAD` on the router checkout, or the installed `VERSION`."
+      placeholder: "88c22ec (or v0.1.0)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Affected layer
+      description: "Where did the bug surface?"
+      options:
+        - "Layer 1 — Capture daemon (wardriving_core.sh, hcxdumptool, hcxpcapngtool)"
+        - "Layer 2 — GPS bridge (browser, gps_push, socat vGPS)"
+        - "Layer 3 — CGI API (wardriving_api, handlers/*)"
+        - "Layer 4 — Web dashboard (index.html, app.js, app.css, sw.js)"
+        - "Layer 5 — Install / init (install.sh, /etc/init.d/wardriving)"
+        - "GPU server (server_files/gpu_server.py, run_hashcat.sh)"
+        - "Tests / CI"
+        - "Other / not sure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: "Minimal, ordered steps. Include the exact CGI request, dashboard action, or shell command."
+      placeholder: |
+        1. `cd /tmp && QUERY_STRING='action=history&token=…' sh /www/cgi-bin/wardriving_api`
+        2. Refresh `/wardriving/index.html` and click the *Start* button.
+        3. Observe that the toggle reverts to *Stop* after ~2 s.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behaviour
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: "Tail of `/tmp/wardriving_*.log`, `logread -e openwardrivingt`, or the browser console. Use a code block."
+      render: shell
+
+  - type: input
+    id: apkmgr
+    attributes:
+      label: Package manager
+      description: "`apk` (OpenWrt 24.x+) or `opkg` (23.x and earlier). Affects install.sh paths."
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submit checks
+      options:
+        - label: I searched existing issues and found no duplicate.
+        - label: I ran `sh test/run_tests.sh` and the shellcheck command from the README locally.
+        - label: I have NOT included my API token, WiFi password, or any captured hashes.

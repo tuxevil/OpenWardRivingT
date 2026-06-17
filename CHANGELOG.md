@@ -2,8 +2,14 @@
 
 All notable changes to OpenWardRivingT are documented here. The format is
 loosely [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) but
-adapted to a single rolling `Unreleased` section — releases are not
-tagged in git yet, the most recent merge to `main` is the latest.
+adapted to a single rolling `Unreleased` section — the most recent
+release tag (`vX.Y.Z`) marks the latest shipped version. The current
+pin is in [VERSION](VERSION).
+
+The project follows [Semantic Versioning](https://semver.org/). Release
+notes are generated from conventional-commit history by
+`.github/workflows/release.yml`; the steps to cut a release are in
+[CONTRIBUTING.md → Versioning & release](CONTRIBUTING.md#versioning--release).
 
 ## Unreleased
 
@@ -81,6 +87,15 @@ tagged in git yet, the most recent merge to `main` is the latest.
   the OUI_DB removal, the AbortController contract, the service
   worker `skipWaiting` placement, the API_TOKEN placeholder format,
   and the path-traversal guard.
+- `VERSION` file pins the current SemVer (v0.1.0). `scripts/bump_version.sh`
+  is a BusyBox-ash-compatible bumper that updates `VERSION`, refreshes the
+  CHANGELOG header, and prints the next commit/tag commands.
+- `.github/workflows/release.yml` builds a source tarball, runs the
+  full test matrix, and creates a GitHub Release on every `vX.Y.Z` tag.
+- `.github/ISSUE_TEMPLATE/{bug_report,feature_request}.yml` and
+  `.github/ISSUE_TEMPLATE/config.yml` standardize issue filing; a
+  `PULL_REQUEST_TEMPLATE.md` and `labels.yml` round out the GitHub
+  ergonomics.
 
 ### Docs
 - `AGENTS.md`, `CLAUDE.md`, and `CONTEXT.md` synchronized with the
@@ -89,3 +104,14 @@ tagged in git yet, the most recent merge to `main` is the latest.
   method (with `?token=` kept for fallback).
 - This `CHANGELOG.md` introduces a rolling changelog so future
   changes are visible to users without diffing git log.
+- `SECURITY.md` formalises the vulnerability disclosure process, the
+  supported-versions table, and the hardening checklist.
+- `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1, adapted for
+  active-war-driving context) and `CONTRIBUTING.md` (extracted from
+  the README) cover contributor and community norms.
+- `ARCHITECTURE.md` complements `CONTEXT.md` with the dispatcher
+  table, the data flow diagram, and a per-layer change guide.
+- `docs/adr/README.md` plus seven ADRs capture the non-obvious
+  decisions: BusyBox ash, Bearer auth, active capture, virtual-PTY
+  GPS, local-first data, env-var overrides, and the service-worker
+  cache strategy.

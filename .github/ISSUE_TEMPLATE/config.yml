@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Bug or security issue
+    url: https://github.com/tuxevil/OpenWardRivingT/blob/main/SECURITY.md
+    about: Please report security issues privately following the security policy.
+  - name: Project context (AGENTS.md)
+    url: https://github.com/tuxevil/OpenWardRivingT/blob/main/AGENTS.md
+    about: Conventions, build & test commands for AI agents and contributors.
+  - name: Architecture (ARCHITECTURE.md)
+    url: https://github.com/tuxevil/OpenWardRivingT/blob/main/ARCHITECTURE.md
+    about: Five-layer architecture, GPS pipeline, dispatcher table.

@@ -1,0 +1,35 @@
+# Suggested labels
+
+name: triage
+description: Issue needs to be triaged before work begins.
+color: fbca04
+name: bug
+description: Confirmed defect in capture, CGI, dashboard, GPU server, or install.
+color: d73a4a
+name: enhancement
+description: New feature or improvement to an existing one.
+color: a2eeef
+name: security
+description: Security-sensitive change. See SECURITY.md before disclosing publicly.
+color: b60205
+name: ci
+description: Continuous integration, shellcheck, test runner, dependabot.
+color: 5319e7
+name: documentation
+description: README, CONTEXT, AGENTS, ADRs, code comments.
+color: 0075ca
+name: dependencies
+description: Dependency upgrades (dependabot, system packages).
+color: 0366d6
+name: wontfix
+description: Issue is acknowledged but will not be actioned.
+color: ffffff
+name: duplicate
+description: Duplicate of an existing issue.
+color: cfd3d7
+name: good first issue
+description: Low-friction entry point for new contributors.
+color: 7057ff
+name: help wanted
+description: Maintainer is happy to review a PR for this.
+color: 008672

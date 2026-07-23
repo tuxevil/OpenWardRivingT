@@ -105,15 +105,11 @@ jobs:
           python3 -m json.tool openwrt_files/www/wardriving/manifest.json > /dev/null
           echo "✓ manifest.json is valid JSON"
 
-      - name: Validate app-utils.js syntax
-        # app.js is intentionally not checked here: it's the dashboard
-        # entry point with very long one-liners (e.g. the watchPosition
-        # call) that node's parser flags as errors but browsers handle
-        # fine. The browser is the source of truth for app.js; app-utils.js
-        # is the one we also load in Node, so it's the one we lint here.
+      - name: Validate app JavaScript syntax
         run: |
           node --check openwrt_files/www/wardriving/app-utils.js
-          echo "✓ app-utils.js syntax OK"
+          node --check openwrt_files/www/wardriving/app.js
+          echo "✓ JavaScript files syntax OK"
 
       - name: Validate GPU server syntax
         run: |

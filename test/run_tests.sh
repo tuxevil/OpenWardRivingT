@@ -420,17 +420,6 @@ OUT=$(QUERY_STRING="action=replay_status&token=$TOKEN" sh "$CGI" 2>/dev/null)
 assert_json "replay_status returns JSON" "$OUT"
 assert_contains "replay_status has state" "$OUT" "state"
 
-echo "  Test: action=networks_map"
-OUT=$(QUERY_STRING="action=networks_map&token=$TOKEN" sh "$CGI" 2>/dev/null)
-assert_json "networks_map returns JSON" "$OUT"
-assert_contains "networks_map includes handshake flag" "$OUT" "has_handshake"
-
-echo "  Test: action=clients_map"
-OUT=$(QUERY_STRING="action=clients_map&token=$TOKEN" sh "$CGI" 2>/dev/null)
-assert_json "clients_map returns JSON" "$OUT"
-assert_contains "clients_map includes client count" "$OUT" "client_count"
-assert_contains "clients_map includes AP count" "$OUT" "ap_count"
-
 echo "  Test: action=replay_discovered"
 mkdir -p /tmp/wardriving_replay_work
 cat > /tmp/wardriving_replay_work/discovered.tsv <<'TSV'
@@ -443,6 +432,17 @@ assert_contains "replay_discovered includes handshake flag" "$OUT" "has_handshak
 assert_contains "replay_discovered includes replay SSID" "$OUT" "ReplayOnly"
 
 if command -v sqlite3 >/dev/null 2>&1; then
+    echo "  Test: action=networks_map"
+    OUT=$(QUERY_STRING="action=networks_map&token=$TOKEN" sh "$CGI" 2>/dev/null)
+    assert_json "networks_map returns JSON" "$OUT"
+    assert_contains "networks_map includes handshake flag" "$OUT" "has_handshake"
+
+    echo "  Test: action=clients_map"
+    OUT=$(QUERY_STRING="action=clients_map&token=$TOKEN" sh "$CGI" 2>/dev/null)
+    assert_json "clients_map returns JSON" "$OUT"
+    assert_contains "clients_map includes client count" "$OUT" "client_count"
+    assert_contains "clients_map includes AP count" "$OUT" "ap_count"
+
     echo "  Test: action=cracked_networks"
     OUT=$(QUERY_STRING="action=cracked_networks&token=$TOKEN" sh "$CGI" 2>/dev/null)
     assert_json "cracked_networks returns JSON" "$OUT"
